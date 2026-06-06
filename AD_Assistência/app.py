@@ -216,17 +216,18 @@ if st.session_state.perfil == "Admin":
                 dados_ant = df_clientes[df_clientes['id'] == c_target].iloc[0]
             else: dados_ant = None
             
-            with st.form("f_cli", clear_on_submit=True):
-                nome = st.text_input("Nome:", value=str(dados_ant['nome']) if dados_ant is not None else "")
-                cpf = st.text_input("CPF:", value=str(dados_ant['cpf']) if dados_ant is not None else "")
-                tel = st.text_input("Telefone:", value=str(dados_ant['tel']) if dados_ant is not None else "")
-                vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_ant is not None else "")
-                pla = st.text_input("Placa:", value=str(dados_ant['pla']) if dados_ant is not None else "")
-                est = st.text_input("Estado:", value=str(dados_ant['est']) if dados_ant is not None else "RN")
-                emp = st.text_input("Empresa:", value=str(dados_ant['emp_name']) if dados_ant is not None else "AD Rastreamento Veicular")
-                status = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(dados_ant['status']))
-                
-                if st.form_submit_button("Salvar Cliente"):
+            nome = st.text_input("Nome:", value=str(dados_ant['nome']) if dados_ant is not None else "", key="c_nome")
+            cpf = st.text_input("CPF:", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
+            tel = st.text_input("Telefone:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
+            vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_ant is not None else "", key="c_vei")
+            pla = st.text_input("Placa:", value=str(dados_ant['pla']) if dados_ant is not None else "", key="c_pla")
+            est = st.text_input("Estado:", value=str(dados_ant['est']) if dados_ant is not None else "RN", key="c_est")
+            emp = st.text_input("Empresa:", value=str(dados_ant['emp_name']) if dados_ant is not None else "AD Rastreamento Veicular", key="c_emp")
+            status = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(dados_ant['status']), key="c_status")
+            
+            col_btn1, col_btn2 = st.columns([1, 4])
+            with col_btn1:
+                if st.button("Salvar Cliente", key="save_cli_btn"):
                     if not nome or not pla:
                         st.error("Nome e Placa são obrigatórios.")
                     else:
@@ -237,18 +238,18 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_clientes.loc[df_clientes['id'] == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome, cpf, tel, vei, pla, est, emp, status]
                         salvar_dados(df_clientes, FILE_CLIENTES)
+                        st.toast("✅ Cliente salvo com sucesso!", icon="🎉")
                         st.success("✅ Cliente salvo com sucesso!")
                         st.rerun()
 
-            # Opção de Excluir Registro (Apenas se estiver no modo de edição)
             if modo and c_target is not None:
-                st.write("---")
-                st.markdown("⚠️ **Zona de Perigo**")
-                if st.button("❌ Excluir este Cliente Permanentemente", key="del_cli_btn"):
-                    df_clientes = df_clientes[df_clientes['id'] != c_target]
-                    salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("🗑️ Cliente excluído com sucesso!")
-                    st.rerun()
+                with col_btn2:
+                    if st.button("❌ Excluir Cliente", key="del_cli_btn"):
+                        df_clientes = df_clientes[df_clientes['id'] != c_target]
+                        salvar_dados(df_clientes, FILE_CLIENTES)
+                        st.toast("🗑️ Cliente excluído!", icon="ℹ️")
+                        st.success("🗑️ Cliente excluído com sucesso!")
+                        st.rerun()
 
     # ==================== ABA: EMPRESAS ====================
     with menu[3]:
@@ -265,15 +266,16 @@ if st.session_state.perfil == "Admin":
                 dados_e_ant = df_empresas[df_empresas['cnpj'].astype(str) == e_target].iloc[0]
             else: dados_e_ant = None
             
-            with st.form("f_emp", clear_on_submit=True):
-                cnpj = st.text_input("CNPJ (Senha):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "")
-                n_emp = st.text_input("Nome Empresa (Usuário):", value=str(dados_e_ant['nome']) if dados_e_ant is not None else "")
-                resp = st.text_input("Responsável:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "")
-                tel_e = st.text_input("Telefone:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "")
-                mail = st.text_input("E-mail:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "")
-                stat_e = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(dados_e_ant['status']))
-                
-                if st.form_submit_button("Salvar Empresa"):
+            cnpj = st.text_input("CNPJ (Senha):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
+            n_emp = st.text_input("Nome Empresa (Usuário):", value=str(dados_e_ant['nome']) if dados_e_ant is not None else "", key="e_nome")
+            resp = st.text_input("Responsável:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "", key="e_resp")
+            tel_e = st.text_input("Telefone:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
+            mail = st.text_input("E-mail:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
+            stat_e = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(dados_e_ant['status']), key="e_status")
+            
+            col_e1, col_e2 = st.columns([1, 4])
+            with col_e1:
+                if st.button("Salvar Empresa", key="save_emp_btn"):
                     if not cnpj or not n_emp:
                         st.error("CNPJ e Nome da Empresa são obrigatórios.")
                     else:
@@ -283,18 +285,18 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','status']] = [n_emp, resp, tel_e, mail, stat_e]
                         salvar_dados(df_empresas, FILE_EMPRESAS)
-                        st.success("✅ Empresa salva com sucesso!")
+                        st.toast("✅ Empresa salva com sucesso!", icon="🎉")
+                        st.success("✅ Empresa salva com sucesso e listada abaixo!")
                         st.rerun()
 
-            # Opção de Excluir Registro (Apenas se estiver no modo de edição)
             if modo_e and e_target is not None:
-                st.write("---")
-                st.markdown("⚠️ **Zona de Perigo**")
-                if st.button("❌ Excluir esta Empresa Permanentemente", key="del_emp_btn"):
-                    df_empresas = df_empresas[df_empresas['cnpj'].astype(str) != e_target]
-                    salvar_dados(df_empresas, FILE_EMPRESAS)
-                    st.success("🗑️ Empresa excluída com sucesso!")
-                    st.rerun()
+                with col_e2:
+                    if st.button("❌ Excluir Empresa", key="del_emp_btn"):
+                        df_empresas = df_empresas[df_empresas['cnpj'].astype(str) != e_target]
+                        salvar_dados(df_empresas, FILE_EMPRESAS)
+                        st.toast("🗑️ Empresa excluída!", icon="ℹ️")
+                        st.success("🗑️ Empresa excluída com sucesso!")
+                        st.rerun()
 
     # ==================== ABA: PRESTADORES ====================
     with menu[4]:
@@ -311,14 +313,15 @@ if st.session_state.perfil == "Admin":
                 dados_p_ant = df_prestadores[df_prestadores['id'] == p_target].iloc[0]
             else: dados_p_ant = None
             
-            with st.form("f_prest", clear_on_submit=True):
-                n_prest = st.text_input("Nome:", value=str(dados_p_ant['nome']) if dados_p_ant is not None else "")
-                t_prest = st.text_input("Tipo:", value=str(dados_p_ant['tipo']) if dados_p_ant is not None else "Guincho Prancha")
-                tel_p = st.text_input("Telefone:", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "")
-                cid_p = st.text_input("Cidade:", value=str(dados_p_ant['cidade']) if dados_p_ant is not None else "")
-                stat_p = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(dados_p_ant['status']))
-                
-                if st.form_submit_button("Salvar Prestador"):
+            n_prest = st.text_input("Nome:", value=str(dados_p_ant['nome']) if dados_p_ant is not None else "", key="p_nome")
+            t_prest = st.text_input("Tipo:", value=str(dados_p_ant['tipo']) if dados_p_ant is not None else "Guincho Prancha", key="p_tipo")
+            tel_p = st.text_input("Telefone:", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
+            cid_p = st.text_input("Cidade:", value=str(dados_p_ant['cidade']) if dados_p_ant is not None else "", key="p_cid")
+            stat_p = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(dados_p_ant['status']), key="p_status")
+            
+            col_p1, col_p2 = st.columns([1, 4])
+            with col_p1:
+                if st.button("Salvar Prestador", key="save_prest_btn"):
                     if not n_prest or not tel_p:
                         st.error("Nome e Telefone são obrigatórios.")
                     else:
@@ -329,18 +332,18 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_prestadores.loc[df_prestadores['id'] == p_target, ['nome','tipo','telefone','cidade','status']] = [n_prest, t_prest, tel_p, cid_p, stat_p]
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
+                        st.toast("✅ Prestador salvo com sucesso!", icon="🎉")
                         st.success("✅ Prestador salvo com sucesso!")
                         st.rerun()
 
-            # Opção de Excluir Registro (Apenas se estiver no modo de edição)
             if modo_p and p_target is not None:
-                st.write("---")
-                st.markdown("⚠️ **Zona de Perigo**")
-                if st.button("❌ Excluir este Prestador Permanentemente", key="del_prest_btn"):
-                    df_prestadores = df_prestadores[df_prestadores['id'] != p_target]
-                    salvar_dados(df_prestadores, FILE_PRESTADORES)
-                    st.success("🗑️ Prestador excluído com sucesso!")
-                    st.rerun()
+                with col_p2:
+                    if st.button("❌ Excluir Prestador", key="del_prest_btn"):
+                        df_prestadores = df_prestadores[df_prestadores['id'] != p_target]
+                        salvar_dados(df_prestadores, FILE_PRESTADORES)
+                        st.toast("🗑️ Prestador excluído!", icon="ℹ️")
+                        st.success("🗑️ Prestador excluído com sucesso!")
+                        st.rerun()
 
 # --- INTERFACE RESTRITA DAS EMPRESAS PARCEIRAS ---
 else:
@@ -362,16 +365,17 @@ else:
                 dados_part_ant = df_filtrado_p[df_filtrado_p['id'] == part_target].iloc[0]
             else: dados_part_ant = None
             
-            with st.form("f_parceiro", clear_on_submit=True):
-                p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "")
-                p_cpf = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "")
-                p_tel = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "")
-                p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "")
-                p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "")
-                p_est = st.text_input("UF:", value=str(dados_part_ant['est']) if dados_part_ant is not None else "RN")
-                p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(dados_part_ant['status']))
-                
-                if st.form_submit_button("Confirmar Registro"):
+            p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "", key="part_nome")
+            p_cpf = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
+            p_tel = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
+            p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_ant is not None else "", key="part_vei")
+            p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
+            p_est = st.text_input("UF:", value=str(dados_part_ant['est']) if dados_part_ant is not None else "RN", key="part_est")
+            p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(dados_part_ant['status']), key="part_status")
+            
+            col_part1, col_part2 = st.columns([1, 4])
+            with col_part1:
+                if st.button("Confirmar Registro", key="save_part_btn"):
                     if not p_nome or not p_pla:
                         st.error("Nome e Placa são obrigatórios.")
                     else:
@@ -382,18 +386,18 @@ else:
                         else:
                             df_clientes.loc[df_clientes['id'] == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome, p_cpf, p_tel, p_vei, p_pla, p_est, p_stat]
                         salvar_dados(df_clientes, FILE_CLIENTES)
+                        st.toast("✅ Atualizado com sucesso!", icon="🎉")
                         st.success("✅ Atualizado com sucesso!")
                         st.rerun()
 
-            # Opção do Parceiro Excluir o próprio cliente
             if modo_part and part_target is not None:
-                st.write("---")
-                st.markdown("⚠️ **Zona de Perigo**")
-                if st.button("❌ Excluir este Cliente Permanentemente", key="del_part_cli_btn"):
-                    df_clientes = df_clientes[df_clientes['id'] != part_target]
-                    salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("🗑️ Cliente excluído com sucesso!")
-                    st.rerun()
+                with col_part2:
+                    if st.button("❌ Excluir Cliente", key="del_part_btn"):
+                        df_clientes = df_clientes[df_clientes['id'] != part_target]
+                        salvar_dados(df_clientes, FILE_CLIENTES)
+                        st.toast("🗑️ Cliente excluído!", icon="ℹ️")
+                        st.success("🗑️ Cliente excluído com sucesso!")
+                        st.rerun()
 
     with menu_parceiro[1]:
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
