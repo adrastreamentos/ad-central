@@ -19,7 +19,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Lista Oficial de Estados do Brasil para as Caixas de Seleção
+# Lista Oficial de Estados do Brasil
 ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
 
 # Caminhos dos arquivos de banco de dados
@@ -41,16 +41,18 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
+# Função para remover pontuações de documentos e logins
+def limpar_texto(texto):
+    return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
+
 # Funções de Leitura e Escrita
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
         df = pd.read_csv(caminho)
         df.columns = df.columns.str.strip().str.lower()
-        
         for col in colunas_obrigatorias:
             if col not in df.columns:
                 df[col] = ""
-                
         for col in df.columns:
             df[col] = df[col].fillna("").astype(str).str.strip()
         return df
@@ -60,7 +62,7 @@ def carregar_dados(caminho, colunas_obrigatorias):
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
 
-# Gerador de Relatório PDF/HTML Elegante e Personalizado com o novo campo Motivo
+# Gerador de Relatório PDF/HTML Elegante
 def exportar_pdf_html_bonito(df_os_rows, titulo_pdf="relatorio_assistencia"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
@@ -135,25 +137,34 @@ if "logado" not in st.session_state:
     st.session_state.perfil = ""
     st.session_state.empresa_vinculada = ""
 
-# Interface de Login
+# Carregamento Seguro dos Bancos de Dados
+df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
+df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
+df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
+df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs'])
+
+# Interface de Login com tratamento de pontuação
 if not st.session_state.logado:
     st.write("---")
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         st.markdown("### 🔑 Digite suas credenciais de acesso")
-        usuario_input = st.text_input("Usuário (Nome da Empresa):").strip().lower()
-        senha_input = st.text_input("Senha (CNPJ):", type="password").strip()
+        usuario_input = limpar_texto(st.text_input("Usuário (Nome da Empresa):"))
+        senha_input = limpar_texto(st.text_input("Senha (CNPJ):", type="password"))
         
         if st.button("Entrar no Sistema", use_container_width=True):
-            if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
+            if usuario_input == "adrastreamentoveicular" and (senha_input == "00000000000000" or senha_input == "00000000000000"):
                 st.session_state.logado = True
                 st.session_state.user = "AD Rastreamento (ADMIN)"
                 st.session_state.perfil = "Admin"
                 st.rerun()
             else:
-                df_emp = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
-                if not df_emp.empty:
-                    parceiro_valid = df_emp[(df_emp['cnpj'].astype(str) == senha_input) & (df_emp['nome'].str.lower().str.replace(" ", "") == usuario_input.replace(" ", ""))]
+                if not df_empresas.empty:
+                    df_empresas_login = df_empresas.copy()
+                    df_empresas_login['cnpj_limpo'] = df_empresas_login['cnpj'].apply(limpar_texto)
+                    df_empresas_login['nome_limpo'] = df_empresas_login['nome'].apply(limpar_texto)
+                    
+                    parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_limpo'] == senha_input) & (df_empresas_login['nome_limpo'] == usuario_input)]
                     if not parceiro_valid.empty:
                         st.session_state.logado = True
                         st.session_state.user = parceiro_valid.iloc[0]['nome'].upper()
@@ -175,12 +186,6 @@ with col_logout:
         st.session_state.logado = False
         st.rerun()
 
-# Carregamento Seguro dos Bancos de Dados
-df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
-df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
-df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
-df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs'])
-
 def colorir_status(val):
     return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
 
@@ -200,7 +205,7 @@ if st.session_state.perfil == "Admin":
                 df_filtrado_cli = df_clientes[
                     df_clientes['nome'].str.lower().str.contains(busca) |
                     df_clientes['pla'].str.lower().str.contains(busca) |
-                    df_clientes['cpf'].astype(str).str.contains(busca)
+                    df_clientes['cpf'].str.lower().str.contains(busca)
                 ]
             else:
                 df_filtrado_cli = df_clientes
@@ -227,7 +232,7 @@ if st.session_state.perfil == "Admin":
                     os_cliente_ano = df_os[(df_os['cliente_id'].astype(str) == str(c_id)) & (df_os['data_hora'].dt.year == ano_atual)]
                     for _, o in os_cliente_ano.iterrows():
                         serv = str(o['tipo_servico']).lower()
-                        if "guinch" in serv: total_guinchos += 1
+                        if "guincho" in serv: total_guinchos += 1
                         elif "pane seca" in serv: total_p_seca += 1
                         elif "pane el" in serv or "eletrica" in serv: total_p_eletrica += 1
                         elif "chaveiro" in serv: total_chaveiro += 1
@@ -243,20 +248,16 @@ if st.session_state.perfil == "Admin":
                 
                 st.write("---")
                 
-                # ATUALIZADO: Lista de serviços simplificada (Apenas Guincho)
                 tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borraceiro", "Chaveiro"])
-                
-                # ATUALIZADO: Novo campo Motivo do atendimento
                 motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
                 
-                # FILTRAGEM INTELIGENTE DE PRESTADORES POR ESTADO (UF)
+                # FILTRAGEM INTELIGENTE SEM MENSAGEM DE AVISO NA TELA
                 lista_p_ops = ["Outro (Digitar Manualmente)"]
                 if not df_prestadores.empty:
                     df_prest_filtrados = df_prestadores[df_prestadores['est'].str.strip().str.upper() == uf_cliente]
                     if not df_prest_filtrados.empty:
                         lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['cidade']).upper()}-{str(r['est']).upper()})" for _, r in df_prest_filtrados.iterrows()]
                     else:
-                        st.warning(f"⚠️ Nenhum prestador localizado para o estado {uf_cliente}. Mostrando lista completa de contingência.")
                         lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['cidade']).upper()}-{str(r['est']).upper()})" for _, r in df_prestadores.iterrows()]
                 
                 prestador_sel = st.selectbox("Prestador homologado para o Estado do Cliente:", lista_p_ops)
@@ -292,7 +293,6 @@ if st.session_state.perfil == "Admin":
                         salvar_dados(df_os, FILE_OS)
                         st.success("✅ Ordem de Serviço gravada com sucesso!")
                         
-                        # Mensagem do WhatsApp atualizada com o campo Motivo
                         texto_whatsapp = (
                             f"*{str(cliente_dados['emp_name']).upper()} - ASSISTÊNCIA 24H*\n"
                             f"-----------------------------------------\n"
@@ -312,7 +312,6 @@ if st.session_state.perfil == "Admin":
     # ==================== ABA: RELATÓRIOS ====================
     with menu[1]:
         st.subheader("📊 Emissão e Impressão de Relatórios")
-        
         if df_os.empty: 
             st.info("Nenhuma OS aberta no sistema.")
         else:
@@ -355,7 +354,7 @@ if st.session_state.perfil == "Admin":
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
-        st.subheader("Modificar Cadastro Clientes")
+        st.subheader("👤 Gerenciamento de Clientes")
         opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True)
         if opcao == "Listar":
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
@@ -363,17 +362,19 @@ if st.session_state.perfil == "Admin":
         else:
             modo = st.checkbox("Editar cliente existente")
             c_target = None
+            dados_ant = None
+            
             if modo and not df_clientes.empty:
-                sel = st.selectbox("Selecione o cliente para editar/excluir:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_clientes.iterrows()])
+                sel = st.selectbox("Selecione o cliente para visualizar e alterar os dados:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_clientes.iterrows()])
                 c_target = sel.split("-")[0].strip()
                 dados_ant = df_clientes[df_clientes['id'].astype(str) == c_target].iloc[0]
-            else: dados_ant = None
             
+            # Puxa todas as informações automaticamente ao selecionar para edição
             nome = st.text_input("Nome Completo:", value=str(dados_ant['nome']) if dados_ant is not None else "", key="c_nome")
-            cpf = st.text_input("CPF/CNPJ:", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
-            tel = st.text_input("Telefone:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
-            vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_ant is not None else "", key="c_vei")
-            pla = st.text_input("Placa:", value=str(dados_ant['pla']) if dados_ant is not None else "", key="c_pla")
+            cpf = st.text_input("CPF/CNPJ (Aceita pontos/traços):", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
+            tel = st.text_input("Telefone de Contato:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
+            vei = st.text_input("Veículo (Modelo/Ano):", value=str(dados_ant['vei']) if dados_ant is not None else "", key="c_vei")
+            pla = st.text_input("Placa do Veículo:", value=str(dados_ant['pla']) if dados_ant is not None else "", key="c_pla")
             
             idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est = st.selectbox("Selecione o Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
@@ -391,7 +392,7 @@ if st.session_state.perfil == "Admin":
                     idx_emp = lista_empresas_disponiveis.index(emp_ant_upper)
                     
             emp = st.selectbox("Selecione a Empresa Vinculada para este Cliente:", options=lista_empresas_disponiveis, index=idx_emp, key="c_emp")
-            status = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(str(dados_ant['status'])), key="c_status")
+            status = st.selectbox("Status do Cliente:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(str(dados_ant['status'])), key="c_status")
             
             if st.button("Salvar Cliente", key="save_cli_btn_novo"):
                 if not nome or not pla:
@@ -399,10 +400,10 @@ if st.session_state.perfil == "Admin":
                 else:
                     if not modo:
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome, 'cpf': cpf, 'tel': tel, 'vei': vei, 'pla': pla, 'est': est, 'emp_name': emp.upper(), 'status': status}])
+                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome.upper(), 'cpf': cpf, 'tel': tel, 'vei': vei.upper(), 'pla': pla.upper(), 'est': est, 'emp_name': emp.upper(), 'status': status}])
                         df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome, cpf, tel, vei, pla, est, emp.upper(), status]
+                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome.upper(), cpf, tel, vei.upper(), pla.upper(), est, emp.upper(), status]
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Cliente salvo e vinculado com sucesso!")
                     st.rerun()
@@ -417,7 +418,7 @@ if st.session_state.perfil == "Admin":
 
     # ==================== ABA: EMPRESAS ====================
     with menu[3]:
-        st.subheader("Gerenciar Empresas")
+        st.subheader("🏢 Gerenciamento de Empresas Parceiras")
         opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True)
         if opcao_e == "Listar":
             if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
@@ -425,16 +426,18 @@ if st.session_state.perfil == "Admin":
         else:
             modo_e = st.checkbox("Editar empresa existente")
             e_target = None
+            dados_e_ant = None
+            
             if modo_e and not df_empresas.empty:
-                sel_e = st.selectbox("Selecione a empresa para editar/excluir:", [f"{str(r['cnpj'])} - {str(r['nome'])}" for _, r in df_empresas.iterrows()])
+                sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", [f"{str(r['cnpj'])} - {str(r['nome'])}" for _, r in df_empresas.iterrows()])
                 e_target = sel_e.split("-")[0].strip()
                 dados_e_ant = df_empresas[df_empresas['cnpj'].astype(str) == e_target].iloc[0]
-            else: dados_e_ant = None
             
-            cnpj = st.text_input("CNPJ (Senha de acesso):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
-            n_emp = st.text_input("Nome da Empresa (Usuário):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
-            resp = st.text_input("Responsável:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "", key="e_resp")
-            tel_e = st.text_input("Telefone da Central:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
+            # Puxa todas as informações automaticamente ao selecionar para edição
+            cnpj = st.text_input("CNPJ da Empresa (Aceita pontos/traços):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
+            n_emp = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
+            resp = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "", key="e_resp")
+            tel_e = st.text_input("Telefone da Central 24h:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
             mail = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
             
             idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if (dados_e_ant is not None and str(dados_e_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
@@ -446,10 +449,10 @@ if st.session_state.perfil == "Admin":
                     st.error("CNPJ e Nome da Empresa são obrigatórios.")
                 else:
                     if not modo_e:
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp.upper(), 'responsavel': resp, 'telefone': tel_e, 'email': mail, 'est': est_e, 'status': stat_e}])
+                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp.upper(), 'responsavel': resp.upper(), 'telefone': tel_e, 'email': mail, 'est': est_e, 'status': stat_e}])
                         df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
                     else:
-                        df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','est','status']] = [n_emp.upper(), resp, tel_e, mail, est_e, stat_e]
+                        df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','est','status']] = [n_emp.upper(), resp.upper(), tel_e, mail, est_e, stat_e]
                     salvar_dados(df_empresas, FILE_EMPRESAS)
                     st.success("✅ Empresa salva com sucesso!")
                     st.rerun()
@@ -464,7 +467,7 @@ if st.session_state.perfil == "Admin":
 
     # ==================== ABA: PRESTADORES ====================
     with menu[4]:
-        st.subheader("Gerenciar Prestadores")
+        st.subheader("🔧 Gerenciamento de Prestadores (Guinchos)")
         opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True)
         if opcao_p == "Listar":
             if df_prestadores.empty: st.info("Nenhum prestador cadastrado.")
@@ -472,20 +475,22 @@ if st.session_state.perfil == "Admin":
         else:
             modo_p = st.checkbox("Editar prestador existente")
             p_target = None
+            dados_p_ant = None
+            
             if modo_p and not df_prestadores.empty:
-                sel_p = st.selectbox("Selecione o prestador para editar/excluir:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_prestadores.iterrows()])
+                sel_p = st.selectbox("Selecione o prestador para visualizar e alterar os dados:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_prestadores.iterrows()])
                 p_target = sel_p.split("-")[0].strip()
                 dados_p_ant = df_prestadores[df_prestadores['id'].astype(str) == p_target].iloc[0]
-            else: dados_p_ant = None
             
+            # Puxa todas as informações automaticamente ao selecionar para edição
             n_prest = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']) if dados_p_ant is not None else "", key="p_nome")
-            t_prest = st.text_input("Tipo de Serviço:", value=str(dados_p_ant['tipo']) if dados_p_ant is not None else "Guincho", key="p_tipo")
+            t_prest = st.text_input("Tipo de Serviço prestado:", value=str(dados_p_ant['tipo']) if dados_p_ant is not None else "Guincho", key="p_tipo")
             tel_p = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
-            cid_p = st.text_input("Cidade Base:", value=str(dados_p_ant['cidade']) if dados_p_ant is not None else "", key="p_cid")
+            cid_p = st.text_input("Cidade Base de Atendimento:", value=str(dados_p_ant['cidade']) if dados_p_ant is not None else "", key="p_cid")
             
             idx_est_p = ESTADOS_BR.index(str(dados_p_ant['est']).upper()) if (dados_p_ant is not None and str(dados_p_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est_p = st.selectbox("Selecione o Estado (UF) de Atuação do Prestador:", options=ESTADOS_BR, index=idx_est_p, key="p_est")
-            stat_p = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(str(dados_p_ant['status'])), key="p_status")
+            stat_p = st.selectbox("Status do Guincho:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(str(dados_p_ant['status'])), key="p_status")
             
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
                 if not n_prest or not tel_p:
@@ -493,10 +498,10 @@ if st.session_state.perfil == "Admin":
                 else:
                     if not modo_p:
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
-                        novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest, 'tipo': t_prest, 'telefone': tel_p, 'cidade': cid_p, 'est': est_p, 'status': stat_p}])
+                        novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest.upper(), 'tipo': t_prest.upper(), 'telefone': tel_p, 'cidade': cid_p.upper(), 'est': est_p, 'status': stat_p}])
                         df_prestadores = pd.concat([df_prestadores, novo_p], ignore_index=True)
                     else:
-                        df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','tipo','telefone','cidade','est','status']] = [n_prest, t_prest, tel_p, cid_p, est_p, stat_p]
+                        df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','tipo','telefone','cidade','est','status']] = [n_prest.upper(), t_prest.upper(), tel_p, cid_p.upper(), est_p, stat_p]
                     salvar_dados(df_prestadores, FILE_PRESTADORES)
                     st.success("✅ Prestador salvo com sucesso!")
                     st.rerun()
@@ -523,16 +528,16 @@ else:
         else:
             modo_part = st.checkbox("Alterar status de cliente existente")
             part_target = None
+            dados_part_ant = None
             if modo_part and not df_filtrado_p.empty:
-                sel_part = st.selectbox("Selecione o seu cliente para editar/excluir:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_filtrado_p.iterrows()])
+                sel_part = st.selectbox("Selecione o seu cliente:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_filtrado_p.iterrows()])
                 part_target = sel_part.split("-")[0].strip()
                 dados_part_ant = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target].iloc[0]
-            else: dados_part_ant = None
             
             p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "", key="part_nome")
             p_cpf = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
             p_tel = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
-            p_vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
+            p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
             p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
             
             idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
@@ -545,10 +550,10 @@ else:
                 else:
                     if not modo_part:
                         prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome, 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei, 'pla': p_pla, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat}])
+                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome.upper(), 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei.upper(), 'pla': p_pla.upper(), 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat}])
                         df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome, p_cpf, p_tel, p_vei, p_pla, p_est, p_stat]
+                        df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome.upper(), p_cpf, p_tel, p_vei.upper(), p_pla.upper(), p_est, p_stat]
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Atualizado com sucesso!")
                     st.rerun()
