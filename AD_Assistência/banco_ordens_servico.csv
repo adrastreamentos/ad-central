@@ -1,0 +1,2 @@
+id,cliente,empresa_vinculada,veiculo,placa,estado_uf,servico,motivo,descricao,local_origem,destino,prestador,tel_prestador,status,abertura,fechamento,tel_cliente
+1,Ademir de Brito,AD RASTREAMENTO VEICULAR,HONDA NXR 160 BROS,QGI-3478,RN,Guincho,Pane Mecânica,"VEICULO SEM FUNCIONAR, O LOCAL O GUINHO PODE ACIONAR NORMALMENTE",https://ad.rastrosystem.com.br/veiculo/monitoramento-temp/d9q2mt-27b82561938249eddc83-1-5k0,RUA DA SAUDADE,INICIANTE,84999814428,Encerrado,05/06/2026 23:03:18,05/06/2026 23:21:36,
