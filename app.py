@@ -41,7 +41,7 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
-# FUNÇÃO DE LIMPEZA BRUTA: Deixa apenas números e letras minúsculas (removerá pontos, traços e barras)
+# Função de limpeza de documentos e logins
 def apenas_numeros_letras(texto):
     return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
@@ -62,72 +62,83 @@ def carregar_dados(caminho, colunas_obrigatorias):
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
 
-# Gerador de Relatório PDF/HTML Elegante
-def exportar_pdf_html_bonito(df_os_rows, titulo_pdf="relatorio_assistencia"):
+# NOVO GERADOR DE RELATÓRIO: Idêntico ao modelo profissional enviado na foto
+def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
         empresa_os = str(row['empresa']).upper()
-        cor_topo = "#7B2CBF" if "AD RASTREAMENTO" in empresa_os else "#1E3A8A"
-        motivo_str = row['motivo'].upper() if 'motivo' in row and row['motivo'] else "NÃO INFORMADO"
+        
+        # Puxa os dados adicionais do cliente para preencher o veículo, placa e telefone no documento
+        cli_id_busca = str(row['cliente_id'])
+        df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == cli_id_busca]
+        
+        tel_cliente = ""
+        veiculo_cliente = ""
+        placa_cliente = str(row.get('pla', '')).upper()
+        estado_cliente = "RN"
+        
+        if not df_c_alvo.empty:
+            tel_cliente = df_c_alvo.iloc[0].get('tel', '')
+            veiculo_cliente = str(df_c_alvo.iloc[0].get('vei', '')).upper()
+            placa_cliente = str(df_c_alvo.iloc[0].get('pla', '')).upper()
+            estado_cliente = str(df_c_alvo.iloc[0].get('est', '')).upper()
+            
+        motivo_str = str(row['motivo']).upper() if 'motivo' in row and row['motivo'] else "PANE MECÂNICA"
+        obs_str = row['obs'] if row['obs'] else 'Nenhuma observação registrada.'
         
         cards_html += f"""
-        <div style="border: 2px solid #ddd; border-radius: 8px; margin-bottom: 30px; overflow: hidden; page-break-inside: avoid;">
-            <div style="background-color: {cor_topo}; color: white; padding: 15px; font-size: 18px; font-weight: bold; text-align: center;">
-                {empresa_os} - CENTRAL DE ASSISTÊNCIA 24H
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto 40px auto; padding: 20px; background-color: #fff; page-break-inside: avoid;">
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h2 style="margin: 0; color: #7B2CBF; font-size: 22px; font-weight: bold; letter-spacing: 0.5px;">{empresa_os} - ASSISTÊNCIA 24H</h2>
+                <p style="margin: 5px 0; font-style: italic; color: #555; font-size: 13px;">Relatorio de Atendimento - OS Numero: {row['id']}</p>
             </div>
-            <div style="padding: 20px; font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="width: 50%; padding: 5px; font-size: 14px;"><strong>Nº do Chamado (OS):</strong> {row['id']}</td>
-                        <td style="width: 50%; padding: 5px; font-size: 14px; text-align: right;"><strong>Data/Hora:</strong> {row['data_hora']}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 5px; font-size: 14px; border-bottom: 1px solid #eee;"><strong>Tipo de Serviço:</strong> <span style="color: #E53935; font-weight: bold;">{row['tipo_servico']}</span></td>
-                        <td style="padding: 5px; font-size: 14px; border-bottom: 1px solid #eee; text-align: right;"><strong>Motivo:</strong> <span style="font-weight: bold;">{motivo_str}</span></td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 5px 5px 5px; font-size: 14px;"><strong>Cliente:</strong> {str(row['cliente_nome']).upper()} (ID: {row['cliente_id']})</td>
-                        <td style="padding: 10px 5px 5px 5px; font-size: 14px; text-align: right;"><strong>Prestador Acionado:</strong> {str(row['prestador']).upper()}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="padding: 5px; font-size: 14px;"><strong>Endereço de Origem:</strong> {row['localizacao']}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="padding: 5px; font-size: 14px; border-bottom: 1px solid #eee;"><strong>Endereço de Destino:</strong> {row['destino']}</td>
-                    </tr>
-                    <tr>
-                        <td colspan="2" style="padding: 10px 5px 5px 5px; font-size: 13px; background-color: #f9f9f9; border-radius: 4px; margin-top: 5px;">
-                            <strong>Observações do Atendimento:</strong><br>
-                            {row['obs'] if row['obs'] else 'Nenhuma observação registrada.'}
-                        </td>
-                    </tr>
-                </table>
+            
+            <hr style="border: 0; border-top: 1px solid #333; margin-bottom: 20px;">
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #000; font-weight: bold;">1. DETALHES DO CLIENTE E VÍNCULO</h3>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Nome do Titular: {str(row['cliente_nome']).upper()} | Tel: {tel_cliente}</p>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Empresa Responsável: {empresa_os}</p>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Veículo Cadastrado: {veiculo_cliente} | Placa: {placa_cliente}</p>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Estado de Origem (UF): {estado_cliente}</p>
             </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #000; font-weight: bold;">2. DADOS DO ACIONAMENTO E SERVIÇO</h3>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Serviço Solicitado: {row['tipo_servico']} | Motivo: {motivo_str}</p>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Horário de Abertura: {row['data_hora']} | Status Atual: Encerrado</p>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Local de Origem: <span style="font-size: 12px; color: #555;">{row['localizacao']}</span></p>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Destino Final: {row['destino']}</p>
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #000; font-weight: bold;">3. PRESTADOR ACIONADO</h3>
+                <p style="margin: 3px 0; font-size: 13px; color: #333;">Nome do Prestador: {str(row['prestador']).upper()}</p>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #000; font-weight: bold;">4. DESCRIÇÃO DO OCORRIDO</h3>
+                <p style="margin: 3px 0; font-size: 13px; color: #444; background-color: #fcfcfc; padding: 5px; border-radius: 4px;">{obs_str}</p>
+            </div>
+            <hr style="border: 0; border-top: 1px dashed #ccc; margin-top: 30px;">
         </div>
         """
         
     html_completo = f"""
     <html>
     <head>
-    <title>Relatório de Acionamentos</title>
+    <meta charset="utf-8">
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 30px; background-color: #fff; }}
-        .header {{ text-align: center; margin-bottom: 40px; border-bottom: 3px double #7B2CBF; padding-bottom: 10px; }}
-        .header h1 {{ margin: 0; color: #333; font-size: 26px; }}
-        .header p {{ margin: 5px 0 0 0; color: #666; font-size: 14px; }}
+        body {{ background-color: #fff; padding: 20px; }}
     </style>
     </head>
     <body>
-        <div class="header">
-            <h1>RELATÓRIO DE ACIONAMENTO</h1>
-            <p>Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
-        </div>
         {cards_html}
     </body>
     </html>
     """
-    b64 = base64.b64encode(html_completo.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Este Relatório em PDF</button></a>'
+    b64 = base64.b64encode(html_completo.encode('utf-8')).decode()
+    href = f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Relatório Oficial (PDF)</button></a>'
     return href
 
 # Controle de Sessão / Login
@@ -143,7 +154,7 @@ df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefo
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
 df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs'])
 
-# Interface de Login blindada contra pontuações
+# Interface de Login
 if not st.session_state.logado:
     st.write("---")
     col1, col2, col3 = st.columns([1, 1.5, 1])
@@ -289,7 +300,7 @@ if st.session_state.perfil == "Admin":
                         nova_os = pd.DataFrame([{
                             'id': str(nova_id), 'data_hora': agora_str, 'cliente_id': str(c_id),
                             'cliente_nome': str(cliente_dados['nome']), 'empresa': str(cliente_dados['emp_name']),
-                            'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} ({tel_prestador_final})",
+                            'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}",
                             'localizacao': localizacao, 'destino': destino, 'obs': obs
                         }])
                         df_os = pd.concat([df_os, nova_os], ignore_index=True)
@@ -339,7 +350,7 @@ if st.session_state.perfil == "Admin":
                 st.dataframe(df_os_filtrada, use_container_width=True)
                 
                 if not df_os_filtrada.empty:
-                    st.markdown(exportar_pdf_html_bonito(df_os_filtrada, "relatorio_geral_filtrado"), unsafe_allow_html=True)
+                    st.markdown(exportar_pdf_html_oficial(df_os_filtrada, df_clientes, "relatorio_geral_filtrado"), unsafe_allow_html=True)
             
             else:
                 st.markdown("### 📄 Selecione o Chamado Alvo")
@@ -351,9 +362,9 @@ if st.session_state.perfil == "Admin":
                 
                 st.write("---")
                 st.markdown("#### Preview do Documento Selecionado:")
-                st.dataframe(df_os_unica, use_container_width=True)
                 
-                st.markdown(exportar_pdf_html_bonito(df_os_unica, f"os_individual_{os_alvo_id}"), unsafe_allow_html=True)
+                # CHAMA O GERADOR ATUALIZADO IGUAL À FOTO DA ANDREA
+                st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"os_individual_{os_alvo_id}"), unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
@@ -370,7 +381,6 @@ if st.session_state.perfil == "Admin":
             if modo and not df_clientes.empty:
                 sel = st.selectbox("Selecione o cliente para visualizar e alterar os dados:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_clientes.iterrows()])
                 c_target = sel.split("-")[0].strip()
-                # CORREÇÃO CRUCIAL: Comparação segura para evitar o IndexError out-of-bounds
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty:
                     dados_ant = df_busca_c.iloc[0]
@@ -438,7 +448,6 @@ if st.session_state.perfil == "Admin":
             
             if modo_e and not df_empresas.empty:
                 sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", [f"{str(r['cnpj'])} - {str(r['nome'])}" for _, r in df_empresas.iterrows()])
-                # CORREÇÃO DO INDEXERROR: O e_target agora ignora pontuações para achar a linha correta sem quebrar o .iloc[0]
                 e_target_raw = sel_e.split("-")[0].strip()
                 e_target = apenas_numeros_letras(e_target_raw)
                 
@@ -470,7 +479,6 @@ if st.session_state.perfil == "Admin":
                         novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp.upper(), 'responsavel': resp.upper(), 'telefone': tel_e, 'email': mail, 'est': est_e, 'status': stat_e}])
                         df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
                     else:
-                        # Faz a alteração utilizando a coluna original de index limpo
                         df_empresas['cnpj_limpo_check'] = df_empresas['cnpj'].apply(apenas_numeros_letras)
                         df_empresas.loc[df_empresas['cnpj_limpo_check'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, n_emp.upper(), resp.upper(), tel_e, mail, est_e, stat_e]
                         df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
@@ -568,7 +576,7 @@ else:
             p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
             p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
             
-            idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
+            idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper in ESTADOS_BR) else ESTADOS_BR.index("RN")
             p_est = st.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
             p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(str(dados_part_ant['status'])), key="part_status")
             
