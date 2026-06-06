@@ -238,7 +238,6 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_clientes.loc[df_clientes['id'] == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome, cpf, tel, vei, pla, est, emp, status]
                         salvar_dados(df_clientes, FILE_CLIENTES)
-                        st.toast("✅ Cliente salvo com sucesso!", icon="🎉")
                         st.success("✅ Cliente salvo com sucesso!")
                         st.rerun()
 
@@ -247,7 +246,6 @@ if st.session_state.perfil == "Admin":
                     if st.button("❌ Excluir Cliente", key="del_cli_btn"):
                         df_clientes = df_clientes[df_clientes['id'] != c_target]
                         salvar_dados(df_clientes, FILE_CLIENTES)
-                        st.toast("🗑️ Cliente excluído!", icon="ℹ️")
                         st.success("🗑️ Cliente excluído com sucesso!")
                         st.rerun()
 
@@ -285,8 +283,7 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','status']] = [n_emp, resp, tel_e, mail, stat_e]
                         salvar_dados(df_empresas, FILE_EMPRESAS)
-                        st.toast("✅ Empresa salva com sucesso!", icon="🎉")
-                        st.success("✅ Empresa salva com sucesso e listada abaixo!")
+                        st.success("✅ Empresa salva com sucesso!")
                         st.rerun()
 
             if modo_e and e_target is not None:
@@ -294,7 +291,6 @@ if st.session_state.perfil == "Admin":
                     if st.button("❌ Excluir Empresa", key="del_emp_btn"):
                         df_empresas = df_empresas[df_empresas['cnpj'].astype(str) != e_target]
                         salvar_dados(df_empresas, FILE_EMPRESAS)
-                        st.toast("🗑️ Empresa excluída!", icon="ℹ️")
                         st.success("🗑️ Empresa excluída com sucesso!")
                         st.rerun()
 
@@ -332,7 +328,6 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_prestadores.loc[df_prestadores['id'] == p_target, ['nome','tipo','telefone','cidade','status']] = [n_prest, t_prest, tel_p, cid_p, stat_p]
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        st.toast("✅ Prestador salvo com sucesso!", icon="🎉")
                         st.success("✅ Prestador salvo com sucesso!")
                         st.rerun()
 
@@ -341,7 +336,6 @@ if st.session_state.perfil == "Admin":
                     if st.button("❌ Excluir Prestador", key="del_prest_btn"):
                         df_prestadores = df_prestadores[df_prestadores['id'] != p_target]
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        st.toast("🗑️ Prestador excluído!", icon="ℹ️")
                         st.success("🗑️ Prestador excluído com sucesso!")
                         st.rerun()
 
@@ -386,7 +380,6 @@ else:
                         else:
                             df_clientes.loc[df_clientes['id'] == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome, p_cpf, p_tel, p_vei, p_pla, p_est, p_stat]
                         salvar_dados(df_clientes, FILE_CLIENTES)
-                        st.toast("✅ Atualizado com sucesso!", icon="🎉")
                         st.success("✅ Atualizado com sucesso!")
                         st.rerun()
 
@@ -395,7 +388,6 @@ else:
                     if st.button("❌ Excluir Cliente", key="del_part_btn"):
                         df_clientes = df_clientes[df_clientes['id'] != part_target]
                         salvar_dados(df_clientes, FILE_CLIENTES)
-                        st.toast("🗑️ Cliente excluído!", icon="ℹ️")
                         st.success("🗑️ Cliente excluído com sucesso!")
                         st.rerun()
 
