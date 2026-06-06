@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import os
 import urllib.parse
+import base64
 
 # Configuração da Página com a identidade visual da AD
 st.set_page_config(page_title="Central 24h - AD Rastreamento", layout="wide", page_icon="🔒")
@@ -27,7 +28,7 @@ FILE_EMPRESAS = os.path.join(FOLDER, "banco_empresas.csv")
 FILE_PRESTADORES = os.path.join(FOLDER, "banco_prestadores.csv")
 FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 
-# Inicialização automática dos arquivos limpos
+# Inicialização dos arquivos CSV caso não existam
 if not os.path.exists(FILE_CLIENTES):
     pd.DataFrame(columns=['id','nome','cpf','tel','vei','pla','est','emp_name','status']).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS):
@@ -42,12 +43,41 @@ def carregar_dados(caminho):
     try:
         df = pd.read_csv(caminho)
         df.columns = df.columns.str.strip().str.lower()
+        # Garantir tratamento de strings e tipos
+        for col in df.columns:
+            if df[col].dtype == object:
+                df[col] = df[col].fillna("").astype(str)
         return df
     except:
         return pd.DataFrame()
 
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
+
+# Função Simples para Gerar um relatório HTML/PDF para Baixar
+def exportar_pdf_html(df):
+    html = f"""
+    <html>
+    <head>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h2 {{ color: #7B2CBF; text-align: center; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }}
+        th {{ background-color: #7B2CBF; color: white; }}
+        tr:nth-child(even) {{ background-color: #f2f2f2; }}
+    </style>
+    </head>
+    <body>
+        <h2>AD RASTREAMENTO VEICULAR - RELATÓRIO DE ACIONAMENTOS</h2>
+        <p>Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+        {df.to_html(index=False, classes='table')}
+    </body>
+    </html>
+    """
+    b64 = base64.b64encode(html.encode()).decode()
+    href = f'<a href="data:text/html;base64,{b64}" download="relatorio_assistencia_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">📄 Baixar Relatório (Visualizar/Imprimir PDF)</button></a>'
+    return href
 
 # Controle de Sessão / Login
 if "logado" not in st.session_state:
@@ -118,95 +148,126 @@ if st.session_state.perfil == "Admin":
         if df_clientes.empty:
             st.warning("Nenhum cliente cadastrado no sistema.")
         else:
-            lista_ed_ops = [f"ID: {c['id']} | {c['nome']}" for _, c in df_clientes.iterrows()]
-            c_ed_str = st.selectbox("Selecione o cliente alvo:", options=lista_ed_ops, key="sel_ed")
-            c_id = int(c_ed_str.split("|")[0].replace("ID:", "").strip())
-            cliente_dados = df_clientes[df_clientes['id'] == c_id].iloc[0]
+            st.subheader("🔍 Localizar Cliente")
+            busca = st.text_input("Digite o Nome, Placa ou CPF do cliente para buscar:").strip().lower()
             
-            # --- CONTADOR DE ACIONAMENTOS NO ANO ---
-            ano_atual = datetime.now().year
-            total_guinchos, total_p_seca, total_p_eletrica, total_borraceiro, total_chaveiro = 0, 0, 0, 0, 0
-            
-            if not df_os.empty and 'cliente_id' in df_os.columns:
-                df_os['data_hora'] = pd.to_datetime(df_os['data_hora'], errors='coerce')
-                os_cliente_ano = df_os[(df_os['cliente_id'] == c_id) & (df_os['data_hora'].dt.year == ano_atual)]
-                for _, o in os_cliente_ano.iterrows():
-                    serv = str(o['tipo_servico']).lower()
-                    if "prancha" in serv: total_guinchos += 1
-                    elif "pane seca" in serv: total_p_seca += 1
-                    elif "pane elétrica" in serv or "eletrica" in serv: total_p_eletrica += 1
-                    elif "chaveiro" in serv: total_chaveiro += 1
-                    elif "borraceiro" in serv: total_borraceiro += 1
-            
-            # Alertas Visuais de Saldo
-            st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual})")
-            c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("Guinchos Utilizados", f"{total_guinchos} / 2")
-            c2.metric("Pane Seca Utilizada", f"{total_p_seca} / 1")
-            c3.metric("Pane Elétrica Utilizada", f"{total_p_eletrica} / 1")
-            c4.metric("Chaveiro Utilizado", f"{total_chaveiro} / 1")
-            c5.metric("Borraceiro Utilizado", f"{total_borraceiro} / 1")
-            
-            st.write("---")
-            
-            tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho - Prancha Seca", "Pane Seca", "Pane Elétrica", "Chaveiro", "Borraceiro"])
-            
-            lista_p_ops = ["Outro (Digitar Manualmente)"]
-            if not df_prestadores.empty:
-                lista_p_ops += [f"{r['nome']} - {r['telefone']}" for _, r in df_prestadores.iterrows()]
-            prestador_sel = st.selectbox("Prestador homologado para o Estado:", lista_p_ops)
-            prestador_final = st.text_input("Digite o prestador manual:") if prestador_sel == "Outro (Digitar Manualmente)" else prestador_sel
-            
-            localizacao = st.text_input("Endereço de Origem (Localização atual):")
-            destino = st.text_input("Endereço de Destino:")
-            obs = st.text_area("Observações:")
-            
-            if st.button("🚀 Iniciar Atendimento / Gerar OS"):
-                if not prestador_final:
-                    st.error("Identifique o prestador.")
+            # Filtragem inteligente
+            if busca:
+                df_filtrado_cli = df_clientes[
+                    df_clientes['nome'].str.lower().str.contains(busca) |
+                    df_clientes['pla'].str.lower().str.contains(busca) |
+                    df_clientes['cpf'].astype(str).str.contains(busca)
+                ]
+            else:
+                df_filtrado_cli = df_clientes
+                
+            if df_filtrado_cli.empty:
+                st.error("Nenhum cliente encontrado com esse termo de busca.")
+            else:
+                lista_ed_ops = [f"ID: {c['id']} | {c['nome'].upper()} | Placa: {c['pla'].upper()}" for _, c in df_filtrado_cli.iterrows()]
+                c_ed_str = st.selectbox("Selecione o cliente confirmado abaixo:", options=lista_ed_ops, key="sel_ed")
+                c_id = int(c_ed_str.split("|")[0].replace("ID:", "").strip())
+                cliente_dados = df_clientes[df_clientes['id'] == c_id].iloc[0]
+                
+                # --- CONTADOR DE ACIONAMENTOS NO ANO ---
+                ano_atual = datetime.now().year
+                total_guinchos, total_p_seca, total_p_eletrica, total_borraceiro, total_chaveiro = 0, 0, 0, 0, 0
+                
+                if not df_os.empty and 'cliente_id' in df_os.columns:
+                    df_os['data_hora'] = pd.to_datetime(df_os['data_hora'], errors='coerce')
+                    os_cliente_ano = df_os[(df_os['cliente_id'] == c_id) & (df_os['data_hora'].dt.year == ano_atual)]
+                    for _, o in os_cliente_ano.iterrows():
+                        serv = str(o['tipo_servico']).lower()
+                        if "guinch" in serv or "prancha" in serv: total_guinchos += 1
+                        elif "pane seca" in serv: total_p_seca += 1
+                        elif "pane el" in serv or "eletrica" in serv: total_p_eletrica += 1
+                        elif "chaveiro" in serv: total_chaveiro += 1
+                        elif "borraceiro" in serv: total_borraceiro += 1
+                
+                # Alertas Visuais de Saldo
+                st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual})")
+                c1, c2, c3, c4, c5 = st.columns(5)
+                c1.metric("Guinchos Utilizados", f"{total_guinchos} / 2")
+                c2.metric("Pane Seca Utilizada", f"{total_p_seca} / 1")
+                c3.metric("Pane Elétrica Utilizada", f"{total_p_eletrica} / 1")
+                c4.metric("Chaveiro Utilizado", f"{total_chaveiro} / 1")
+                c5.metric("Borraceiro Utilizado", f"{total_borraceiro} / 1")
+                
+                st.write("---")
+                
+                tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho - Prancha Seca", "Pane Seca", "Pane Elétrica", "Chaveiro", "Borraceiro"])
+                
+                lista_p_ops = ["Outro (Digitar Manualmente)"]
+                if not df_prestadores.empty:
+                    lista_p_ops += [f"{r['nome']} - Tel: {r['telefone']}" for _, r in df_prestadores.iterrows()]
+                prestador_sel = st.selectbox("Prestador homologado para o Estado:", lista_p_ops)
+                
+                # Tratamento do Prestador Manual com Nome e Telefone
+                if prestador_sel == "Out5ro (Digitar Manualmente)" or prestador_sel == "Outro (Digitar Manualmente)":
+                    p_nome_manual = st.text_input("Nome do Prestador Manual:")
+                    p_tel_manual = st.text_input("Telefone do Prestador Manual (DDD + Número):")
+                    prestador_final = p_nome_manual
+                    tel_prestador_final = p_tel_manual.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
                 else:
-                    nova_id = int(df_os['id'].max() + 1) if not df_os.empty else 1
-                    agora_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    
-                    nova_os = pd.DataFrame([{
-                        'id': nova_id, 'data_hora': agora_str, 'cliente_id': c_id,
-                        'cliente_nome': cliente_dados['nome'], 'empresa': cliente_dados['emp_name'],
-                        'tipo_servico': tipo_servico, 'prestador': prestador_final,
-                        'localizacao': localizacao, 'destino': destino, 'obs': obs
-                    }])
-                    df_os = pd.concat([df_os, nova_os], ignore_index=True)
-                    salvar_dados(df_os, FILE_OS)
-                    st.success("✅ Ordem de Serviço gravada com sucesso!")
-                    
-                    # Formato Original de Mensagem para WhatsApp
-                    texto_whatsapp = (
-                        f"*{str(cliente_dados['emp_name']).upper()} - ASSISTÊNCIA 24H*\n"
-                        f"-----------------------------------------\n"
-                        f"*Chamado Nº:* {nova_id}\n"
-                        f"*Data/Hora:* {agora_str}\n"
-                        f"*Serviço:* {tipo_servico}\n\n"
-                        f"*Cliente:* {cliente_dados['nome']}\n"
-                        f"*Telefone:* {cliente_dados['tel']}\n\n"
-                        f"*Veículo:* {cliente_dados['vei']} - Placa: {cliente_dados['pla']}\n\n"
-                        f"*Origem:* {localizacao}\n"
-                        f"*Destino:* {destino}\n\n"
-                        f"*Obs:* {obs}"
-                    )
-                    link_w = f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_whatsapp)}"
-                    st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Enviar para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
+                    prestador_final = prestador_sel.split(" - Tel:")[0]
+                    tel_prestador_final = prestador_sel.split(" - Tel:")[1].strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+                
+                localizacao = st.text_input("Endereço de Origem (Localização atual):")
+                destino = st.text_input("Endereço de Destino:")
+                obs = st.text_area("Observações:")
+                
+                if st.button("🚀 Iniciar Atendimento / Gerar OS"):
+                    if not prestador_final or not tel_prestador_final:
+                        st.error("Identifique o Nome e o Telefone do prestador.")
+                    else:
+                        nova_id = int(df_os['id'].max() + 1) if not df_os.empty else 1
+                        agora_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        
+                        nova_os = pd.DataFrame([{
+                            'id': nova_id, 'data_hora': agora_str, 'cliente_id': c_id,
+                            'cliente_nome': cliente_dados['nome'], 'empresa': cliente_dados['emp_name'],
+                            'tipo_servico': tipo_servico, 'prestador': f"{prestador_final} ({tel_prestador_final})",
+                            'localizacao': localizacao, 'destino': destino, 'obs': obs
+                        }])
+                        df_os = pd.concat([df_os, nova_os], ignore_index=True)
+                        salvar_dados(df_os, FILE_OS)
+                        st.success("✅ Ordem de Serviço gravada com sucesso!")
+                        
+                        # Formato de Mensagem enviado para o WhatsApp do prestador
+                        texto_whatsapp = (
+                            f"*{str(cliente_dados['emp_name']).upper()} - ASSISTÊNCIA 24H*\n"
+                            f"-----------------------------------------\n"
+                            f"*Chamado Nº:* {nova_id}\n"
+                            f"*Data/Hora:* {agora_str}\n"
+                            f"*Serviço:* {tipo_servico}\n\n"
+                            f"*Cliente:* {cliente_dados['nome'].upper()}\n"
+                            f"*Telefone do Cliente:* {cliente_dados['tel']}\n\n"
+                            f"*Veículo:* {cliente_dados['vei']} - Placa: {cliente_dados['pla'].upper()}\n\n"
+                            f"*Origem:* {localizacao}\n"
+                            f"*Destino:* {destino}\n\n"
+                            f"*Obs:* {obs}"
+                        )
+                        link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
+                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Enviar Diretamente para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
 
     # ==================== ABA: RELATÓRIOS ====================
     with menu[1]:
-        st.subheader("📋 Relatórios Gerais")
-        if df_os.empty: st.info("Nenhuma OS aberta.")
-        else: st.dataframe(df_os, use_container_width=True)
+        st.subheader("📋 Relatórios de Ordens de Serviço abertas")
+        if df_os.empty: 
+            st.info("Nenhuma OS aberta no momento.")
+        else: 
+            st.dataframe(df_os, use_container_width=True)
+            st.write("---")
+            st.markdown("### 🖨️ Exportação de Documentos")
+            # Botão integrado para gerar e abrir o relatório formatado para impressão/salvar em PDF
+            st.markdown(exportar_pdf_html(df_os), unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
         st.subheader("Modificar Cadastro Clientes")
         opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True)
         if opcao == "Listar":
-            if df_clientes.empty: st.info("Nenhum cliente cadastrado ainda.")
+            if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
             else: st.dataframe(df_clientes.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             modo = st.checkbox("Editar cliente existente")
@@ -253,7 +314,7 @@ if st.session_state.perfil == "Admin":
         st.subheader("Gerenciar Empresas")
         opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True)
         if opcao_e == "Listar":
-            if df_empresas.empty: st.info("Nenhuma empresa cadastrada ainda.")
+            if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
             else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             modo_e = st.checkbox("Editar empresa existente")
@@ -297,7 +358,7 @@ if st.session_state.perfil == "Admin":
         st.subheader("Gerenciar Prestadores")
         opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True)
         if opcao_p == "Listar":
-            if df_prestadores.empty: st.info("Nenhum prestador cadastrado ainda.")
+            if df_prestadores.empty: st.info("Nenhum prestador cadastrado.")
             else: st.dataframe(df_prestadores.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             modo_p = st.checkbox("Editar prestador existente")
