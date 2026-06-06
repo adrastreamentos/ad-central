@@ -222,8 +222,8 @@ with aba[indice_aba_cliente]:
         filtrados_ed = [c for c in clientes_visiveis if busca_c_ed.lower() in f"{str(c['id'])} {str(c['nome'])} {str(c['pla'])}".lower()] if busca_c_ed else clientes_visiveis
         
         if filtrados_ed:
-            lista_ed_ops = [f"ID: {c['id']} | {c['nome']} | Placa: {c['pla']}" for c in filtrados_ed]
-            c_ed_str = st.selectbox("Selecione o cliente alvo:", lista_ops=lista_ed_ops, key="sel_ed")
+            lista_ed_ops = [f"ID: {c['id']} | {c['nome']}" for c in filtrados_ed]
+            c_ed_str = st.selectbox("Selecione o cliente alvo:", options=lista_ed_ops, key="sel_ed")
             c_alvo = filtrados_ed[lista_ed_ops.index(c_ed_str)]
             idx_c = st.session_state.clientes.index(c_alvo)
             
