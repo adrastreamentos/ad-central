@@ -213,7 +213,7 @@ with aba[indice_aba_cliente]:
             color = '#cc0000' if val == 'Inativo' else '#00cc00'
             return f'color: {color}; font-weight: bold;'
             
-        st.dataframe(df_c[['id', 'nome', 'pla', 'vei', 'tel', 'emp_nome', 'status']].style.applymap(colorir_status, subset=['status']), use_container_width=True)
+        st.dataframe(df_c[['id', 'nome', 'pla', 'vei', 'tel', 'emp_nome', 'status']].style.map(colorir_status, subset=['status']), use_container_width=True)
 
         # Modificação completa dentro da setinha (Retrátil)
         st.markdown("### ⚙️ Modificar Cadastro")
