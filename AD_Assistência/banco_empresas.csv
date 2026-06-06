@@ -1,2 +1,2 @@
-id,nome,cid,est,tel,resp
-1,AD RASTREAMENTO VEICULAR,NATAL,RN,84999305771,DAVID/ANDREA
+cnpj,nome,responsavel,telefone,email,status
+55496449000184,AD RASTREAMENTO VEICULAR,DAVID/ANDREA,84999305771,ad.rastreamentos@gmail.com,Ativo
