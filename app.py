@@ -19,6 +19,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Lista Oficial de Estados do Brasil para as Caixas de Seleção
+ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
+
 # Caminhos dos arquivos de banco de dados
 FOLDER = "AD_Assistencia"
 os.makedirs(FOLDER, exist_ok=True)
@@ -38,19 +41,18 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
-# Funções de Leitura e Escrita - PROTEGIDA CONTRA COLUNAS FALTANTES
+# Funções de Leitura e Escrita com limpeza automática de espaços
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
         df = pd.read_csv(caminho)
         df.columns = df.columns.str.strip().str.lower()
         
-        # Garante que todas as colunas obrigatórias existam para evitar o KeyError
         for col in colunas_obrigatorias:
             if col not in df.columns:
                 df[col] = ""
                 
         for col in df.columns:
-            df[col] = df[col].fillna("").astype(str)
+            df[col] = df[col].fillna("").astype(str).str.strip()
         return df
     except:
         return pd.DataFrame(columns=colunas_obrigatorias)
@@ -58,8 +60,8 @@ def carregar_dados(caminho, colunas_obrigatorias):
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
 
-# Gerador de Relatório PDF/HTML Elegante e Personalizado por Empresa
-def exportar_pdf_html_bonito(df_os_rows):
+# Gerador de Relatório PDF/HTML Elegante e Personalizado (Suporta 1 ou várias OS)
+def exportar_pdf_html_bonito(df_os_rows, titulo_pdf="relatorio_assistencia"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
         empresa_os = str(row['empresa']).upper()
@@ -113,7 +115,7 @@ def exportar_pdf_html_bonito(df_os_rows):
     </head>
     <body>
         <div class="header">
-            <h1>RELATÓRIO FILTRADO DE ACIONAMENTOS</h1>
+            <h1>RELATÓRIO DE ACIONAMENTO</h1>
             <p>Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
         </div>
         {cards_html}
@@ -121,7 +123,7 @@ def exportar_pdf_html_bonito(df_os_rows):
     </html>
     """
     b64 = base64.b64encode(html_completo.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="relatorio_filtrado_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Relatório Selecionado (PDF)</button></a>'
+    href = f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Este Relatório em PDF</button></a>'
     return href
 
 # Controle de Sessão / Login
@@ -171,7 +173,7 @@ with col_logout:
         st.session_state.logado = False
         st.rerun()
 
-# Carregamento Seguro com validação de colunas obrigatorias
+# Carregamento Seguro dos Bancos de Dados
 df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
 df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
@@ -209,6 +211,7 @@ if st.session_state.perfil == "Admin":
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
                 cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
                 
+                # Normalização da UF do Cliente para evitar falhas na comparação
                 uf_cliente = str(cliente_dados['est']).strip().upper()
                 if not uf_cliente:
                     uf_cliente = "RN"
@@ -241,14 +244,14 @@ if st.session_state.perfil == "Admin":
                 
                 tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho - Prancha Seca", "Pane Seca", "Pane Elétrica", "Chaveiro", "Borraceiro"])
                 
-                # FILTRAGEM INTELIGENTE DE PRESTADORES POR ESTADO (UF)
+                # FILTRAGEM INTELIGENTE DE PRESTADORES POR ESTADO (UF) CORRIGIDA
                 lista_p_ops = ["Outro (Digitar Manualmente)"]
                 if not df_prestadores.empty:
                     df_prest_filtrados = df_prestadores[df_prestadores['est'].str.strip().str.upper() == uf_cliente]
                     if not df_prest_filtrados.empty:
                         lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['cidade']).upper()}-{str(r['est']).upper()})" for _, r in df_prest_filtrados.iterrows()]
                     else:
-                        st.warning(f"⚠️ Nenhum prestador cadastrado para o estado {uf_cliente}. Mostrando todos os prestadores do Brasil como contingência.")
+                        st.warning(f"⚠️ Nenhum prestador localizado para o estado {uf_cliente}. Mostrando lista completa de contingência.")
                         lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['cidade']).upper()}-{str(r['est']).upper()})" for _, r in df_prestadores.iterrows()]
                 
                 prestador_sel = st.selectbox("Prestador homologado para o Estado do Cliente:", lista_p_ops)
@@ -302,34 +305,49 @@ if st.session_state.perfil == "Admin":
 
     # ==================== ABA: RELATÓRIOS ====================
     with menu[1]:
-        st.subheader("📊 Painel de Filtros para Emissão de Relatório")
+        st.subheader("📊 Emissão e Impressão de Relatórios")
         
         if df_os.empty: 
-            st.info("Nenhuma OS aberta no momento.")
+            st.info("Nenhuma OS aberta no sistema.")
         else:
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                lista_filt_emp = ["TODAS"] + list(df_os['empresa'].unique())
-                emp_escolhida = st.selectbox("Filtrar por Empresa:", options=lista_filt_emp)
-            with col_f2:
-                lista_filt_cli = ["TODOS"] + list(df_os['cliente_nome'].unique())
-                cli_escolhido = st.selectbox("Filtrar por Cliente Específico:", options=lista_filt_cli)
-                
-            df_os_filtrada = df_os.copy()
-            if emp_escolhida != "TODAS":
-                df_os_filtrada = df_os_filtrada[df_os_filtrada['empresa'] == emp_escolhida]
-            if cli_escolhido != "TODOS":
-                df_os_filtrada = df_os_filtrada[df_os_filtrada['cliente_nome'] == cli_escolhido]
-                
-            st.write("---")
-            st.dataframe(df_os_filtrada, use_container_width=True)
+            tipo_relatorio = st.radio("Escolha o modelo de exportação:", ["Tabela Filtrada Geral", "Documento de uma OS Específica"], horizontal=True)
             
-            st.write("---")
-            st.markdown("### 🖨️ Impressão do Relatório Customizado da Seleção")
-            if df_os_filtrada.empty:
-                st.warning("Nenhum dado corresponde aos filtros selecionados para gerar o PDF.")
+            if tipo_relatorio == "Tabela Filtrada Geral":
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    lista_filt_emp = ["TODAS"] + list(df_os['empresa'].unique())
+                    emp_escolhida = st.selectbox("Filtrar por Empresa:", options=lista_filt_emp)
+                with col_f2:
+                    lista_filt_cli = ["TODOS"] + list(df_os['cliente_nome'].unique())
+                    cli_escolhido = st.selectbox("Filtrar por Cliente Específico:", options=lista_filt_cli)
+                    
+                df_os_filtrada = df_os.copy()
+                if emp_escolhida != "TODAS":
+                    df_os_filtrada = df_os_filtrada[df_os_filtrada['empresa'] == emp_escolhida]
+                if cli_escolhido != "TODOS":
+                    df_os_filtrada = df_os_filtrada[df_os_filtrada['cliente_nome'] == cli_escolhido]
+                    
+                st.write("---")
+                st.dataframe(df_os_filtrada, use_container_width=True)
+                
+                if not df_os_filtrada.empty:
+                    st.markdown(exportar_pdf_html_bonito(df_os_filtrada, "relatorio_geral_filtrado"), unsafe_allow_html=True)
+            
+            # MODELO ATUALIZADO: ESCOLHER E EMITIR EXCLUSIVAMENTE UM SÓ ATENDIMENTO
             else:
-                st.markdown(exportar_pdf_html_bonito(df_os_filtrada), unsafe_allow_html=True)
+                st.markdown("### 📄 Selecione o Chamado Alvo")
+                lista_os_disponiveis = [f"OS: {r['id']} | Cliente: {str(r['cliente_nome']).upper()} | Empresa: {str(r['empresa']).upper()}" for _, r in df_os.iterrows()]
+                os_selecionada_str = st.selectbox("Escolha qual Ordem de Serviço deseja imprimir:", options=lista_os_disponiveis)
+                
+                os_alvo_id = os_selecionada_str.split("|")[0].replace("OS:", "").strip()
+                df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
+                
+                st.write("---")
+                st.markdown("#### Preview do Documento Selecionado:")
+                st.dataframe(df_os_unica, use_container_width=True)
+                
+                # Exporta exclusivamente o card da OS individual escolhida
+                st.markdown(exportar_pdf_html_bonito(df_os_unica, f"os_individual_{os_alvo_id}"), unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
@@ -352,7 +370,10 @@ if st.session_state.perfil == "Admin":
             tel = st.text_input("Telefone:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
             vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_ant is not None else "", key="c_vei")
             pla = st.text_input("Placa:", value=str(dados_ant['pla']) if dados_ant is not None else "", key="c_pla")
-            est = st.text_input("Estado (UF) do Veículo (Ex: SP, RN, MG):", value=str(dados_ant['est']).upper() if dados_ant is not None else "RN", key="c_est").strip().upper()
+            
+            # ATUALIZADO: Caixa de Seleção Fixa para Estado (UF)
+            idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
+            est = st.selectbox("Selecione o Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
             
             lista_empresas_disponiveis = ["AD RASTREAMENTO VEICULAR"]
             if not df_empresas.empty:
@@ -370,8 +391,8 @@ if st.session_state.perfil == "Admin":
             status = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(str(dados_ant['status'])), key="c_status")
             
             if st.button("Salvar Cliente", key="save_cli_btn_novo"):
-                if not nome or not pla or not est:
-                    st.error("Nome, Placa e Estado (UF) são obrigatórios.")
+                if not nome or not pla:
+                    st.error("Nome e Placa são obrigatórios.")
                 else:
                     if not modo:
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
@@ -412,7 +433,10 @@ if st.session_state.perfil == "Admin":
             resp = st.text_input("Responsável:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "", key="e_resp")
             tel_e = st.text_input("Telefone da Central:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
             mail = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
-            est_e = st.text_input("Estado (UF) Sede da Empresa (Ex: RN, SP):", value=str(dados_e_ant['est']).upper() if dados_e_ant is not None else "RN", key="e_est").strip().upper()
+            
+            # ATUALIZADO: Caixa de Seleção Fixa para Estado (UF) da Empresa
+            idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if (dados_e_ant is not None and str(dados_e_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
+            est_e = st.selectbox("Selecione o Estado (UF) da Sede da Empresa:", options=ESTADOS_BR, index=idx_est_e, key="e_est")
             stat_e = st.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(str(dados_e_ant['status'])), key="e_status")
             
             if st.button("Salvar Empresa", key="save_emp_btn_novo_direto"):
@@ -456,12 +480,15 @@ if st.session_state.perfil == "Admin":
             t_prest = st.text_input("Tipo de Serviço:", value=str(dados_p_ant['tipo']) if dados_p_ant is not None else "Guincho Prancha", key="p_tipo")
             tel_p = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
             cid_p = st.text_input("Cidade Base:", value=str(dados_p_ant['cidade']) if dados_p_ant is not None else "", key="p_cid")
-            est_p = st.text_input("Estado (UF) de Atuação (Ex: SP, RN, MG):", value=str(dados_p_ant['est']).upper() if dados_p_ant is not None else "RN", key="p_est").strip().upper()
+            
+            # ATUALIZADO: Caixa de Seleção Fixa para Estado (UF) de Atuação do Prestador
+            idx_est_p = ESTADOS_BR.index(str(dados_p_ant['est']).upper()) if (dados_p_ant is not None and str(dados_p_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
+            est_p = st.selectbox("Selecione o Estado (UF) de Atuação do Prestador:", options=ESTADOS_BR, index=idx_est_p, key="p_est")
             stat_p = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(str(dados_p_ant['status'])), key="p_status")
             
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
-                if not n_prest or not tel_p or not est_p:
-                    st.error("Nome, Telefone e Estado (UF) são obrigatórios.")
+                if not n_prest or not tel_p:
+                    st.error("Nome e Telefone são obrigatórios.")
                 else:
                     if not modo_p:
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
@@ -506,7 +533,10 @@ else:
             p_tel = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
             p_vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
             p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
-            p_est = st.text_input("UF:", value=str(dados_part_ant['est']) if dados_part_ant is not None else "RN", key="part_est")
+            
+            # Caixa de seleção fixa para parceiros também
+            idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
+            p_est = st.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
             p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(str(dados_part_ant['status'])), key="part_status")
             
             if st.button("Confirmar Registro", key="save_part_btn_novo"):
