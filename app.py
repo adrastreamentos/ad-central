@@ -202,8 +202,8 @@ if st.session_state.perfil == "Admin":
                     lista_p_ops += [f"{r['nome']} - Tel: {r['telefone']}" for _, r in df_prestadores.iterrows()]
                 prestador_sel = st.selectbox("Prestador homologado para o Estado:", lista_p_ops)
                 
-                # Tratamento do Prestador Manual com Nome e Telefone
-                if prestador_sel == "Out5ro (Digitar Manualmente)" or prestador_sel == "Outro (Digitar Manualmente)":
+                # Tratamento do Prestador Manual Corrigido (Sem o erro do Out5ro)
+                if prestador_sel == "Outro (Digitar Manualmente)":
                     p_nome_manual = st.text_input("Nome do Prestador Manual:")
                     p_tel_manual = st.text_input("Telefone do Prestador Manual (DDD + Número):")
                     prestador_final = p_nome_manual
@@ -259,13 +259,12 @@ if st.session_state.perfil == "Admin":
             st.dataframe(df_os, use_container_width=True)
             st.write("---")
             st.markdown("### 🖨️ Exportação de Documentos")
-            # Botão integrado para gerar e abrir o relatório formatado para impressão/salvar em PDF
             st.markdown(exportar_pdf_html(df_os), unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
         st.subheader("Modificar Cadastro Clientes")
-        opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True)
+        opcao = st.radio("Ação Clientes:", ["Listar", "Include / Editar"], horizontal=True)
         if opcao == "Listar":
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
             else: st.dataframe(df_clientes.style.map(colorir_status, subset=['status']), use_container_width=True)
@@ -350,7 +349,7 @@ if st.session_state.perfil == "Admin":
                 if st.button("❌ Excluir Empresa Permanentemente", key="excluir_emp_definitivo"):
                     df_empresas = df_empresas[df_empresas['cnpj'].astype(str) != e_target]
                     salvar_dados(df_empresas, FILE_EMPRESAS)
-                    st.success("🗑️ Empresa excluída com sucesso!")
+                    st.success("🗑️ Empresa excluído com sucesso!")
                     st.rerun()
 
     # ==================== ABA: PRESTADORES ====================
