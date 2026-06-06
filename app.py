@@ -28,7 +28,7 @@ FILE_EMPRESAS = os.path.join(FOLDER, "banco_empresas.csv")
 FILE_PRESTADORES = os.path.join(FOLDER, "banco_prestadores.csv")
 FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 
-# Inicialização dos arquivos CSV caso não existam (Atualizados com a coluna UF para cruzamento)
+# Inicialização dos arquivos CSV caso não existam
 if not os.path.exists(FILE_CLIENTES):
     pd.DataFrame(columns=['id','nome','cpf','tel','vei','pla','est','emp_name','status']).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS):
@@ -38,16 +38,22 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
-# Funções de Leitura e Escrita
-def carregar_dados(caminho):
+# Funções de Leitura e Escrita - PROTEGIDA CONTRA COLUNAS FALTANTES
+def carregar_dados(caminho, colunas_obrigatorias):
     try:
         df = pd.read_csv(caminho)
         df.columns = df.columns.str.strip().str.lower()
+        
+        # Garante que todas as colunas obrigatórias existam para evitar o KeyError
+        for col in colunas_obrigatorias:
+            if col not in df.columns:
+                df[col] = ""
+                
         for col in df.columns:
             df[col] = df[col].fillna("").astype(str)
         return df
     except:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=colunas_obrigatorias)
 
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
@@ -57,7 +63,6 @@ def exportar_pdf_html_bonito(df_os_rows):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
         empresa_os = str(row['empresa']).upper()
-        # Cores dinâmicas baseadas na empresa responsável
         cor_topo = "#7B2CBF" if "AD RASTREAMENTO" in empresa_os else "#1E3A8A"
         
         cards_html += f"""
@@ -142,7 +147,7 @@ if not st.session_state.logado:
                 st.session_state.perfil = "Admin"
                 st.rerun()
             else:
-                df_emp = carregar_dados(FILE_EMPRESAS)
+                df_emp = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
                 if not df_emp.empty:
                     parceiro_valid = df_emp[(df_emp['cnpj'].astype(str) == senha_input) & (df_emp['nome'].str.lower().str.replace(" ", "") == usuario_input.replace(" ", ""))]
                     if not parceiro_valid.empty:
@@ -166,11 +171,11 @@ with col_logout:
         st.session_state.logado = False
         st.rerun()
 
-# Carregamento dos Bancos de Dados
-df_clientes = carregar_dados(FILE_CLIENTES)
-df_empresas = carregar_dados(FILE_EMPRESAS)
-df_prestadores = carregar_dados(FILE_PRESTADORES)
-df_os = carregar_dados(FILE_OS)
+# Carregamento Seguro com validação de colunas obrigatorias
+df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
+df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
+df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
+df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','prestador','localizacao','destino','obs'])
 
 def colorir_status(val):
     return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
@@ -204,8 +209,9 @@ if st.session_state.perfil == "Admin":
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
                 cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
                 
-                # Identifica a UF do Cliente para Filtragem Inteligente de Prestadores
                 uf_cliente = str(cliente_dados['est']).strip().upper()
+                if not uf_cliente:
+                    uf_cliente = "RN"
                 st.info(f"📍 Cliente localizado no estado: **{uf_cliente}**")
                 
                 # Contador anual de acionamentos
@@ -238,7 +244,6 @@ if st.session_state.perfil == "Admin":
                 # FILTRAGEM INTELIGENTE DE PRESTADORES POR ESTADO (UF)
                 lista_p_ops = ["Outro (Digitar Manualmente)"]
                 if not df_prestadores.empty:
-                    # Filtra prestadores cuja coluna 'est' (UF) bate com a UF do cliente
                     df_prest_filtrados = df_prestadores[df_prestadores['est'].str.strip().str.upper() == uf_cliente]
                     if not df_prest_filtrados.empty:
                         lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['cidade']).upper()}-{str(r['est']).upper()})" for _, r in df_prest_filtrados.iterrows()]
@@ -255,7 +260,6 @@ if st.session_state.perfil == "Admin":
                     tel_prestador_final = p_tel_manual.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
                 else:
                     prestador_final = prestador_sel.split(" - Tel:")[0]
-                    # Extrai o telefone limpando a parte da cidade/uf no final
                     tel_cru = prestador_sel.split(" - Tel:")[1].split("(")[0].strip()
                     tel_prestador_final = tel_cru.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
                 
@@ -303,7 +307,6 @@ if st.session_state.perfil == "Admin":
         if df_os.empty: 
             st.info("Nenhuma OS aberta no momento.")
         else:
-            # INTERFACE DE FILTROS SELECIONÁVEIS
             col_f1, col_f2 = st.columns(2)
             with col_f1:
                 lista_filt_emp = ["TODAS"] + list(df_os['empresa'].unique())
@@ -312,7 +315,6 @@ if st.session_state.perfil == "Admin":
                 lista_filt_cli = ["TODOS"] + list(df_os['cliente_nome'].unique())
                 cli_escolhido = st.selectbox("Filtrar por Cliente Específico:", options=lista_filt_cli)
                 
-            # Aplicação dos filtros na tabela de visualização
             df_os_filtrada = df_os.copy()
             if emp_escolhida != "TODAS":
                 df_os_filtrada = df_os_filtrada[df_os_filtrada['empresa'] == emp_escolhida]
@@ -327,7 +329,6 @@ if st.session_state.perfil == "Admin":
             if df_os_filtrada.empty:
                 st.warning("Nenhum dado corresponde aos filtros selecionados para gerar o PDF.")
             else:
-                # O botão agora exporta APENAS as linhas filtradas na tela
                 st.markdown(exportar_pdf_html_bonito(df_os_filtrada), unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
@@ -503,7 +504,7 @@ else:
             p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "", key="part_nome")
             p_cpf = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
             p_tel = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
-            p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
+            p_vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
             p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
             p_est = st.text_input("UF:", value=str(dados_part_ant['est']) if dados_part_ant is not None else "RN", key="part_est")
             p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(str(dados_part_ant['status'])), key="part_status")
