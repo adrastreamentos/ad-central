@@ -41,7 +41,7 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
-# Função de limpeza de documentos e logins
+# FUNÇÃO DE LIMPEZA BRUTA: Deixa apenas números e letras minúsculas
 def apenas_numeros_letras(texto):
     return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
@@ -445,6 +445,7 @@ if st.session_state.perfil == "Admin":
             if modo_e and not df_empresas.empty:
                 sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", [f"{str(r['cnpj'])} - {str(r['nome'])}" for _, r in df_empresas.iterrows()])
                 e_target_raw = sel_e.split("-")[0].strip()
+                # Guarda o CNPJ digitado de forma limpa para fazer o cruzamento à prova de erros
                 e_target = apenas_numeros_letras(e_target_raw)
                 
                 df_empresas_busca = df_empresas.copy()
@@ -483,7 +484,7 @@ if st.session_state.perfil == "Admin":
                     st.success("✅ Empresa salva com sucesso!")
                     st.rerun()
 
-            # CORREÇÃO DEFINITIVA: Remoção do erro de texto solto e ajuste de exclusão limpa
+            # CORREÇÃO CRUCIAL DA EXCLUSÃO: Agora limpa a tabela dinamicamente batendo número limpo com número limpo
             if modo_e and e_target is not None:
                 st.write("---")
                 if st.button("❌ Excluir Empresa Permanentemente", key="excluir_emp_definitivo"):
@@ -569,7 +570,7 @@ else:
             
             p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "", key="part_nome")
             p_cpf_raw = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
-            p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_ant['tel'] is not None else "", key="part_tel")
+            p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
             p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
             p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
             
