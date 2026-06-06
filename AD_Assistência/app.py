@@ -109,7 +109,7 @@ df_os = carregar_dados(FILE_OS)
 def colorir_status(val):
     return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
 
-# --- NAVEGAÇÃO POR ABAS TRADICIONAIS (COMO ESTAVA ANTES) ---
+# --- NAVEGAÇÃO POR ABAS TRADICIONAIS ---
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
@@ -176,7 +176,7 @@ if st.session_state.perfil == "Admin":
                     }])
                     df_os = pd.concat([df_os, nova_os], ignore_index=True)
                     salvar_dados(df_os, FILE_OS)
-                    st.success("Ordem de Serviço gravada com sucesso com data e hora!")
+                    st.success("✅ Ordem de Serviço gravada com sucesso!")
                     
                     # Formato Original de Mensagem para WhatsApp
                     texto_whatsapp = (
@@ -211,12 +211,12 @@ if st.session_state.perfil == "Admin":
             modo = st.checkbox("Editar cliente existente")
             c_target = None
             if modo and not df_clientes.empty:
-                sel = st.selectbox("Selecione o cliente:", [f"{r['id']} - {r['nome']}" for _, r in df_clientes.iterrows()])
+                sel = st.selectbox("Selecione o cliente para editar/excluir:", [f"{r['id']} - {r['nome']}" for _, r in df_clientes.iterrows()])
                 c_target = int(sel.split("-")[0].strip())
                 dados_ant = df_clientes[df_clientes['id'] == c_target].iloc[0]
             else: dados_ant = None
             
-            with st.form("f_cli"):
+            with st.form("f_cli", clear_on_submit=True):
                 nome = st.text_input("Nome:", value=str(dados_ant['nome']) if dados_ant is not None else "")
                 cpf = st.text_input("CPF:", value=str(dados_ant['cpf']) if dados_ant is not None else "")
                 tel = st.text_input("Telefone:", value=str(dados_ant['tel']) if dados_ant is not None else "")
@@ -227,14 +227,28 @@ if st.session_state.perfil == "Admin":
                 status = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(dados_ant['status']))
                 
                 if st.form_submit_button("Salvar Cliente"):
-                    if not modo:
-                        prox = int(df_clientes['id'].max() + 1) if not df_clientes.empty else 1
-                        novo = pd.DataFrame([{'id': prox, 'nome': nome, 'cpf': cpf, 'tel': tel, 'vei': vei, 'pla': pla, 'est': est, 'emp_name': emp, 'status': status}])
-                        df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
+                    if not nome or not pla:
+                        st.error("Nome e Placa são obrigatórios.")
                     else:
-                        df_clientes.loc[df_clientes['id'] == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome, cpf, tel, vei, pla, est, emp, status]
+                        if not modo:
+                            prox = int(df_clientes['id'].max() + 1) if not df_clientes.empty else 1
+                            novo = pd.DataFrame([{'id': prox, 'nome': nome, 'cpf': cpf, 'tel': tel, 'vei': vei, 'pla': pla, 'est': est, 'emp_name': emp, 'status': status}])
+                            df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
+                        else:
+                            df_clientes.loc[df_clientes['id'] == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome, cpf, tel, vei, pla, est, emp, status]
+                        salvar_dados(df_clientes, FILE_CLIENTES)
+                        st.success("✅ Cliente salvo com sucesso!")
+                        st.rerun()
+
+            # Opção de Excluir Registro (Apenas se estiver no modo de edição)
+            if modo and c_target is not None:
+                st.write("---")
+                st.markdown("⚠️ **Zona de Perigo**")
+                if st.button("❌ Excluir este Cliente Permanentemente", key="del_cli_btn"):
+                    df_clientes = df_clientes[df_clientes['id'] != c_target]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("Salvo!"); st.rerun()
+                    st.success("🗑️ Cliente excluído com sucesso!")
+                    st.rerun()
 
     # ==================== ABA: EMPRESAS ====================
     with menu[3]:
@@ -246,12 +260,12 @@ if st.session_state.perfil == "Admin":
             modo_e = st.checkbox("Editar empresa existente")
             e_target = None
             if modo_e and not df_empresas.empty:
-                sel_e = st.selectbox("Selecione a empresa:", [f"{r['cnpj']} - {r['nome']}" for _, r in df_empresas.iterrows()])
-                e_target = sel_e.split("-")[0].strip()
+                sel_e = st.selectbox("Selecione a empresa para editar/excluir:", [f"{r['cnpj']} - {r['nome']}" for _, r in df_empresas.iterrows()])
+                e_target = str(sel_e.split("-")[0].strip())
                 dados_e_ant = df_empresas[df_empresas['cnpj'].astype(str) == e_target].iloc[0]
             else: dados_e_ant = None
             
-            with st.form("f_emp"):
+            with st.form("f_emp", clear_on_submit=True):
                 cnpj = st.text_input("CNPJ (Senha):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "")
                 n_emp = st.text_input("Nome Empresa (Usuário):", value=str(dados_e_ant['nome']) if dados_e_ant is not None else "")
                 resp = st.text_input("Responsável:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "")
@@ -260,13 +274,27 @@ if st.session_state.perfil == "Admin":
                 stat_e = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(dados_e_ant['status']))
                 
                 if st.form_submit_button("Salvar Empresa"):
-                    if not modo_e:
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp, 'responsavel': resp, 'telefone': tel_e, 'email': mail, 'status': stat_e}])
-                        df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
+                    if not cnpj or not n_emp:
+                        st.error("CNPJ e Nome da Empresa são obrigatórios.")
                     else:
-                        df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','status']] = [n_emp, resp, tel_e, mail, stat_e]
+                        if not modo_e:
+                            novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp, 'responsavel': resp, 'telefone': tel_e, 'email': mail, 'status': stat_e}])
+                            df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
+                        else:
+                            df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','status']] = [n_emp, resp, tel_e, mail, stat_e]
+                        salvar_dados(df_empresas, FILE_EMPRESAS)
+                        st.success("✅ Empresa salva com sucesso!")
+                        st.rerun()
+
+            # Opção de Excluir Registro (Apenas se estiver no modo de edição)
+            if modo_e and e_target is not None:
+                st.write("---")
+                st.markdown("⚠️ **Zona de Perigo**")
+                if st.button("❌ Excluir esta Empresa Permanentemente", key="del_emp_btn"):
+                    df_empresas = df_empresas[df_empresas['cnpj'].astype(str) != e_target]
                     salvar_dados(df_empresas, FILE_EMPRESAS)
-                    st.success("Salvo!"); st.rerun()
+                    st.success("🗑️ Empresa excluída com sucesso!")
+                    st.rerun()
 
     # ==================== ABA: PRESTADORES ====================
     with menu[4]:
@@ -278,12 +306,12 @@ if st.session_state.perfil == "Admin":
             modo_p = st.checkbox("Editar prestador existente")
             p_target = None
             if modo_p and not df_prestadores.empty:
-                sel_p = st.selectbox("Selecione o prestador:", [f"{r['id']} - {r['nome']}" for _, r in df_prestadores.iterrows()])
+                sel_p = st.selectbox("Selecione o prestador para editar/excluir:", [f"{r['id']} - {r['nome']}" for _, r in df_prestadores.iterrows()])
                 p_target = int(sel_p.split("-")[0].strip())
                 dados_p_ant = df_prestadores[df_prestadores['id'] == p_target].iloc[0]
             else: dados_p_ant = None
             
-            with st.form("f_prest"):
+            with st.form("f_prest", clear_on_submit=True):
                 n_prest = st.text_input("Nome:", value=str(dados_p_ant['nome']) if dados_p_ant is not None else "")
                 t_prest = st.text_input("Tipo:", value=str(dados_p_ant['tipo']) if dados_p_ant is not None else "Guincho Prancha")
                 tel_p = st.text_input("Telefone:", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "")
@@ -291,16 +319,30 @@ if st.session_state.perfil == "Admin":
                 stat_p = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(dados_p_ant['status']))
                 
                 if st.form_submit_button("Salvar Prestador"):
-                    if not modo_p:
-                        prox_p = int(df_prestadores['id'].max() + 1) if not df_prestadores.empty else 1
-                        novo_p = pd.DataFrame([{'id': prox_p, 'nome': n_prest, 'tipo': t_prest, 'telefone': tel_p, 'cidade': cid_p, 'status': stat_p}])
-                        df_prestadores = pd.concat([df_prestadores, novo_p], ignore_index=True)
+                    if not n_prest or not tel_p:
+                        st.error("Nome e Telefone são obrigatórios.")
                     else:
-                        df_prestadores.loc[df_prestadores['id'] == p_target, ['nome','tipo','telefone','cidade','status']] = [n_prest, t_prest, tel_p, cid_p, stat_p]
-                    salvar_dados(df_prestadores, FILE_PRESTADORES)
-                    st.success("Salvo!"); st.rerun()
+                        if not modo_p:
+                            prox_p = int(df_prestadores['id'].max() + 1) if not df_prestadores.empty else 1
+                            novo_p = pd.DataFrame([{'id': prox_p, 'nome': n_prest, 'tipo': t_prest, 'telefone': tel_p, 'cidade': cid_p, 'status': stat_p}])
+                            df_prestadores = pd.concat([df_prestadores, novo_p], ignore_index=True)
+                        else:
+                            df_prestadores.loc[df_prestadores['id'] == p_target, ['nome','tipo','telefone','cidade','status']] = [n_prest, t_prest, tel_p, cid_p, stat_p]
+                        salvar_dados(df_prestadores, FILE_PRESTADORES)
+                        st.success("✅ Prestador salvo com sucesso!")
+                        st.rerun()
 
-# --- INTERFACE RESTRETA DAS EMPRESAS PARCEIRAS ---
+            # Opção de Excluir Registro (Apenas se estiver no modo de edição)
+            if modo_p and p_target is not None:
+                st.write("---")
+                st.markdown("⚠️ **Zona de Perigo**")
+                if st.button("❌ Excluir este Prestador Permanentemente", key="del_prest_btn"):
+                    df_prestadores = df_prestadores[df_prestadores['id'] != p_target]
+                    salvar_dados(df_prestadores, FILE_PRESTADORES)
+                    st.success("🗑️ Prestador excluído com sucesso!")
+                    st.rerun()
+
+# --- INTERFACE RESTRITA DAS EMPRESAS PARCEIRAS ---
 else:
     menu_parceiro = st.tabs(["👥 Nossos Clientes", "📋 Histórico de Chamados"])
     
@@ -315,12 +357,12 @@ else:
             modo_part = st.checkbox("Alterar status de cliente existente")
             part_target = None
             if modo_part and not df_filtrado_p.empty:
-                sel_part = st.selectbox("Selecione o seu cliente:", [f"{r['id']} - {r['nome']}" for _, r in df_filtrado_p.iterrows()])
+                sel_part = st.selectbox("Selecione o seu cliente para editar/excluir:", [f"{r['id']} - {r['nome']}" for _, r in df_filtrado_p.iterrows()])
                 part_target = int(sel_part.split("-")[0].strip())
                 dados_part_ant = df_filtrado_p[df_filtrado_p['id'] == part_target].iloc[0]
             else: dados_part_ant = None
             
-            with st.form("f_parceiro"):
+            with st.form("f_parceiro", clear_on_submit=True):
                 p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "")
                 p_cpf = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "")
                 p_tel = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "")
@@ -330,14 +372,28 @@ else:
                 p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(dados_part_ant['status']))
                 
                 if st.form_submit_button("Confirmar Registro"):
-                    if not modo_part:
-                        prox_id = int(df_clientes['id'].max() + 1) if not df_clientes.empty else 1
-                        novo_reg = pd.DataFrame([{'id': prox_id, 'nome': p_nome, 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei, 'pla': p_pla, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada, 'status': p_stat}])
-                        df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
+                    if not p_nome or not p_pla:
+                        st.error("Nome e Placa são obrigatórios.")
                     else:
-                        df_clientes.loc[df_clientes['id'] == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome, p_cpf, p_tel, p_vei, p_pla, p_est, p_stat]
+                        if not modo_part:
+                            prox_id = int(df_clientes['id'].max() + 1) if not df_clientes.empty else 1
+                            novo_reg = pd.DataFrame([{'id': prox_id, 'nome': p_nome, 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei, 'pla': p_pla, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada, 'status': p_stat}])
+                            df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
+                        else:
+                            df_clientes.loc[df_clientes['id'] == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome, p_cpf, p_tel, p_vei, p_pla, p_est, p_stat]
+                        salvar_dados(df_clientes, FILE_CLIENTES)
+                        st.success("✅ Atualizado com sucesso!")
+                        st.rerun()
+
+            # Opção do Parceiro Excluir o próprio cliente
+            if modo_part and part_target is not None:
+                st.write("---")
+                st.markdown("⚠️ **Zona de Perigo**")
+                if st.button("❌ Excluir este Cliente Permanentemente", key="del_part_cli_btn"):
+                    df_clientes = df_clientes[df_clientes['id'] != part_target]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("Atualizado com sucesso!"); st.rerun()
+                    st.success("🗑️ Cliente excluído com sucesso!")
+                    st.rerun()
 
     with menu_parceiro[1]:
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
