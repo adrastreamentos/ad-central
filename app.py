@@ -62,13 +62,11 @@ def carregar_dados(caminho, colunas_obrigatorias):
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
 
-# NOVO GERADOR DE RELATÓRIO: Idêntico ao modelo profissional enviado na foto
+# Gerador de Relatório Profissional Estruturado
 def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
         empresa_os = str(row['empresa']).upper()
-        
-        # Puxa os dados adicionais do cliente para preencher o veículo, placa e telefone no documento
         cli_id_busca = str(row['cliente_id'])
         df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == cli_id_busca]
         
@@ -362,8 +360,6 @@ if st.session_state.perfil == "Admin":
                 
                 st.write("---")
                 st.markdown("#### Preview do Documento Selecionado:")
-                
-                # CHAMA O GERADOR ATUALIZADO IGUAL À FOTO DA ANDREA
                 st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"os_individual_{os_alvo_id}"), unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
@@ -487,6 +483,7 @@ if st.session_state.perfil == "Admin":
                     st.success("✅ Empresa salva com sucesso!")
                     st.rerun()
 
+            # CORREÇÃO DEFINITIVA: Remoção do erro de texto solto e ajuste de exclusão limpa
             if modo_e and e_target is not None:
                 st.write("---")
                 if st.button("❌ Excluir Empresa Permanentemente", key="excluir_emp_definitivo"):
@@ -572,11 +569,11 @@ else:
             
             p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "", key="part_nome")
             p_cpf_raw = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
-            p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
+            p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_ant['tel'] is not None else "", key="part_tel")
             p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
             p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
             
-            idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper in ESTADOS_BR) else ESTADOS_BR.index("RN")
+            idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             p_est = st.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
             p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(str(dados_part_ant['status'])), key="part_status")
             
