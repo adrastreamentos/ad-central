@@ -4,6 +4,7 @@ from datetime import datetime
 import os
 import urllib.parse
 import base64
+import time
 
 # Configuração da Página com a identidade visual da AD
 st.set_page_config(page_title="Central 24h - AD Rastreamento", layout="wide", page_icon="🔒")
@@ -41,7 +42,7 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
-# FUNÇÃO DE LIMPEZA BRUTA: Deixa apenas números e letras minúsculas
+# Função de limpeza absoluta de documentos e textos
 def apenas_numeros_letras(texto):
     return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
@@ -62,7 +63,7 @@ def carregar_dados(caminho, colunas_obrigatorias):
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
 
-# Gerador de Relatório Profissional Estruturado
+# Gerador de Relatório Oficial Estruturado
 def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
@@ -146,7 +147,7 @@ if "logado" not in st.session_state:
     st.session_state.perfil = ""
     st.session_state.empresa_vinculada = ""
 
-# Carregamento Seguro dos Bancos de Dados
+# Carregamento dos Bancos de Dados
 df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
 df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
@@ -365,11 +366,19 @@ if st.session_state.perfil == "Admin":
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes")
-        opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True)
+        
+        # Gerenciamento de estado de sub-aba automático
+        if "aba_cliente_index" not in st.session_state:
+            st.session_state.aba_cliente_index = "Listar"
+            
+        opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_cliente_index == "Listar" else 1)
+        
         if opcao == "Listar":
+            st.session_state.aba_cliente_index = "Listar"
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
             else: st.dataframe(df_clientes.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
+            st.session_state.aba_cliente_index = "Incluir / Editar"
             modo = st.checkbox("Editar cliente existente")
             c_target = None
             dados_ant = None
@@ -419,7 +428,11 @@ if st.session_state.perfil == "Admin":
                     else:
                         df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome.upper(), cpf, tel, vei.upper(), pla.upper(), est, emp.upper(), status]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Cliente salvo e vinculado com sucesso!")
+                    
+                    # ATUALIZAÇÃO: Mensagem de Sucesso e Redirecionamento
+                    st.success("✅ Cliente salvo com sucesso!")
+                    st.session_state.aba_cliente_index = "Listar"
+                    time.sleep(1)
                     st.rerun()
 
             if modo and c_target is not None:
@@ -427,17 +440,28 @@ if st.session_state.perfil == "Admin":
                 if st.button("❌ Excluir Cliente Permanentemente", key="del_cli_btn_novo"):
                     df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("🗑️ Cliente excluído com sucesso!")
+                    
+                    # ATUALIZAÇÃO: Mensagem de Exclusão e Redirecionamento
+                    st.error("🗑️ Cliente excluído permanentemente!")
+                    st.session_state.aba_cliente_index = "Listar"
+                    time.sleep(1)
                     st.rerun()
 
     # ==================== ABA: EMPRESAS ====================
     with menu[3]:
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
-        opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True)
+        
+        if "aba_empresa_index" not in st.session_state:
+            st.session_state.aba_empresa_index = "Listar"
+            
+        opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_empresa_index == "Listar" else 1)
+        
         if opcao_e == "Listar":
+            st.session_state.aba_empresa_index = "Listar"
             if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
             else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
+            st.session_state.aba_empresa_index = "Incluir / Editar"
             modo_e = st.checkbox("Editar empresa existente")
             e_target = None
             dados_e_ant = None
@@ -445,7 +469,6 @@ if st.session_state.perfil == "Admin":
             if modo_e and not df_empresas.empty:
                 sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", [f"{str(r['cnpj'])} - {str(r['nome'])}" for _, r in df_empresas.iterrows()])
                 e_target_raw = sel_e.split("-")[0].strip()
-                # Guarda o CNPJ digitado de forma limpa para fazer o cruzamento à prova de erros
                 e_target = apenas_numeros_letras(e_target_raw)
                 
                 df_empresas_busca = df_empresas.copy()
@@ -481,10 +504,13 @@ if st.session_state.perfil == "Admin":
                         df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
                         
                     salvar_dados(df_empresas, FILE_EMPRESAS)
+                    
+                    # ATUALIZAÇÃO: Mensagem de Sucesso e Redirecionamento
                     st.success("✅ Empresa salva com sucesso!")
+                    st.session_state.aba_empresa_index = "Listar"
+                    time.sleep(1)
                     st.rerun()
 
-            # CORREÇÃO CRUCIAL DA EXCLUSÃO: Agora limpa a tabela dinamicamente batendo número limpo com número limpo
             if modo_e and e_target is not None:
                 st.write("---")
                 if st.button("❌ Excluir Empresa Permanentemente", key="excluir_emp_definitivo"):
@@ -492,17 +518,28 @@ if st.session_state.perfil == "Admin":
                     df_empresas = df_empresas[df_empresas['cnpj_limpo_check'] != e_target]
                     df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
                     salvar_dados(df_empresas, FILE_EMPRESAS)
-                    st.success("🗑️ Empresa excluída com sucesso!")
+                    
+                    # ATUALIZAÇÃO: Mensagem de Exclusão e Redirecionamento
+                    st.error("🗑️ Empresa excluída permanentemente!")
+                    st.session_state.aba_empresa_index = "Listar"
+                    time.sleep(1)
                     st.rerun()
 
     # ==================== ABA: PRESTADORES ====================
     with menu[4]:
         st.subheader("🔧 Gerenciamento de Prestadores (Guinchos)")
-        opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True)
+        
+        if "aba_prestador_index" not in st.session_state:
+            st.session_state.aba_prestador_index = "Listar"
+            
+        opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_prestador_index == "Listar" else 1)
+        
         if opcao_p == "Listar":
+            st.session_state.aba_prestador_index = "Listar"
             if df_prestadores.empty: st.info("Nenhum prestador cadastrado.")
             else: st.dataframe(df_prestadores.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
+            st.session_state.aba_prestador_index = "Incluir / Editar"
             modo_p = st.checkbox("Editar prestador existente")
             p_target = None
             dados_p_ant = None
@@ -535,7 +572,11 @@ if st.session_state.perfil == "Admin":
                     else:
                         df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','tipo','telefone','cidade','est','status']] = [n_prest.upper(), t_prest.upper(), tel_p, cid_p.upper(), est_p, stat_p]
                     salvar_dados(df_prestadores, FILE_PRESTADORES)
+                    
+                    # ATUALIZAÇÃO: Mensagem de Sucesso e Redirecionamento
                     st.success("✅ Prestador salvo com sucesso!")
+                    st.session_state.aba_prestador_index = "Listar"
+                    time.sleep(1)
                     st.rerun()
 
             if modo_p and p_target is not None:
@@ -543,7 +584,11 @@ if st.session_state.perfil == "Admin":
                 if st.button("❌ Excluir Prestador Permanentemente", key="del_prest_btn_novo"):
                     df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target]
                     salvar_dados(df_prestadores, FILE_PRESTADORES)
-                    st.success("🗑️ Prestador excluído com sucesso!")
+                    
+                    # ATUALIZAÇÃO: Mensagem de Exclusão e Redirecionamento
+                    st.error("🗑️ Prestador excluído permanentemente!")
+                    st.session_state.aba_prestador_index = "Listar"
+                    time.sleep(1)
                     st.rerun()
 
 # --- VISÃO DAS EMPRESAS PARCEIRAS ---
@@ -552,12 +597,18 @@ else:
     
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
-        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Alterar Status"], horizontal=True)
+        
+        if "aba_parceiro_index" not in st.session_state:
+            st.session_state.aba_parceiro_index = "Visualizar"
+            
+        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Alterar Status"], horizontal=True, index=0 if st.session_state.aba_parceiro_index == "Visualizar" else 1)
         
         if op_part == "Visualizar":
+            st.session_state.aba_parceiro_index = "Visualizar"
             if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado.")
             else: st.dataframe(df_filtrado_p.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
+            st.session_state.aba_parceiro_index = "Incluir / Alterar Status"
             modo_part = st.checkbox("Alterar status de cliente existente")
             part_target = None
             dados_part_ant = None
@@ -592,7 +643,11 @@ else:
                     else:
                         df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome.upper(), p_cpf, p_tel, p_vei.upper(), p_pla.upper(), p_est, p_stat]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Atualizado com sucesso!")
+                    
+                    # ATUALIZAÇÃO: Mensagem de Sucesso e Redirecionamento Parceiro
+                    st.success("✅ Registro atualizado com sucesso!")
+                    st.session_state.aba_parceiro_index = "Visualizar"
+                    time.sleep(1)
                     st.rerun()
 
             if modo_part and part_target is not None:
@@ -600,7 +655,11 @@ else:
                 if st.button("❌ Excluir Cliente Permanentemente", key="del_part_btn_novo"):
                     df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("🗑️ Cliente excluído com sucesso!")
+                    
+                    # ATUALIZAÇÃO: Mensagem de Exclusão e Redirecionamento Parceiro
+                    st.error("🗑️ Cliente excluído permanentemente!")
+                    st.session_state.aba_parceiro_index = "Visualizar"
+                    time.sleep(1)
                     st.rerun()
 
     with menu_parceiro[1]:
