@@ -38,12 +38,11 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
-# Funções de Leitura e Escrita com conversão segura de tipos
+# Funções de Leitura e Escrita
 def carregar_dados(caminho):
     try:
         df = pd.read_csv(caminho)
         df.columns = df.columns.str.strip().str.lower()
-        # Garante que tudo seja lido de forma limpa e sem valores nulos perigosos
         for col in df.columns:
             df[col] = df[col].fillna("").astype(str)
         return df
@@ -53,29 +52,71 @@ def carregar_dados(caminho):
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
 
-# Função para Gerar o relatório formatado para Impressão / Salvar PDF
-def exportar_pdf_html(df):
-    html = f"""
+# Gerador de Relatório PDF/HTML Elegante e Personalizado por Empresa
+def exportar_pdf_html_bonito(df_os_rows):
+    cards_html = ""
+    for _, row in df_os_rows.iterrows():
+        empresa_os = str(row['empresa']).upper()
+        # Cores dinâmicas baseadas na empresa responsável
+        cor_topo = "#7B2CBF" if "AD RASTREAMENTO" in empresa_os else "#1E3A8A"
+        
+        cards_html += f"""
+        <div style="border: 2px solid #ddd; border-radius: 8px; margin-bottom: 30px; overflow: hidden; page-break-inside: avoid;">
+            <div style="background-color: {cor_topo}; color: white; padding: 15px; font-size: 18px; font-weight: bold; text-align: center;">
+                {empresa_os} - CENTRAL DE ASSISTÊNCIA 24H
+            </div>
+            <div style="padding: 20px; font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="width: 50%; padding: 5px; font-size: 14px;"><strong>Nº do Chamado (OS):</strong> {row['id']}</td>
+                        <td style="width: 50%; padding: 5px; font-size: 14px; text-align: right;"><strong>Data/Hora:</strong> {row['data_hora']}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="padding: 5px; font-size: 14px; border-bottom: 1px solid #eee;"><strong>Tipo de Serviço:</strong> <span style="color: #E53935; font-weight: bold;">{row['tipo_servico']}</span></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 5px 5px 5px; font-size: 14px;"><strong>Cliente:</strong> {str(row['cliente_nome']).upper()} (ID: {row['cliente_id']})</td>
+                        <td style="padding: 10px 5px 5px 5px; font-size: 14px; text-align: right;"><strong>Prestador Acionado:</strong> {str(row['prestador']).upper()}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="padding: 5px; font-size: 14px;"><strong>Endereço de Origem:</strong> {row['localizacao']}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="padding: 5px; font-size: 14px; border-bottom: 1px solid #eee;"><strong>Endereço de Destino:</strong> {row['destino']}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="padding: 10px 5px 5px 5px; font-size: 13px; background-color: #f9f9f9; border-radius: 4px; margin-top: 5px;">
+                            <strong>Observações do Atendimento:</strong><br>
+                            {row['obs'] if row['obs'] else 'Nenhuma observação registrada.'}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        """
+        
+    html_completo = f"""
     <html>
     <head>
+    <title>Relatório de Acionamentos</title>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        h2 {{ color: #7B2CBF; text-align: center; }}
-        table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-        th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }}
-        th {{ background-color: #7B2CBF; color: white; }}
-        tr:nth-child(even) {{ background-color: #f2f2f2; }}
+        body {{ font-family: Arial, sans-serif; margin: 30px; background-color: #fff; }}
+        .header {{ text-align: center; margin-bottom: 40px; border-bottom: 3px double #7B2CBF; padding-bottom: 10px; }}
+        .header h1 {{ margin: 0; color: #333; font-size: 26px; }}
+        .header p {{ margin: 5px 0 0 0; color: #666; font-size: 14px; }}
     </style>
     </head>
     <body>
-        <h2>AD RASTREAMENTO VEICULAR - RELATÓRIO DE ACIONAMENTOS</h2>
-        <p>Data de Emissão: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
-        {df.to_html(index=False, classes='table')}
+        <div class="header">
+            <h1>RELATÓRIO DETALHADO DE ACIONAMENTOS</h1>
+            <p>Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+        </div>
+        {cards_html}
     </body>
     </html>
     """
-    b64 = base64.b64encode(html.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="relatorio_assistencia_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">📄 Baixar Relatório (Visualizar/Imprimir PDF)</button></a>'
+    b64 = base64.b64encode(html_completo.encode()).decode()
+    href = f'<a href="data:text/html;base64,{b64}" download="relatorio_detalhado_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Relatório Customizado (Visualizar/Imprimir PDF)</button></a>'
     return href
 
 # Controle de Sessão / Login
@@ -116,7 +157,7 @@ if not st.session_state.logado:
                     st.error("Usuário ou senha incorretos para a empresa informada.")
     st.stop()
 
-# Menu superior com informações de Logoff
+# Menu superior
 col_user, col_logout = st.columns([5, 1])
 with col_user:
     st.write(f"**Central AD 24h | Empresa:** `{st.session_state.user}`")
@@ -125,7 +166,7 @@ with col_logout:
         st.session_state.logado = False
         st.rerun()
 
-# Carregamento dos Bancos de Dados de forma segura
+# Carregamento dos Bancos de Dados
 df_clientes = carregar_dados(FILE_CLIENTES)
 df_empresas = carregar_dados(FILE_EMPRESAS)
 df_prestadores = carregar_dados(FILE_PRESTADORES)
@@ -158,7 +199,6 @@ if st.session_state.perfil == "Admin":
             if df_filtrado_cli.empty:
                 st.error("Nenhum cliente encontrado com esse termo de busca.")
             else:
-                # CORREÇÃO DA LINHA 167: str().upper() impede o travamento caso falte algum dado
                 lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Placa: {str(c['pla']).upper()}" for _, c in df_filtrado_cli.iterrows()]
                 c_ed_str = st.selectbox("Selecione o cliente confirmado abaixo:", options=lista_ed_ops, key="sel_ed")
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
@@ -244,14 +284,15 @@ if st.session_state.perfil == "Admin":
 
     # ==================== ABA: RELATÓRIOS ====================
     with menu[1]:
-        st.subheader("📋 Relatórios de Ordens de Serviço abertas")
+        st.subheader("📋 Painel de Controle de Acionamentos")
         if df_os.empty: 
             st.info("Nenhuma OS aberta no momento.")
         else: 
             st.dataframe(df_os, use_container_width=True)
             st.write("---")
-            st.markdown("### 🖨️ Exportação de Documentos")
-            st.markdown(exportar_pdf_html(df_os), unsafe_allow_html=True)
+            st.markdown("### 🖨️ Impressão e Download de Relatório Customizado")
+            # Chama o gerador profissional estruturado por cards elegantes
+            st.markdown(exportar_pdf_html_bonito(df_os), unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
@@ -275,7 +316,23 @@ if st.session_state.perfil == "Admin":
             vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_ant is not None else "", key="c_vei")
             pla = st.text_input("Placa:", value=str(dados_ant['pla']) if dados_ant is not None else "", key="c_pla")
             est = st.text_input("Estado (UF):", value=str(dados_ant['est']) if dados_ant is not None else "RN", key="c_est")
-            emp = st.text_input("Empresa Vinculada:", value=str(dados_ant['emp_name']) if dados_ant is not None else "AD Rastreamento Veicular", key="c_emp")
+            
+            # CORREÇÃO DA VINCULAÇÃO DE EMPRESAS: Caixa de seleção dinâmica baseada no banco de empresas
+            lista_empresas_disponiveis = ["AD Rastreamento Veicular"]
+            if not df_empresas.empty:
+                # Carrega as empresas reais cadastradas convertendo para maiúsculo para padronizar
+                lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()]
+                if "AD RASTREAMENTO VEICULAR" not in lista_empresas_disponiveis:
+                    lista_empresas_disponiveis.insert(0, "AD RASTREAMENTO VEICULAR")
+            
+            # Define o index padrão caso esteja editando um cliente
+            idx_emp = 0
+            if dados_ant is not None:
+                emp_ant_upper = str(dados_ant['emp_name']).upper()
+                if emp_ant_upper in lista_empresas_disponiveis:
+                    idx_emp = lista_empresas_disponiveis.index(emp_ant_upper)
+                    
+            emp = st.selectbox("Selecione a Empresa Vinculada para este Cliente:", options=lista_empresas_disponiveis, index=idx_emp, key="c_emp")
             status = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(str(dados_ant['status'])), key="c_status")
             
             if st.button("Salvar Cliente", key="save_cli_btn_novo"):
@@ -284,12 +341,12 @@ if st.session_state.perfil == "Admin":
                 else:
                     if not modo:
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome, 'cpf': cpf, 'tel': tel, 'vei': vei, 'pla': pla, 'est': est, 'emp_name': emp, 'status': status}])
+                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome, 'cpf': cpf, 'tel': tel, 'vei': vei, 'pla': pla, 'est': est, 'emp_name': emp.upper(), 'status': status}])
                         df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome, cpf, tel, vei, pla, est, emp, status]
+                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome, cpf, tel, vei, pla, est, emp.upper(), status]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Cliente salvo com sucesso!")
+                    st.success("✅ Cliente salvo e vinculado com sucesso!")
                     st.rerun()
 
             if modo and c_target is not None:
@@ -317,7 +374,7 @@ if st.session_state.perfil == "Admin":
             else: dados_e_ant = None
             
             cnpj = st.text_input("CNPJ (Senha de acesso):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
-            n_emp = st.text_input("Nome da Empresa (Usuário):", value=str(dados_e_ant['nome']) if dados_e_ant is not None else "", key="e_nome")
+            n_emp = st.text_input("Nome da Empresa (Usuário):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
             resp = st.text_input("Responsável:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "", key="e_resp")
             tel_e = st.text_input("Telefone da Central:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
             mail = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
@@ -328,10 +385,10 @@ if st.session_state.perfil == "Admin":
                     st.error("CNPJ e Nome da Empresa são obrigatórios.")
                 else:
                     if not modo_e:
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp.lower(), 'responsavel': resp, 'telefone': tel_e, 'email': mail, 'status': stat_e}])
+                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp.upper(), 'responsavel': resp, 'telefone': tel_e, 'email': mail, 'status': stat_e}])
                         df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
                     else:
-                        df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','status']] = [n_emp.lower(), resp, tel_e, mail, stat_e]
+                        df_empresas.loc[df_empresas['cnpj'].astype(str) == e_target, ['nome','responsavel','telefone','email','status']] = [n_emp.upper(), resp, tel_e, mail, stat_e]
                     salvar_dados(df_empresas, FILE_EMPRESAS)
                     st.success("✅ Empresa salva com sucesso!")
                     st.rerun()
@@ -411,7 +468,7 @@ else:
             p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "", key="part_nome")
             p_cpf = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
             p_tel = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
-            p_vei = st.text_input("Veículo:", value=str(dados_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
+            p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
             p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
             p_est = st.text_input("UF:", value=str(dados_part_ant['est']) if dados_part_ant is not None else "RN", key="part_est")
             p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(str(dados_part_ant['status'])), key="part_status")
@@ -422,7 +479,7 @@ else:
                 else:
                     if not modo_part:
                         prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome, 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei, 'pla': p_pla, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada, 'status': p_stat}])
+                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome, 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei, 'pla': p_pla, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat}])
                         df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
                     else:
                         df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome, p_cpf, p_tel, p_vei, p_pla, p_est, p_stat]
