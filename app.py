@@ -96,7 +96,7 @@ def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
     salvar_no_github(caminho)
 
-# Gerador de Relatório Oficial Estruturado (Modelo da Foto)
+# Gerador de Relatório Oficial Estruturado (Modelo exato da Foto)
 def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
@@ -186,85 +186,45 @@ df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefo
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
 df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs'])
 
-# Interface de Login / Portal do Cliente
+# --- TELA DE LOGIN ÚNICA DA CENTRAL ---
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">Portal de Serviços AD</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
     
-    aba_login, aba_autocadastro = st.tabs(["🔑 Acesso Interno / Parceiros", "📱 Área de Cadastro do Cliente"])
-    
-    with aba_login:
-        col1, col2, col3 = st.columns([1, 1.5, 1])
-        with col2:
-            st.markdown("#### 🔓 Digite suas credenciais")
-            usuario_input = apenas_numeros_letras(st.text_input("Usuário (Nome da Empresa):"))
-            senha_input = apenas_numeros_letras(st.text_input("Senha (CNPJ):", type="password"))
-            
-            if st.button("Entrar no Sistema", use_container_width=True):
-                if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
-                    st.session_state.logado = True
-                    st.session_state.user = "AD Rastreamento (ADMIN)"
-                    st.session_state.perfil = "Admin"
-                    st.rerun()
-                else:
-                    if not df_empresas.empty:
-                        df_empresas_login = df_empresas.copy()
-                        df_empresas_login['cnpj_comparar'] = df_empresas_login['cnpj'].apply(apenas_numeros_letras)
-                        df_empresas_login['nome_comparar'] = df_empresas_login['nome'].apply(apenas_numeros_letras)
-                        
-                        parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_comparar'] == senha_input) & (df_empresas_login['nome_comparar'] == usuario_input)]
-                        if not parceiro_valid.empty:
-                            st.session_state.logado = True
-                            st.session_state.user = parceiro_valid.iloc[0]['nome'].upper()
-                            st.session_state.perfil = "Parceiro"
-                            st.session_state.empresa_vinculada = parceiro_valid.iloc[0]['nome']
-                            st.rerun()
-                        else: st.error("Usuário ou senha incorretos.")
-                    else: st.error("Nenhuma empresa homologada em banco.")
-                    
-    with aba_autocadastro:
-        st.markdown("#### 📝 Formulário de Ativação de Assistência 24h")
-        st.write("Preencha todos os campos do seu veículo abaixo. Suas informações serão integradas à nossa central imediatamente.")
+    st.write("---")
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.markdown("### 🔑 Digite suas credenciais de acesso")
+        usuario_input = apenas_numeros_letras(st.text_input("Usuário (Nome da Empresa):"))
+        senha_input = apenas_numeros_letras(st.text_input("Senha (CNPJ):", type="password"))
         
-        c_nome = st.text_input("Seu Nome Completo:", key="pub_nome")
-        c_cpf = st.text_input("Seu CPF ou CNPJ:", key="pub_cpf")
-        c_tel = st.text_input("Seu Telefone / WhatsApp (Com DDD):", key="pub_tel")
-        c_vei = st.text_input("Modelo do Veículo e Ano (Ex: Polo 2020):", key="pub_vei")
-        c_pla = st.text_input("Placa do Veículo:", key="pub_pla")
-        c_est = st.selectbox("Estado (UF) do Veículo:", options=ESTADOS_BR, index=19, key="pub_est")
-        
-        lista_empresas_publicas = ["AD RASTREAMENTO VEICULAR"]
-        if not df_empresas.empty:
-            lista_empresas_publicas = [str(e['nome']).upper() for _, e in df_empresas.iterrows()]
-            if "AD RASTREAMENTO VEICULAR" not in lista_empresas_publicas:
-                lista_empresas_publicas.insert(0, "AD RASTREAMENTO VEICULAR")
-                
-        c_emp = st.selectbox("Selecione qual a sua Empresa de Rastreamento:", options=lista_empresas_publicas, key="pub_emp")
-        
-        if st.button("🚀 Confirmar e Enviar Cadastro", use_container_width=True):
-            if not c_nome or not c_pla or not c_tel:
-                st.error("Por favor, preencha o Nome, Placa e Telefone para concluir.")
-            else:
-                prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                
-                novo_cliente_pub = pd.DataFrame([{
-                    'id': str(prox_id),
-                    'nome': c_nome.upper(),
-                    'cpf': apenas_numeros_letras(c_cpf),
-                    'tel': apenas_numeros_letras(c_tel),
-                    'vei': c_vei.upper(),
-                    'pla': c_pla.upper().replace("-","").replace(" ",""),
-                    'est': c_est,
-                    'emp_name': c_emp.upper(),
-                    'status': "Ativo"
-                }])
-                df_clientes = pd.concat([df_clientes, novo_cliente_pub], ignore_index=True)
-                salvar_dados(df_clientes, FILE_CLIENTES)
-                st.success("🎉 Cadastro realizado com sucesso! Sua cobertura 24h já está ativa na Central.")
-                time.sleep(2)
+        if st.button("Entrar no Sistema", use_container_width=True):
+            if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
+                st.session_state.logado = True
+                st.session_state.user = "AD Rastreamento (ADMIN)"
+                st.session_state.perfil = "Admin"
                 st.rerun()
+            else:
+                if not df_empresas.empty:
+                    df_empresas_login = df_empresas.copy()
+                    df_empresas_login['cnpj_comparar'] = df_empresas_login['cnpj'].apply(apenas_numeros_letras)
+                    df_empresas_login['nome_comparar'] = df_empresas_login['nome'].apply(apenas_numeros_letras)
+                    
+                    parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_comparar'] == senha_input) & (df_empresas_login['nome_comparar'] == usuario_input)]
+                    if not parceiro_valid.empty:
+                        st.session_state.logado = True
+                        st.session_state.user = parceiro_valid.iloc[0]['nome'].upper()
+                        st.session_state.perfil = "Parceiro"
+                        st.session_state.empresa_vinculada = parceiro_valid.iloc[0]['nome']
+                        st.rerun()
+                    else: st.error("Usuário ou senha incorretos.")
+                else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# --- ÁREA INTERNA LOGADA ---
+# Cabeçalho Interno Logado
+st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
+
 col_user, col_logout = st.columns([5, 1])
 with col_user:
     st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
@@ -273,7 +233,10 @@ with col_logout:
         st.session_state.logado = False
         st.rerun()
 
-# --- VISÃO DO ADMINISTRADOR ---
+def colorir_status(val):
+    return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
+
+# --- VISÃO DO ADMINISTRADOR MASTER ---
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
@@ -523,7 +486,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.aba_empresa_index = "Listar"
             if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
             else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
-        # CORREÇÃO DA LINHA 533: else reestruturado sem o caractere "t" parasita
+        # CORREÇÃO DA LINHA 533: Erro rosa eliminado em definitivo
         else:
             st.session_state.aba_empresa_index = "Incluir / Editar"
             modo_e = st.checkbox("Editar empresa existente")
@@ -614,7 +577,7 @@ if st.session_state.perfil == "Admin":
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
                 if not n_prest or not tel_p_raw: st.error("Nome e Telefone são obrigatórios.")
                 else:
-                    tel_p = apenas_numeros_letras(tel_p_raw)
+                    tel_p = cigars = apenas_numeros_letras(tel_p_raw)
                     if not modo_p:
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
                         novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest.upper(), 'tipo': t_prest.upper(), 'telefone': tel_p, 'cidade': cid_p.upper(), 'est': est_p, 'status': stat_p}])
@@ -637,24 +600,25 @@ if st.session_state.perfil == "Admin":
                     time.sleep(1)
                     st.rerun()
 
-# --- INTERFACE DE PARCEIROS REDUZIDA ---
+# --- INTERFACE DE PARCEIROS TOTALMENTE RESTRITA (G2, FORTIA, ETC.) ---
 else:
-    menu_parceiro = st.tabs(["👥 Nossos Clientes", "📋 Histórico de Chamados"])
+    menu_parceiro = st.tabs(["👥 Cadastro de Clientes", "📋 Histórico de Chamados"])
     
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         if "aba_parceiro_index" not in st.session_state: st.session_state.aba_parceiro_index = "Visualizar"
-        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Alterar Status"], horizontal=True, index=0 if st.session_state.aba_parceiro_index == "Visualizar" else 1)
+        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Editar Cliente"], horizontal=True, index=0 if st.session_state.aba_parceiro_index == "Visualizar" else 1)
         
         if op_part == "Visualizar":
             st.session_state.aba_parceiro_index = "Visualizar"
-            if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado.")
+            if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado por sua empresa.")
             else: st.dataframe(df_filtrado_p.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
-            st.session_state.aba_parceiro_index = "Incluir / Alterar Status"
-            modo_part = st.checkbox("Alterar status de cliente existente")
+            st.session_state.aba_parceiro_index = "Incluir / Editar Cliente"
+            modo_part = st.checkbox("Editar cliente existente")
             part_target = None
             dados_part_ant = None
+            
             if modo_part and not df_filtrado_p.empty:
                 sel_part = st.selectbox("Selecione o seu cliente:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_filtrado_p.iterrows()])
                 part_target = sel_part.split("-")[0].strip()
@@ -700,5 +664,5 @@ else:
 
     with menu_parceiro[1]:
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
-        if df_os_parceiro.empty: st.info("Nenhum acionamento registrado.")
+        if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
         else: st.dataframe(df_os_parceiro, use_container_width=True)
