@@ -221,6 +221,10 @@ if not st.session_state.logado:
                 else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
+# Cabeçalho Interno Logado
+st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
+
 col_user, col_logout = st.columns([5, 1])
 with col_user:
     st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
@@ -228,6 +232,9 @@ with col_logout:
     if st.button("Sair / Logoff"):
         st.session_state.logado = False
         st.rerun()
+
+def colorir_status(val):
+    return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
 
 # --- VISÃO DO ADMINISTRADOR MASTER ---
 if st.session_state.perfil == "Admin":
@@ -248,7 +255,7 @@ if st.session_state.perfil == "Admin":
                 
                 df_filtrado_cli = df_clientes_busca[
                     df_clientes_busca['nome'].str.lower().str.contains(busca) |
-                    df_filtrado_cli['pla'].str.lower().str.contains(busca) |
+                    df_clientes_busca['pla'].str.lower().str.contains(busca) |
                     df_clientes_busca['cpf_limpo'].str.contains(busca_limpa)
                 ]
             else:
@@ -406,7 +413,7 @@ if st.session_state.perfil == "Admin":
         if opcao == "Listar":
             st.session_state.aba_cliente_index = "Listar"
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
-            else: st.dataframe(df_clientes.style.map(colorir_status, subset=['status']), use_container_width=True)
+            else: st.dataframe(df_clientes.style.applymap(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_cliente_index = "Incluir / Editar"
             modo = st.checkbox("Editar cliente existente")
@@ -420,18 +427,12 @@ if st.session_state.perfil == "Admin":
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            # BLINK DE DADOS ATUAIS EM TELA (PREVENÇÃO DE ERROS)
-            if modo and dados_ant is not None:
-                st.markdown(f"""
-                > 📑 **Dados Cadastrados Atualmente:** > * **Nome:** {dados_ant['nome']} | **CPF/CNPJ:** {dados_ant['cpf']} | **Telefone:** {dados_ant['tel']}  
-                > * **Veículo:** {dados_ant['vei']} | **Placa:** {dados_ant['pla']} | **Vínculo:** {dados_ant['emp_name']}  
-                """)
-                
-            nome_in = st.text_input("Nome Completo:", key="c_nome")
-            cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", key="c_cpf")
-            tel_raw = st.text_input("Telefone de Contato:", key="c_tel")
-            vei_in = st.text_input("Veículo (Modelo/Ano):", key="c_vei")
-            pla_in = st.text_input("Placa do Veículo:", key="c_pla")
+            # ATUALIZADO: Preenchimento dinâmico do valor antigo direto no campo de texto
+            nome_in = st.text_input("Nome Completo:", value=str(dados_ant['nome']).upper() if dados_ant is not None else "")
+            cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", value=str(dados_ant['cpf']) if dados_ant is not None else "")
+            tel_raw = st.text_input("Telefone de Contato:", value=str(dados_ant['tel']) if dados_ant is not None else "")
+            vei_in = st.text_input("Veículo (Modelo/Ano):", value=str(dados_ant['vei']).upper() if dados_ant is not None else "")
+            pla_in = st.text_input("Placa do Veículo:", value=str(dados_ant['pla']).upper() if dados_ant is not None else "")
             
             idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est = st.selectbox("Selecione o Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
@@ -451,7 +452,6 @@ if st.session_state.perfil == "Admin":
             status = st.selectbox("Status do Cliente:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(str(dados_ant['status'])), key="c_status")
             
             if st.button("Salvar Cliente", key="save_cli_btn_novo"):
-                # LÓGICA DE MESCLAGEM BLINDADA CONTRA APAGAMENTOS
                 if modo and dados_ant is not None:
                     nome = nome_in if nome_in else dados_ant['nome']
                     cpf = apenas_numeros_letras(cpf_raw) if cpf_raw else dados_ant['cpf']
@@ -499,7 +499,8 @@ if st.session_state.perfil == "Admin":
         if opcao_e == "Listar":
             st.session_state.aba_empresa_index = "Listar"
             if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
-            else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
+            # CORREÇÃO DA LINHA 533: Substituído map por applymap para compatibilidade de servidores
+            else: st.dataframe(df_empresas.style.applymap(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_empresa_index = "Incluir / Editar"
             modo_e = st.checkbox("Editar empresa existente")
@@ -516,25 +517,18 @@ if st.session_state.perfil == "Admin":
                 df_resultado_e = df_empresas_busca[df_empresas_busca['cnpj_limpo'] == e_target]
                 if not df_resultado_e.empty: dados_e_ant = df_resultado_e.iloc[0]
             
-            # NOVO: Texto fixo inabalável trazendo as informações do banco para a tela!
-            if modo_e and dados_e_ant is not None:
-                st.markdown(f"""
-                > 🏢 **Dados Cadastrados Atualmente:** > * **CNPJ:** {dados_e_ant['cnpj']} | **Nome Empresa (User):** {str(dados_e_ant['nome']).upper()}  
-                > * **Responsável:** {dados_e_ant['responsavel']} | **Telefone Central:** {dados_e_ant['telefone']} | **E-mail:** {dados_e_ant['email']}  
-                """)
-            
-            cnpj_raw = st.text_input("Alterar CNPJ da Empresa (Deixe em branco para não mexer):", key="e_cnpj")
-            n_emp_in = st.text_input("Alterar Nome da Empresa (Deixe em branco para não mexer):", key="e_nome")
-            resp_in = st.text_input("Alterar Nome do Responsável:", key="e_resp")
-            tel_e_raw = st.text_input("Alterar Telefone da Central 24h:", key="e_tel")
-            mail_in = st.text_input("Alterar E-mail corporativo:", key="e_mail")
+            # CORREÇÃO CHAVE: Preenchimento automático do valor antigo diretamente na caixa de edição
+            cnpj_raw = st.text_input("CNPJ da Empresa (Aceita pontos/traços):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "")
+            n_emp_in = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "")
+            resp_in = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "")
+            tel_e_raw = st.text_input("Telefone da Central 24h:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "")
+            mail_in = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "")
             
             idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if (dados_e_ant is not None and str(dados_e_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est_e = st.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e, key="e_est")
             stat_e = st.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(str(dados_e_ant['status'])), key="e_status")
             
             if st.button("Salvar Empresa", key="save_emp_btn_novo_direto"):
-                # REGRA DE OURO DE MESCLAGEM: Se o usuário não digitou nada na caixa, pega o que já estava salvo no banco!
                 if modo_e and dados_e_ant is not None:
                     cnpj = apenas_numeros_letras(cnpj_raw) if cnpj_raw else dados_e_ant['cnpj']
                     nome_empresa = n_emp_in.upper() if n_emp_in else str(dados_e_ant['nome']).upper()
@@ -586,7 +580,7 @@ if st.session_state.perfil == "Admin":
         if opcao_p == "Listar":
             st.session_state.aba_prestador_index = "Listar"
             if df_prestadores.empty: st.info("Nenhum prestador cadastrado.")
-            else: st.dataframe(df_prestadores, use_container_width=True)
+            else: st.dataframe(df_prestadores.style.applymap(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_prestador_index = "Incluir / Editar"
             modo_p = st.checkbox("Editar prestador existente")
@@ -600,15 +594,10 @@ if st.session_state.perfil == "Admin":
                 df_busca_p = df_prestadores[df_prestadores['id'].astype(str) == p_target]
                 if not df_busca_p.empty: dados_p_ant = df_busca_p.iloc[0]
             
-            if modo_p and dados_p_ant is not None:
-                st.markdown(f"""
-                > 🔧 **Dados Cadastrados Atualmente:** > * **Nome Prestador:** {dados_p_ant['nome']} | **Serviço:** {dados_p_ant['tipo']}  
-                > * **Telefone:** {dados_p_ant['telefone']} | **Estado (UF):** {dados_p_ant['est']}  
-                """)
-            
-            n_prest_in = st.text_input("Nome do Guincho/Prestador:", key="p_nome")
-            t_prest_in = st.text_input("Tipo de Serviço prestado:", key="p_tipo")
-            tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", key="p_tel")
+            # ATUALIZADO: Preenchimento automático do valor antigo diretamente na caixa de edição
+            n_prest_in = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "")
+            t_prest_in = st.text_input("Tipo de Serviço prestado:", value=str(dados_p_ant['tipo']).upper() if dados_p_ant is not None else "GUINCHO")
+            tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "")
             
             idx_est_p = ESTADOS_BR.index(str(dados_p_ant['est']).upper()) if (dados_p_ant is not None and str(dados_p_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est_p = st.selectbox("Selecione o Estado (UF) de Atuação do Prestador:", options=ESTADOS_BR, index=idx_est_p, key="p_est")
@@ -661,7 +650,7 @@ else:
         if op_part == "Visualizar":
             st.session_state.aba_parceiro_index = "Visualizar"
             if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado por sua empresa.")
-            else: st.dataframe(df_filtrado_p.style.map(colorir_status, subset=['status']), use_container_width=True)
+            else: st.dataframe(df_filtrado_p.style.applymap(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_parceiro_index = "Incluir / Editar Cliente"
             modo_part = st.checkbox("Editar cliente existente")
@@ -674,17 +663,12 @@ else:
                 df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
                 if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
             
-            if modo_part and dados_part_ant is not None:
-                st.markdown(f"""
-                > 👥 **Dados Cadastrados Atualmente:** > * **Cliente:** {dados_part_ant['nome']} | **CPF:** {dados_part_ant['cpf']} | **Tel:** {dados_part_ant['tel']}  
-                > * **Veículo:** {dados_part_ant['vei']} | **Placa:** {dados_part_ant['pla']}  
-                """)
-            
-            p_nome_in = st.text_input("Nome Completo:", key="part_nome")
-            p_cpf_raw = st.text_input("CPF:", key="part_cpf")
-            p_tel_raw = st.text_input("Telefone:", key="part_tel")
-            p_vei_in = st.text_input("Veículo:", key="part_vei")
-            p_pla_in = st.text_input("Placa:", key="part_pla")
+            # ATUALIZADO: Preenchimento automático do valor antigo diretamente na caixa para os parceiros
+            p_nome_in = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']).upper() if dados_part_ant is not None else "")
+            p_cpf_raw = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "")
+            p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "")
+            p_vei_in = st.text_input("Veículo:", value=str(dados_part_ant['vei']).upper() if dados_part_ant is not None else "")
+            p_pla_in = st.text_input("Placa:", value=str(dados_part_ant['pla']).upper() if dados_part_ant is not None else "")
             
             idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             p_est = st.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
