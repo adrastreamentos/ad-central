@@ -48,7 +48,7 @@ def obter_hora_brasilia():
     fuso_brasilia = timezone(timedelta(hours=-3))
     return datetime.now(fuso_brasilia).strftime("%Y-%m-%d %H:%M:%S")
 
-# Função de limpeza absoluta de documentos e textos
+# Função de limpeza de documentos e textos
 def apenas_numeros_letras(texto):
     return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
@@ -186,7 +186,7 @@ df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefo
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
 df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs'])
 
-# --- TELA DE LOGIN ÚNICA DA CENTRAL ---
+# --- TELA DE LOGIN ---
 if not st.session_state.logado:
     st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
@@ -221,7 +221,7 @@ if not st.session_state.logado:
                 else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# Cabeçalho Interno Logado
+# Cabeçalho Interno
 st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
 
@@ -265,7 +265,7 @@ if st.session_state.perfil == "Admin":
                 st.error("Nenhum cliente encontrado com esse termo de busca.")
             else:
                 lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Placa: {str(c['pla']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
-                c_ed_str = st.selectbox("Selecione o cliente confirmado abaixo:", options=lista_ed_ops, key="sel_ed")
+                c_ed_str = st.selectbox("Selecione o cliente confirmed abaixo:", options=lista_ed_ops, key="sel_ed")
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
                 cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
                 
@@ -426,11 +426,12 @@ if st.session_state.perfil == "Admin":
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            nome = st.text_input("Nome Completo:", value=str(dados_ant['nome']) if dados_ant is not None else "", key="c_nome")
+            # NOVO: Preenchimento automático se estiver no modo edição
+            nome = st.text_input("Nome Completo:", value=str(dados_ant['nome']).upper() if dados_ant is not None else "", key="c_nome")
             cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
             tel_raw = st.text_input("Telefone de Contato:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
-            vei = st.text_input("Veículo (Modelo/Ano):", value=str(dados_ant['vei']) if dados_ant is not None else "", key="c_vei")
-            pla = st.text_input("Placa do Veículo:", value=str(dados_ant['pla']) if dados_ant is not None else "", key="c_pla")
+            vei = st.text_input("Veículo (Modelo/Ano):", value=str(dados_ant['vei']).upper() if dados_ant is not None else "", key="c_vei")
+            pla = st.text_input("Placa do Veículo:", value=str(dados_ant['pla']).upper() if dados_ant is not None else "", key="c_pla")
             
             idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est = st.selectbox("Selecione o Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
@@ -486,7 +487,6 @@ if st.session_state.perfil == "Admin":
             st.session_state.aba_empresa_index = "Listar"
             if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
             else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
-        # CORREÇÃO DA LINHA 533: Erro rosa eliminado em definitivo
         else:
             st.session_state.aba_empresa_index = "Incluir / Editar"
             modo_e = st.checkbox("Editar empresa existente")
@@ -503,9 +503,10 @@ if st.session_state.perfil == "Admin":
                 df_resultado_e = df_empresas_busca[df_empresas_busca['cnpj_limpo'] == e_target]
                 if not df_resultado_e.empty: dados_e_ant = df_resultado_e.iloc[0]
             
+            # NOVO: Preenchimento automático de todos os campos da empresa selecionada para edição
             cnpj_raw = st.text_input("CNPJ da Empresa (Aceita pontos/traços):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
             n_emp = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
-            resp = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']) if dados_e_ant is not None else "", key="e_resp")
+            resp = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "", key="e_resp")
             tel_e_raw = st.text_input("Telefone da Central 24h:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
             mail = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
             
@@ -565,10 +566,11 @@ if st.session_state.perfil == "Admin":
                 df_busca_p = df_prestadores[df_prestadores['id'].astype(str) == p_target]
                 if not df_busca_p.empty: dados_p_ant = df_busca_p.iloc[0]
             
-            n_prest = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']) if dados_p_ant is not None else "", key="p_nome")
-            t_prest = st.text_input("Tipo de Serviço prestado:", value=str(dados_p_ant['tipo']) if dados_p_ant is not None else "Guincho", key="p_tipo")
+            # NOVO: Preenchimento automático de todos os campos do prestador para edição
+            n_prest = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "", key="p_nome")
+            t_prest = st.text_input("Tipo de Serviço prestado:", value=str(dados_p_ant['tipo']).upper() if dados_p_ant is not None else "GUINCHO", key="p_tipo")
             tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
-            cid_p = st.text_input("Cidade Base de Atendimento:", value=str(dados_p_ant['cidade']) if dados_p_ant is not None else "", key="p_cid")
+            cid_p = st.text_input("Cidade Base de Atendimento:", value=str(dados_p_ant['cidade']).upper() if dados_p_ant is not None else "", key="p_cid")
             
             idx_est_p = ESTADOS_BR.index(str(dados_p_ant['est']).upper()) if (dados_p_ant is not None and str(dados_p_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est_p = st.selectbox("Selecione o Estado (UF) de Atuação do Prestador:", options=ESTADOS_BR, index=idx_est_p, key="p_est")
@@ -577,7 +579,7 @@ if st.session_state.perfil == "Admin":
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
                 if not n_prest or not tel_p_raw: st.error("Nome e Telefone são obrigatórios.")
                 else:
-                    tel_p = cigars = apenas_numeros_letras(tel_p_raw)
+                    tel_p = apenas_numeros_letras(tel_p_raw)
                     if not modo_p:
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
                         novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest.upper(), 'tipo': t_prest.upper(), 'telefone': tel_p, 'cidade': cid_p.upper(), 'est': est_p, 'status': stat_p}])
@@ -600,7 +602,7 @@ if st.session_state.perfil == "Admin":
                     time.sleep(1)
                     st.rerun()
 
-# --- INTERFACE DE PARCEIROS TOTALMENTE RESTRITA (G2, FORTIA, ETC.) ---
+# --- INTERFACE DE PARCEIROS RESTRITA ---
 else:
     menu_parceiro = st.tabs(["👥 Cadastro de Clientes", "📋 Histórico de Chamados"])
     
@@ -625,11 +627,12 @@ else:
                 df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
                 if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
             
-            p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']) if dados_part_ant is not None else "", key="part_nome")
+            # NOVO: Preenchimento automático para os parceiros editarem seus próprios clientes
+            p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']).upper() if dados_part_ant is not None else "", key="part_nome")
             p_cpf_raw = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
             p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
-            p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']) if dados_part_ant is not None else "", key="part_vei")
-            p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']) if dados_part_ant is not None else "", key="part_pla")
+            p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']).upper() if dados_part_ant is not None else "", key="part_vei")
+            p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']).upper() if dados_part_ant is not None else "", key="part_pla")
             
             idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             p_est = st.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
