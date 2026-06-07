@@ -147,13 +147,7 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
     href = f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Relatório Oficial (PDF)</button></a>'
     return href
 
-# Carregamento e Alinhamento Seguro dos Dados
-df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
-df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
-df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','est','status'])
-df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','zap_enviado'])
-
-# Login
+# Controle de Login
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.user = ""
@@ -199,12 +193,9 @@ with col_logout:
         st.session_state.logado = False
         st.rerun()
 
-def colorir_status(val):
-    return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
-
-# --- VISÃO DO ADMINISTRADOR MASTER ---
+# --- INTERFACE MASTER DO ADMINISTRADOR RN ---
 if st.session_state.perfil == "Admin":
-    menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
+    menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Despacho", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
     # Nova OS
     with menu[0]:
@@ -355,7 +346,7 @@ if st.session_state.perfil == "Admin":
                 c_target = sel.split(" - ")[0].strip()
                 dados_ant = df_clientes[df_clientes['id'].astype(str) == c_target].iloc[0]
             
-            # ATUALIZAÇÃO VIA SESSION_STATE PARA PREENCHIMENTO AUTOMÁTICO REAL INABALÁVEL
+            # SOLUÇÃO INABALÁVEL VIA ESTADO DE VALOR PADRÃO
             val_nome = str(dados_ant['nome']).upper() if dados_ant is not None else ""
             val_cpf = str(dados_ant['cpf']) if dados_ant is not None else ""
             val_tel = str(dados_ant['tel']) if dados_ant is not None else ""
@@ -421,7 +412,7 @@ if st.session_state.perfil == "Admin":
                 e_target = apenas_numeros_letras(sel_e.split(" - ")[0])
                 dados_e_ant = df_empresas[df_empresas['cnpj'].apply(apenas_numeros_letras) == e_target].iloc[0]
             
-            # ATUALIZAÇÃO VIA SESSION_STATE PARA PREENCHIMENTO AUTOMÁTICO REAL INABALÁVEL
+            # SOLUÇÃO INABALÁVEL VIA ESTADO DE VALOR PADRÃO
             val_cnpj = str(dados_e_ant['cnpj']) if dados_e_ant is not None else ""
             val_n_emp = str(dados_e_ant['nome']).upper() if dados_e_ant is not None else ""
             val_resp = str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else ""
@@ -487,7 +478,7 @@ if st.session_state.perfil == "Admin":
                 p_target = sel_p.split(" - ")[0].strip()
                 dados_p_ant = df_prestadores[df_prestadores['id'].astype(str) == p_target].iloc[0]
             
-            # ATUALIZAÇÃO VIA SESSION_STATE PARA PREENCHIMENTO AUTOMÁTICO REAL INABALÁVEL
+            # SOLUÇÃO INABALÁVEL VIA ESTADO DE VALOR PADRÃO
             val_n_prest = str(dados_p_ant['nome']).upper() if dados_p_ant is not None else ""
             val_tel_p = str(dados_p_ant['telefone']) if dados_p_ant is not None else ""
             
