@@ -96,7 +96,7 @@ def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
     salvar_no_github(caminho)
 
-# Gerador de Relatório Oficial Estruturado (Modelo exato da Foto)
+# Gerador de Relatório Oficial Estruturado
 def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
@@ -221,10 +221,6 @@ if not st.session_state.logado:
                 else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# Cabeçalho Interno
-st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
-
 col_user, col_logout = st.columns([5, 1])
 with col_user:
     st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
@@ -232,9 +228,6 @@ with col_logout:
     if st.button("Sair / Logoff"):
         st.session_state.logado = False
         st.rerun()
-
-def colorir_status(val):
-    return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
 
 # --- VISÃO DO ADMINISTRADOR MASTER ---
 if st.session_state.perfil == "Admin":
@@ -255,7 +248,7 @@ if st.session_state.perfil == "Admin":
                 
                 df_filtrado_cli = df_clientes_busca[
                     df_clientes_busca['nome'].str.lower().str.contains(busca) |
-                    df_clientes_busca['pla'].str.lower().str.contains(busca) |
+                    df_filtrado_cli['pla'].str.lower().str.contains(busca) |
                     df_clientes_busca['cpf_limpo'].str.contains(busca_limpa)
                 ]
             else:
@@ -427,12 +420,18 @@ if st.session_state.perfil == "Admin":
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            # FLEXIBILIDADE TOTAL: Caixas de preenchimento inteligente
-            nome = st.text_input("Nome Completo:", value=str(dados_ant['nome']).upper() if dados_ant is not None else "", key="c_nome")
-            cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
-            tel_raw = st.text_input("Telefone de Contato:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
-            vei = st.text_input("Veículo (Modelo/Ano):", value=str(dados_ant['vei']).upper() if dados_ant is not None else "", key="c_vei")
-            pla = st.text_input("Placa do Veículo:", value=str(dados_ant['pla']).upper() if dados_ant is not None else "", key="c_pla")
+            # BLINK DE DADOS ATUAIS EM TELA (PREVENÇÃO DE ERROS)
+            if modo and dados_ant is not None:
+                st.markdown(f"""
+                > 📑 **Dados Cadastrados Atualmente:** > * **Nome:** {dados_ant['nome']} | **CPF/CNPJ:** {dados_ant['cpf']} | **Telefone:** {dados_ant['tel']}  
+                > * **Veículo:** {dados_ant['vei']} | **Placa:** {dados_ant['pla']} | **Vínculo:** {dados_ant['emp_name']}  
+                """)
+                
+            nome_in = st.text_input("Nome Completo:", key="c_nome")
+            cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", key="c_cpf")
+            tel_raw = st.text_input("Telefone de Contato:", key="c_tel")
+            vei_in = st.text_input("Veículo (Modelo/Ano):", key="c_vei")
+            pla_in = st.text_input("Placa do Veículo:", key="c_pla")
             
             idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est = st.selectbox("Selecione o Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
@@ -452,23 +451,29 @@ if st.session_state.perfil == "Admin":
             status = st.selectbox("Status do Cliente:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(str(dados_ant['status'])), key="c_status")
             
             if st.button("Salvar Cliente", key="save_cli_btn_novo"):
-                cpf = apenas_numeros_letras(cpf_raw)
-                tel = apenas_numeros_letras(tel_raw)
-                
-                # Se for edição, aproveita os valores originais caso os novos estejam vazios
+                # LÓGICA DE MESCLAGEM BLINDADA CONTRA APAGAMENTOS
                 if modo and dados_ant is not None:
-                    if not nome: nome = dados_ant['nome']
-                    if not pla: pla = dados_ant['pla']
+                    nome = nome_in if nome_in else dados_ant['nome']
+                    cpf = apenas_numeros_letras(cpf_raw) if cpf_raw else dados_ant['cpf']
+                    tel = apenas_numeros_letras(tel_raw) if tel_raw else dados_ant['tel']
+                    vei = vei_in if vei_in else dados_ant['vei']
+                    pla = pla_in.upper().replace("-","").replace(" ","") if pla_in else dados_ant['pla']
+                else:
+                    nome = nome_in
+                    cpf = apenas_numeros_letras(cpf_raw)
+                    tel = apenas_numeros_letras(tel_raw)
+                    vei = vei_in
+                    pla = pla_in.upper().replace("-","").replace(" ","")
                 
                 if not nome or not pla:
-                    st.error("Nome e Placa são obrigatórios para um novo registro.")
+                    st.error("Nome e Placa são obrigatórios para concluir o registro.")
                 else:
                     if not modo:
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome.upper(), 'cpf': cpf, 'tel': tel, 'vei': vei.upper(), 'pla': pla.upper().replace("-","").replace(" ",""), 'est': est, 'emp_name': emp.upper(), 'status': status}])
+                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome.upper(), 'cpf': cpf, 'tel': tel, 'vei': vei.upper(), 'pla': pla, 'est': est, 'emp_name': emp.upper(), 'status': status}])
                         df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome.upper(), cpf, tel, vei.upper(), pla.upper().replace("-","").replace(" ",""), est, emp.upper(), status]
+                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome.upper(), cpf, tel, vei.upper(), pla, est, emp.upper(), status]
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Cliente salvo com sucesso!")
                     st.session_state.aba_cliente_index = "Listar"
@@ -504,8 +509,6 @@ if st.session_state.perfil == "Admin":
             if modo_e and not df_empresas.empty:
                 lista_ops_e = [f"{str(r['cnpj'])} - {str(r['nome']).upper()}" for _, r in df_empresas.iterrows()]
                 sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", options=lista_ops_e)
-                
-                # Isola cirurgicamente o CNPJ antes de cruzar dados
                 e_target = apenas_numeros_letras(sel_e.split(" - ")[0].strip())
                 
                 df_empresas_busca = df_empresas.copy()
@@ -513,35 +516,47 @@ if st.session_state.perfil == "Admin":
                 df_resultado_e = df_empresas_busca[df_empresas_busca['cnpj_limpo'] == e_target]
                 if not df_resultado_e.empty: dados_e_ant = df_resultado_e.iloc[0]
             
-            # CORREÇÃO DEFINITIVA: Exibe os dados atuais nas caixas!
-            cnpj_raw = st.text_input("CNPJ da Empresa (Aceita pontos/traços):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
-            n_emp = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
-            resp = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "", key="e_resp")
-            tel_e_raw = st.text_input("Telefone da Central 24h:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
-            mail = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
+            # NOVO: Texto fixo inabalável trazendo as informações do banco para a tela!
+            if modo_e and dados_e_ant is not None:
+                st.markdown(f"""
+                > 🏢 **Dados Cadastrados Atualmente:** > * **CNPJ:** {dados_e_ant['cnpj']} | **Nome Empresa (User):** {str(dados_e_ant['nome']).upper()}  
+                > * **Responsável:** {dados_e_ant['responsavel']} | **Telefone Central:** {dados_e_ant['telefone']} | **E-mail:** {dados_e_ant['email']}  
+                """)
+            
+            cnpj_raw = st.text_input("Alterar CNPJ da Empresa (Deixe em branco para não mexer):", key="e_cnpj")
+            n_emp_in = st.text_input("Alterar Nome da Empresa (Deixe em branco para não mexer):", key="e_nome")
+            resp_in = st.text_input("Alterar Nome do Responsável:", key="e_resp")
+            tel_e_raw = st.text_input("Alterar Telefone da Central 24h:", key="e_tel")
+            mail_in = st.text_input("Alterar E-mail corporativo:", key="e_mail")
             
             idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if (dados_e_ant is not None and str(dados_e_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
-            est_e = st.selectbox("Selecione o Estado (UF) da Sede da Empresa:", options=ESTADOS_BR, index=idx_est_e, key="e_est")
+            est_e = st.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e, key="e_est")
             stat_e = st.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(str(dados_e_ant['status'])), key="e_status")
             
             if st.button("Salvar Empresa", key="save_emp_btn_novo_direto"):
-                cnpj = apenas_numeros_letras(cnpj_raw)
-                tel_e = apenas_numeros_letras(tel_e_raw)
-                
-                # FLEXIBILIDADE CONQUISTADA: Puxa o dado original antigo se o usuário deixar em branco
+                # REGRA DE OURO DE MESCLAGEM: Se o usuário não digitou nada na caixa, pega o que já estava salvo no banco!
                 if modo_e and dados_e_ant is not None:
-                    if not cnpj: cnpj = dados_e_ant['cnpj']
-                    if not n_emp: n_emp = dados_e_ant['nome']
+                    cnpj = apenas_numeros_letras(cnpj_raw) if cnpj_raw else dados_e_ant['cnpj']
+                    nome_empresa = n_emp_in.upper() if n_emp_in else str(dados_e_ant['nome']).upper()
+                    responsavel = resp_in.upper() if resp_in else dados_e_ant['responsavel']
+                    telefone = apenas_numeros_letras(tel_e_raw) if tel_e_raw else dados_e_ant['telefone']
+                    email = mail_in if mail_in else dados_e_ant['email']
+                else:
+                    cnpj = apenas_numeros_letras(cnpj_raw)
+                    nome_empresa = n_emp_in.upper()
+                    responsavel = resp_in.upper()
+                    telefone = apenas_numeros_letras(tel_e_raw)
+                    email = mail_in
                 
-                if not cnpj or not n_emp:
-                    st.error("CNPJ e Nome da Empresa são obrigatórios para um novo registro.")
+                if not cnpj or not nome_empresa:
+                    st.error("CNPJ e Nome da Empresa são obrigatórios para novos cadastros.")
                 else:
                     if not modo_e:
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp.upper(), 'responsavel': resp.upper(), 'telefone': tel_e, 'email': mail, 'est': est_e, 'status': stat_e}])
+                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': nome_empresa, 'responsavel': responsavel, 'telefone': telefone, 'email': email, 'est': est_e, 'status': stat_e}])
                         df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
                     else:
                         df_empresas['cnpj_limpo_check'] = df_empresas['cnpj'].apply(apenas_numeros_letras)
-                        df_empresas.loc[df_empresas['cnpj_limpo_check'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, n_emp.upper(), resp.upper(), tel_e, mail, est_e, stat_e]
+                        df_empresas.loc[df_empresas['cnpj_limpo_check'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, nome_empresa, responsavel, telefone, email, est_e, stat_e]
                         df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
                         
                     salvar_dados(df_empresas, FILE_EMPRESAS)
@@ -585,30 +600,39 @@ if st.session_state.perfil == "Admin":
                 df_busca_p = df_prestadores[df_prestadores['id'].astype(str) == p_target]
                 if not df_busca_p.empty: dados_p_ant = df_busca_p.iloc[0]
             
-            n_prest = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "", key="p_nome")
-            t_prest = st.text_input("Tipo de Serviço prestado:", value=str(dados_p_ant['tipo']).upper() if dados_p_ant is not None else "GUINCHO", key="p_tipo")
-            tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
+            if modo_p and dados_p_ant is not None:
+                st.markdown(f"""
+                > 🔧 **Dados Cadastrados Atualmente:** > * **Nome Prestador:** {dados_p_ant['nome']} | **Serviço:** {dados_p_ant['tipo']}  
+                > * **Telefone:** {dados_p_ant['telefone']} | **Estado (UF):** {dados_p_ant['est']}  
+                """)
             
-            # ATUALIZADO EXPLICITAMENTE: Removida a caixa da Cidade, mantendo apenas a do Estado (UF)
+            n_prest_in = st.text_input("Nome do Guincho/Prestador:", key="p_nome")
+            t_prest_in = st.text_input("Tipo de Serviço prestado:", key="p_tipo")
+            tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", key="p_tel")
+            
             idx_est_p = ESTADOS_BR.index(str(dados_p_ant['est']).upper()) if (dados_p_ant is not None and str(dados_p_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est_p = st.selectbox("Selecione o Estado (UF) de Atuação do Prestador:", options=ESTADOS_BR, index=idx_est_p, key="p_est")
             stat_p = st.selectbox("Status do Guincho:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(str(dados_p_ant['status'])), key="p_status")
             
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
-                tel_p = apenas_numeros_letras(tel_p_raw)
-                
-                if modo and dados_p_ant is not None:
-                    if not n_prest: n_prest = dados_p_ant['nome']
+                if modo_p and dados_p_ant is not None:
+                    n_prest = n_prest_in.upper() if n_prest_in else dados_p_ant['nome']
+                    t_prest = t_prest_in.upper() if t_prest_in else dados_p_ant['tipo']
+                    tel_p = apenas_numeros_letras(tel_p_raw) if tel_p_raw else dados_p_ant['telefone']
+                else:
+                    n_prest = n_prest_in.upper()
+                    t_prest = t_prest_in.upper()
+                    tel_p = apenas_numeros_letras(tel_p_raw)
                 
                 if not n_prest:
-                    st.error("O Nome do prestador é obrigatório.")
+                    st.error("O Nome do prestador é obrigatório para novos registros.")
                 else:
                     if not modo_p:
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
-                        novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest.upper(), 'tipo': t_prest.upper(), 'telefone': tel_p, 'est': est_p, 'status': stat_p}])
+                        novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest, 'tipo': t_prest, 'telefone': tel_p, 'est': est_p, 'status': stat_p}])
                         df_prestadores = pd.concat([df_prestadores, novo_p], ignore_index=True)
                     else:
-                        df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','tipo','telefone','est','status']] = [n_prest.upper(), t_prest.upper(), tel_p, est_p, stat_p]
+                        df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','tipo','telefone','est','status']] = [n_prest, t_prest, tel_p, est_p, stat_p]
                     salvar_dados(df_prestadores, FILE_PRESTADORES)
                     st.success("✅ Prestador salvo com sucesso!")
                     st.session_state.aba_prestador_index = "Listar"
@@ -650,33 +674,45 @@ else:
                 df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
                 if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
             
-            p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']).upper() if dados_part_ant is not None else "", key="part_nome")
-            p_cpf_raw = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
-            p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
-            p_vei = st.text_input("Veículo:", value=str(dados_part_ant['vei']).upper() if dados_part_ant is not None else "", key="part_vei")
-            p_pla = st.text_input("Placa:", value=str(dados_part_ant['pla']).upper() if dados_part_ant is not None else "", key="part_pla")
+            if modo_part and dados_part_ant is not None:
+                st.markdown(f"""
+                > 👥 **Dados Cadastrados Atualmente:** > * **Cliente:** {dados_part_ant['nome']} | **CPF:** {dados_part_ant['cpf']} | **Tel:** {dados_part_ant['tel']}  
+                > * **Veículo:** {dados_part_ant['vei']} | **Placa:** {dados_part_ant['pla']}  
+                """)
+            
+            p_nome_in = st.text_input("Nome Completo:", key="part_nome")
+            p_cpf_raw = st.text_input("CPF:", key="part_cpf")
+            p_tel_raw = st.text_input("Telefone:", key="part_tel")
+            p_vei_in = st.text_input("Veículo:", key="part_vei")
+            p_pla_in = st.text_input("Placa:", key="part_pla")
             
             idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             p_est = st.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
             p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(str(dados_part_ant['status'])), key="part_status")
             
             if st.button("Confirmar Registro", key="save_part_btn_novo"):
-                p_cpf = apenas_numeros_letras(p_cpf_raw)
-                p_tel = apenas_numeros_letras(p_tel_raw)
-                
                 if modo_part and dados_part_ant is not None:
-                    if not p_nome: p_nome = dados_part_ant['nome']
-                    if not p_pla: p_pla = dados_part_ant['pla']
+                    p_nome = p_nome_in.upper() if p_nome_in else dados_part_ant['nome']
+                    p_cpf = apenas_numeros_letras(p_cpf_raw) if p_cpf_raw else dados_part_ant['cpf']
+                    p_tel = apenas_numeros_letras(p_tel_raw) if p_tel_raw else dados_part_ant['tel']
+                    p_vei = p_vei_in.upper() if p_vei_in else dados_part_ant['vei']
+                    p_pla = p_pla_in.upper().replace("-","").replace(" ","") if p_pla_in else dados_part_ant['pla']
+                else:
+                    p_nome = p_nome_in.upper()
+                    p_cpf = apenas_numeros_letras(p_cpf_raw)
+                    p_tel = apenas_numeros_letras(p_tel_raw)
+                    p_vei = p_vei_in.upper()
+                    p_pla = p_pla_in.upper().replace("-","").replace(" ","")
                 
                 if not p_nome or not p_pla:
                     st.error("Nome e Placa são obrigatórios.")
                 else:
                     if not modo_part:
                         prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome.upper(), 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei.upper(), 'pla': p_pla.upper().replace("-","").replace(" ",""), 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat}])
+                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome.upper(), 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei.upper(), 'pla': p_pla, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat}])
                         df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome.upper(), p_cpf, p_tel, p_vei.upper(), p_pla.upper().replace("-","").replace(" ",""), p_est, p_stat]
+                        df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome.upper(), p_cpf, p_tel, p_vei.upper(), p_pla, p_est, p_stat]
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Registro atualizado com sucesso!")
                     st.session_state.aba_parceiro_index = "Visualizar"
