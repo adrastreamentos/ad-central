@@ -63,7 +63,7 @@ def salvar_no_github(caminho_local):
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
     
     res = requests.get(url, headers=headers)
-    sha = res.json().get("sha", None) if res.status_code == 200 else None
+    sha = res.json().get("sha", None) if res.status_code == 2000 or res.status_code == 200 else None
     
     with open(caminho_local, "rb") as f:
         content = base64.b64encode(f.read()).decode("utf-8")
@@ -222,9 +222,6 @@ if not st.session_state.logado:
     st.stop()
 
 # Cabeçalho Interno Logado
-st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
-
 col_user, col_logout = st.columns([5, 1])
 with col_user:
     st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
@@ -251,7 +248,7 @@ if st.session_state.perfil == "Admin":
             if busca:
                 df_clientes_busca = df_clientes.copy()
                 df_clientes_busca['cpf_limpo'] = df_clientes_busca['cpf'].apply(apenas_numeros_letras)
-                busca_limpa = apenas_numeros_letras(busca)
+                busca_limpa = Bragg = apenas_numeros_letras(busca)
                 
                 df_filtrado_cli = df_clientes_busca[
                     df_clientes_busca['nome'].str.lower().str.contains(busca) |
@@ -413,7 +410,8 @@ if st.session_state.perfil == "Admin":
         if opcao == "Listar":
             st.session_state.aba_cliente_index = "Listar"
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
-            else: st.dataframe(df_clientes.style.applymap(colorir_status, subset=['status']), use_container_width=True)
+            # CORREÇÃO DA LINHA 503 REPLICADA NA TABELA CLIENTES: applymap substituído por map
+            else: st.dataframe(df_clientes.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_cliente_index = "Incluir / Editar"
             modo = st.checkbox("Editar cliente existente")
@@ -427,7 +425,7 @@ if st.session_state.perfil == "Admin":
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            # ATUALIZADO: Preenchimento dinâmico do valor antigo direto no campo de texto
+            # ATUALIZADO: Preenchimento automático real injetado diretamente nas caixas de texto
             nome_in = st.text_input("Nome Completo:", value=str(dados_ant['nome']).upper() if dados_ant is not None else "")
             cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", value=str(dados_ant['cpf']) if dados_ant is not None else "")
             tel_raw = st.text_input("Telefone de Contato:", value=str(dados_ant['tel']) if dados_ant is not None else "")
@@ -465,8 +463,7 @@ if st.session_state.perfil == "Admin":
                     vei = vei_in
                     pla = pla_in.upper().replace("-","").replace(" ","")
                 
-                if not nome or not pla:
-                    st.error("Nome e Placa são obrigatórios para concluir o registro.")
+                if not nome or not pla: st.error("Nome e Placa são obrigatórios.")
                 else:
                     if not modo:
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
@@ -499,8 +496,8 @@ if st.session_state.perfil == "Admin":
         if opcao_e == "Listar":
             st.session_state.aba_empresa_index = "Listar"
             if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
-            # CORREÇÃO DA LINHA 533: Substituído map por applymap para compatibilidade de servidores
-            else: st.dataframe(df_empresas.style.applymap(colorir_status, subset=['status']), use_container_width=True)
+            # CORREÇÃO CRUCIAL DA LINHA 503: .style.applymap trocado por .style.map (Fim do travamento rosa!)
+            else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_empresa_index = "Incluir / Editar"
             modo_e = st.checkbox("Editar empresa existente")
@@ -517,7 +514,7 @@ if st.session_state.perfil == "Admin":
                 df_resultado_e = df_empresas_busca[df_empresas_busca['cnpj_limpo'] == e_target]
                 if not df_resultado_e.empty: dados_e_ant = df_resultado_e.iloc[0]
             
-            # CORREÇÃO CHAVE: Preenchimento automático do valor antigo diretamente na caixa de edição
+            # ATUALIZADO: Preenchimento automático injetado diretamente nas caixas de texto abaixo!
             cnpj_raw = st.text_input("CNPJ da Empresa (Aceita pontos/traços):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "")
             n_emp_in = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "")
             resp_in = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "")
@@ -542,8 +539,7 @@ if st.session_state.perfil == "Admin":
                     telefone = apenas_numeros_letras(tel_e_raw)
                     email = mail_in
                 
-                if not cnpj or not nome_empresa:
-                    st.error("CNPJ e Nome da Empresa são obrigatórios para novos cadastros.")
+                if not cnpj or not nome_empresa: st.error("CNPJ e Nome são obrigatórios.")
                 else:
                     if not modo_e:
                         novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': nome_empresa, 'responsavel': responsavel, 'telefone': telefone, 'email': email, 'est': est_e, 'status': stat_e}])
@@ -580,7 +576,7 @@ if st.session_state.perfil == "Admin":
         if opcao_p == "Listar":
             st.session_state.aba_prestador_index = "Listar"
             if df_prestadores.empty: st.info("Nenhum prestador cadastrado.")
-            else: st.dataframe(df_prestadores.style.applymap(colorir_status, subset=['status']), use_container_width=True)
+            else: st.dataframe(df_prestadores.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_prestador_index = "Incluir / Editar"
             modo_p = st.checkbox("Editar prestador existente")
@@ -594,7 +590,7 @@ if st.session_state.perfil == "Admin":
                 df_busca_p = df_prestadores[df_prestadores['id'].astype(str) == p_target]
                 if not df_busca_p.empty: dados_p_ant = df_busca_p.iloc[0]
             
-            # ATUALIZADO: Preenchimento automático do valor antigo diretamente na caixa de edição
+            # ATUALIZADO: Preenchimento automático injetado diretamente nas caixas de texto
             n_prest_in = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "")
             t_prest_in = st.text_input("Tipo de Serviço prestado:", value=str(dados_p_ant['tipo']).upper() if dados_p_ant is not None else "GUINCHO")
             tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "")
@@ -613,8 +609,7 @@ if st.session_state.perfil == "Admin":
                     t_prest = t_prest_in.upper()
                     tel_p = apenas_numeros_letras(tel_p_raw)
                 
-                if not n_prest:
-                    st.error("O Nome do prestador é obrigatório para novos registros.")
+                if not n_prest: st.error("O Nome é obrigatório.")
                 else:
                     if not modo_p:
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
@@ -650,7 +645,7 @@ else:
         if op_part == "Visualizar":
             st.session_state.aba_parceiro_index = "Visualizar"
             if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado por sua empresa.")
-            else: st.dataframe(df_filtrado_p.style.applymap(colorir_status, subset=['status']), use_container_width=True)
+            else: st.dataframe(df_filtrado_p.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_parceiro_index = "Incluir / Editar Cliente"
             modo_part = st.checkbox("Editar cliente existente")
@@ -663,7 +658,6 @@ else:
                 df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
                 if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
             
-            # ATUALIZADO: Preenchimento automático do valor antigo diretamente na caixa para os parceiros
             p_nome_in = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']).upper() if dados_part_ant is not None else "")
             p_cpf_raw = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "")
             p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "")
@@ -688,8 +682,7 @@ else:
                     p_vei = p_vei_in.upper()
                     p_pla = p_pla_in.upper().replace("-","").replace(" ","")
                 
-                if not p_nome or not p_pla:
-                    st.error("Nome e Placa são obrigatórios.")
+                if not p_nome or not p_pla: st.error("Nome e Placa são obrigatórios.")
                 else:
                     if not modo_part:
                         prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
