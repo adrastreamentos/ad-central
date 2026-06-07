@@ -1,5 +1,5 @@
-import streamlit st
-import pandas pd
+import streamlit as st
+import pandas as pd
 from datetime import datetime, timedelta, timezone
 import os
 import urllib.parse
@@ -313,7 +313,7 @@ if st.session_state.perfil == "Admin":
                     else:
                         lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['est']).upper()})" for _, r in df_prestadores.iterrows()]
                 
-                prestador_sel = st.selectbox("Prestador homologado para o Estado do Cliente:", lista_p_ops)
+                prestador_sel = st.selectbox("Prestador homologado para o Estado do Cliente:", options=lista_p_ops)
                 
                 if prestador_sel == "Outro (Digitar Manualmente)":
                     p_nome_manual = st.text_input("Nome do Prestador Manual:")
@@ -336,7 +336,6 @@ if st.session_state.perfil == "Admin":
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
                         agora_str = obter_hora_brasilia()
                         
-                        # Cria o chamado marcado como "EM ATENDIMENTO" e com confirmação de envio zerada
                         nova_os = pd.DataFrame([{
                             'id': str(nova_id), 'data_hora': agora_str, 'cliente_id': str(c_id),
                             'cliente_nome': str(cliente_dados['nome']), 'empresa': str(cliente_dados['emp_name']),
@@ -346,7 +345,6 @@ if st.session_state.perfil == "Admin":
                         df_os = pd.concat([df_os, nova_os], ignore_index=True)
                         salvar_dados(df_os, FILE_OS)
                         
-                        # Limpa os campos da tela imediatamente para estar pronto para a próxima rodada sem travar
                         st.session_state.busca_input = ""
                         st.session_state.loc_input = ""
                         st.session_state.dest_input = ""
@@ -355,7 +353,7 @@ if st.session_state.perfil == "Admin":
                         time.sleep(1.5)
                         st.rerun()
 
-    # ==================== ABA: RELATÓRIOS & DESPACHO (MODELO MODELADO POR DAVID) ====================
+    # ==================== ABA: RELATÓRIOS & DESPACHO ====================
     with menu[1]:
         st.subheader("📊 Painel Logístico de Acompanhamento e Despacho 24h")
         
@@ -384,27 +382,24 @@ if st.session_state.perfil == "Admin":
                 if not df_os_filtrada.empty:
                     st.markdown(exportar_pdf_html_oficial(df_os_filtrada, df_clientes, "relatorio_geral_filtrado"), unsafe_allow_html=True)
             
-            # NOVO: MODELO DO DAVID ALLAN - BOTÃO DO WHATSAPP DO LADO DO ATENDIMENTO ATIVO COM CONFIRMAÇÃO
             else:
                 st.markdown("### ⚡ Chamados Ativos na Central")
                 
-                # Lista apenas ordens que estão em andamento ou encerradas recentemente
                 for idx, row in df_os.sort_values(by='id', ascending=False).iterrows():
                     os_id_str = str(row['id'])
                     status_os_atual = str(row['status_os']).upper()
                     zap_status = str(row.get('zap_enviado', 'NÃO')).upper()
                     
-                    # Carrega as variáveis de telefone do prestador prontas para o clique
                     prestador_completo = str(row['prestador'])
                     tel_prestador = "".join(c for c in prestador_completo if c.isdigit())
                     
-                    # Cria um bloco elegante para cada chamado ativo
                     with st.container():
                         col_os, col_status, col_acao = st.columns([3, 1.5, 2.5])
                         
                         with col_os:
                             st.markdown(f"**OS Nº {row['id']}** | Cliente: `{str(row['cliente_nome']).upper()}` | Empresa: `{str(row['empresa']).upper()}` | Serviço: *{row['tipo_servico']}*")
                             st.caption(f"📅 Aberto em: {row['data_hora']} | Origem: {row['localizacao']} ➡️ Destino: {row['destino']}")
+                            if row['obs']: st.caption(f"📝 Obs: {row['obs']}")
                             
                         with col_status:
                             if status_os_atual == "EM ATENDIMENTO":
@@ -416,9 +411,7 @@ if st.session_state.perfil == "Admin":
                                 st.markdown("✅ `💬 ENVIADO AO PRESTADOR`")
                                 
                         with col_acao:
-                            # Caso esteja em atendimento, exibe o WhatsApp e o botão de Fechamento lado a lado
                             if status_os_atual == "EM ATENDIMENTO":
-                                # Texto do WhatsApp estruturado
                                 texto_w = (
                                     f"*{str(row['empresa']).upper()} - ASSISTÊNCIA 24H*\n"
                                     f"-----------------------------------------\n"
@@ -433,10 +426,7 @@ if st.session_state.perfil == "Admin":
                                 
                                 c_zap, c_close = st.columns(2)
                                 with c_zap:
-                                    # Clique no botão abre o zap e já marca como enviado automaticamente para não confundir
-                                    if st.markdown(f'<a href="{link_dinamico}" target="_blank"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px;">📲 Despachar Zap</button></a>', unsafe_allow_html=True):
-                                        pass
-                                    # Botão manual para cravar a confirmação visual na tela
+                                    st.markdown(f'<a href="{link_dinamico}" target="_blank"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; width: 100%;">📲 Despachar Zap</button></a>', unsafe_allow_html=True)
                                     if st.button("✔️ Confirmar Envio", key=f"conf_{os_id_str}"):
                                         df_os.loc[df_os['id'].astype(str) == os_id_str, 'zap_enviado'] = "SIM"
                                         salvar_dados(df_os, FILE_OS)
@@ -450,7 +440,6 @@ if st.session_state.perfil == "Admin":
                                         time.sleep(1)
                                         st.rerun()
                             else:
-                                # Se já está encerrado, o WhatsApp some e o botão do PDF oficial surge limpo
                                 df_os_individual = df_os[df_os['id'].astype(str) == os_id_str]
                                 st.markdown(exportar_pdf_html_oficial(df_os_individual, df_clientes, f"os_{os_id_str}"), unsafe_allow_html=True)
                         st.markdown("<hr style='margin: 10px 0; border-top: 1px dashed #eee;'>", unsafe_allow_html=True)
