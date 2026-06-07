@@ -265,7 +265,7 @@ if st.session_state.perfil == "Admin":
                 st.error("Nenhum cliente encontrado com esse termo de busca.")
             else:
                 lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Placa: {str(c['pla']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
-                c_ed_str = st.selectbox("Selecione o cliente confirmed abaixo:", options=lista_ed_ops, key="sel_ed")
+                c_ed_str = st.selectbox("Selecione o cliente confirmado abaixo:", options=lista_ed_ops, key="sel_ed")
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
                 cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
                 
@@ -421,12 +421,15 @@ if st.session_state.perfil == "Admin":
             dados_ant = None
             
             if modo and not df_clientes.empty:
-                sel = st.selectbox("Selecione o cliente para visualizar e alterar os dados:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_clientes.iterrows()])
-                c_target = sel.split("-")[0].strip()
+                # Monta a lista exibindo ID e Nome do cliente
+                lista_ops_c = [f"{str(r['id'])} - {str(r['nome']).upper()}" for _, r in df_clientes.iterrows()]
+                sel = st.selectbox("Selecione o cliente para visualizar e alterar os dados:", options=lista_ops_c)
+                
+                # CORREÇÃO DA BUSCA: Isola o ID exato antes do hífen para carregar os dados reais
+                c_target = sel.split(" - ")[0].strip()
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            # NOVO: Preenchimento automático se estiver no modo edição
             nome = st.text_input("Nome Completo:", value=str(dados_ant['nome']).upper() if dados_ant is not None else "", key="c_nome")
             cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
             tel_raw = st.text_input("Telefone de Contato:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
@@ -494,16 +497,19 @@ if st.session_state.perfil == "Admin":
             dados_e_ant = None
             
             if modo_e and not df_empresas.empty:
-                sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", [f"{str(r['cnpj'])} - {str(r['nome'])}" for _, r in df_empresas.iterrows()])
-                e_target_raw = sel_e.split("-")[0].strip()
-                e_target = apenas_numeros_letras(e_target_raw)
+                # Monta a lista no formato: CNPJ - NOME_DA_EMPRESA
+                lista_ops_e = [f"{str(r['cnpj'])} - {str(r['nome']).upper()}" for _, r in df_empresas.iterrows()]
+                sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", options=lista_ops_e)
+                
+                # CORREÇÃO CRUCIAL DA FOTO: Isola o CNPJ exato antes do hífen para preencher os campos abaixo automaticamente!
+                e_target = apenas_numeros_letras(sel_e.split(" - ")[0].strip())
                 
                 df_empresas_busca = df_empresas.copy()
                 df_empresas_busca['cnpj_limpo'] = df_empresas_busca['cnpj'].apply(apenas_numeros_letras)
                 df_resultado_e = df_empresas_busca[df_empresas_busca['cnpj_limpo'] == e_target]
                 if not df_resultado_e.empty: dados_e_ant = df_resultado_e.iloc[0]
             
-            # NOVO: Preenchimento automático de todos os campos da empresa selecionada para edição
+            # Os campos abaixo agora puxam e exibem automaticamente os dados reais salvos!
             cnpj_raw = st.text_input("CNPJ da Empresa (Aceita pontos/traços):", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
             n_emp = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
             resp = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "", key="e_resp")
@@ -561,12 +567,15 @@ if st.session_state.perfil == "Admin":
             dados_p_ant = None
             
             if modo_p and not df_prestadores.empty:
-                sel_p = st.selectbox("Selecione o prestador para visualizar e alterar os dados:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_prestadores.iterrows()])
-                p_target = sel_p.split("-")[0].strip()
+                # Monta a lista exibindo ID e Nome do prestador
+                lista_ops_p = [f"{str(r['id'])} - {str(r['nome']).upper()}" for _, r in df_prestadores.iterrows()]
+                sel_p = st.selectbox("Selecione o prestador para visualizar e alterar os dados:", options=lista_ops_p)
+                
+                # CORREÇÃO DA BUSCA: Isola o ID exato antes do hífen para preencher automaticamente
+                p_target = sel_p.split(" - ")[0].strip()
                 df_busca_p = df_prestadores[df_prestadores['id'].astype(str) == p_target]
                 if not df_busca_p.empty: dados_p_ant = df_busca_p.iloc[0]
             
-            # NOVO: Preenchimento automático de todos os campos do prestador para edição
             n_prest = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "", key="p_nome")
             t_prest = st.text_input("Tipo de Serviço prestado:", value=str(dados_p_ant['tipo']).upper() if dados_p_ant is not None else "GUINCHO", key="p_tipo")
             tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
@@ -623,11 +632,10 @@ else:
             
             if modo_part and not df_filtrado_p.empty:
                 sel_part = st.selectbox("Selecione o seu cliente:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_filtrado_p.iterrows()])
-                part_target = sel_part.split("-")[0].strip()
+                part_target = sel_part.split(" - ")[0].strip()
                 df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
                 if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
             
-            # NOVO: Preenchimento automático para os parceiros editarem seus próprios clientes
             p_nome = st.text_input("Nome Completo:", value=str(dados_part_ant['nome']).upper() if dados_part_ant is not None else "", key="part_nome")
             p_cpf_raw = st.text_input("CPF:", value=str(dados_part_ant['cpf']) if dados_part_ant is not None else "", key="part_cpf")
             p_tel_raw = st.text_input("Telefone:", value=str(dados_part_ant['tel']) if dados_part_ant is not None else "", key="part_tel")
@@ -650,7 +658,7 @@ else:
                     else:
                         df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status']] = [p_nome.upper(), p_cpf, p_tel, p_vei.upper(), p_pla.upper().replace("-","").replace(" ",""), p_est, p_stat]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Registro atualizado com sucesso!")
+                    st.success("✅ Registro updated com sucesso!")
                     st.session_state.aba_parceiro_index = "Visualizar"
                     time.sleep(1)
                     st.rerun()
