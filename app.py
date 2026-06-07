@@ -248,6 +248,7 @@ if st.session_state.perfil == "Admin":
         else:
             st.subheader("🔍 Localizar Cliente")
             
+            # Inicializa estados de sessão para controle de limpeza de campos de texto
             if "busca_input" not in st.session_state: st.session_state.busca_input = ""
             if "loc_input" not in st.session_state: st.session_state.loc_input = ""
             if "dest_input" not in st.session_state: st.session_state.dest_input = ""
@@ -333,29 +334,6 @@ if st.session_state.perfil == "Admin":
                 destino = st.text_input("Endereço de Destino:", value=st.session_state.dest_input)
                 obs = st.text_area("Observações:", value=st.session_state.obs_input)
                 
-                # =========================================================================
-                # CORREÇÃO CRUCIAL: BOTÃO DO WHATSAPP FIXADO E DISPONÍVEL ANTES DE ENVIAR!
-                # =========================================================================
-                st.markdown("### 📱 Envio de Informações por WhatsApp")
-                if prestador_final and tel_prestador_final:
-                    # Monta o texto dinamicamente conforme o David vai preenchendo as caixas na tela
-                    texto_whatsapp_fixo = (
-                        f"*{str(cliente_dados['emp_name']).upper()} - ASSISTÊNCIA 24H*\n"
-                        f"-----------------------------------------\n"
-                        f"*Serviço:* {tipo_servico} | *Motivo:* {motivo_servico}\n\n"
-                        f"*Cliente:* {str(cliente_dados['nome']).upper()}\n"
-                        f"*Telefone do Cliente:* {str(cliente_dados['tel'])}\n\n"
-                        f"*Veículo:* {str(cliente_dados['vei'])} - Placa: {str(cliente_dados['pla']).upper()}\n\n"
-                        f"*Origem:* {localizacao}\n"
-                        f"*Destino:* {destino}\n\n"
-                        f"*Obs:* {obs}"
-                    )
-                    link_w_fixo = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp_fixo)}"
-                    st.markdown(f'<a href="{link_w_fixo}" target="_blank"><button style="background-color: #25D366; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">➡️ Enviar Diretamente para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
-                    st.caption("💡 Dica: Clique primeiro no botão acima para despachar o guincho no WhatsApp. Depois, clique no botão roxo abaixo para salvar a OS.")
-                
-                st.write("---")
-                
                 if st.button("🚀 Iniciar Atendimento / Gerar OS"):
                     if not prestador_final or not tel_prestador_final:
                         st.error("Identifique o Nome e o Telefone do prestador.")
@@ -363,6 +341,7 @@ if st.session_state.perfil == "Admin":
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
                         agora_str = obter_hora_brasilia()
                         
+                        # INICIADO EM ATENDIMENTO: Entra com o status dinâmico em andamento solicitado pelo David
                         nova_os = pd.DataFrame([{
                             'id': str(nova_id), 'data_hora': agora_str, 'cliente_id': str(c_id),
                             'cliente_nome': str(cliente_dados['nome']), 'empresa': str(cliente_dados['emp_name']),
@@ -371,14 +350,30 @@ if st.session_state.perfil == "Admin":
                         }])
                         df_os = pd.concat([df_os, nova_os], ignore_index=True)
                         salvar_dados(df_os, FILE_OS)
-                        st.success(f"✅ Chamado Nº {nova_id} Salvo e Registrado como EM ATENDIMENTO!")
+                        st.success(f"✅ Chamado Nº {nova_id} Aberto com Sucesso e em Andamento!")
                         
-                        # Limpa os campos da tela de imediato
+                        texto_whatsapp = (
+                            f"*{str(cliente_dados['emp_name']).upper()} - ASSISTÊNCIA 24H*\n"
+                            f"-----------------------------------------\n"
+                            f"*Chamado Nº:* {nova_id}\n"
+                            f"*Data/Hora:* {agora_str}\n"
+                            f"*Serviço:* {tipo_servico} | *Motivo:* {motivo_servico}\n\n"
+                            f"*Cliente:* {str(cliente_dados['nome']).upper()}\n"
+                            f"*Telefone do Cliente:* {str(cliente_dados['tel'])}\n\n"
+                            f"*Veículo:* {str(cliente_dados['vei'])} - Placa: {str(cliente_dados['pla']).upper()}\n\n"
+                            f"*Origem:* {localizacao}\n"
+                            f"*Destino:* {destino}\n\n"
+                            f"*Obs:* {obs}"
+                        )
+                        link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
+                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Enviar Diretamente para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
+                        
+                        # LIMPEZA AUTOMÁTICA DE TELA: Reseta as variáveis para a tela nascer limpa no próximo chamado
                         st.session_state.busca_input = ""
                         st.session_state.loc_input = ""
                         st.session_state.dest_input = ""
                         st.session_state.obs_input = ""
-                        time.sleep(1.5)
+                        time.sleep(2)
                         st.rerun()
 
     # ==================== ABA: RELATÓRIOS & ENCERRAMENTO ====================
@@ -427,6 +422,7 @@ if st.session_state.perfil == "Admin":
                 st.write("---")
                 st.markdown("#### Preview da Ordem de Serviço Escolhida:")
                 
+                # TRAVA INTELIGENTE SOLICITADA PELO DAVID ALLAN: Só libera a impressão se a OS estiver finalizada!
                 if status_atual_os == "EM ATENDIMENTO":
                     st.warning("⚠️ ESTE CLIENTE ESTÁ EM ATENDIMENTO NO MOMENTO. É necessário encerrar o chamado abaixo para liberar a impressão do PDF oficial.")
                     
@@ -591,11 +587,11 @@ if st.session_state.perfil == "Admin":
                     st.error("CNPJ e Nome da Empresa são obrigatórios para novos cadastros.")
                 else:
                     if not modo_e:
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': nome_empresa, 'responsavel': responsavel, 'telefone': telephone, 'email': email, 'est': est_e, 'status': stat_e}])
+                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': nome_empresa, 'responsavel': responsavel, 'telefone': telefone, 'email': email, 'est': est_e, 'status': stat_e}])
                         df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
                     else:
                         df_empresas['cnpj_limpo_check'] = df_empresas['cnpj'].apply(apenas_numeros_letras)
-                        df_empresas.loc[df_empresas['cnpj_limpo_check'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, nome_empresa, responsavel, telephone, email, est_e, stat_e]
+                        df_empresas.loc[df_empresas['cnpj_limpo_check'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, nome_empresa, responsavel, telefone, email, est_e, stat_e]
                         df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
                         
                     salvar_dados(df_empresas, FILE_EMPRESAS)
