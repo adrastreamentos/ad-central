@@ -43,7 +43,7 @@ if not os.path.exists(FILE_PRESTADORES):
 if not os.path.exists(FILE_OS):
     pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs']).to_csv(FILE_OS, index=False)
 
-# Função para capturar o Horário de Brasília real (GMT-3) indpendente do servidor
+# Função para capturar o Horário de Brasília real (GMT-3)
 def obter_hora_brasilia():
     fuso_brasilia = timezone(timedelta(hours=-3))
     return datetime.now(fuso_brasilia).strftime("%Y-%m-%d %H:%M:%S")
@@ -54,16 +54,14 @@ def apenas_numeros_letras(texto):
 
 # FUNÇÃO DE SALVAMENTO EM NUVEM (COFRE GITHUB)
 def salvar_no_github(caminho_local):
-    """Tenta salvar o arquivo CSV gerado diretamente de volta no GitHub para persistência total"""
     token = st.secrets.get("GITHUB_TOKEN", None)
     repo = "adrastreamentos/ad-central"
     if not token:
-        return # Caso não configurado nas chaves secretas do Streamlit, ignora e mantém local
+        return
         
     url = f"https://api.github.com/repos/{repo}/contents/{caminho_local.replace(os.sep, '/')}"
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
     
-    # Pega o SHA do arquivo existente
     res = requests.get(url, headers=headers)
     sha = res.json().get("sha", None) if res.status_code == 200 else None
     
@@ -96,9 +94,9 @@ def carregar_dados(caminho, colunas_obrigatorias):
 
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
-    salvar_no_github(caminho) # Força o envio para o cofre permanente do GitHub
+    salvar_no_github(caminho)
 
-# Gerador de Relatório Profissional Estruturado (Modelo exato da Foto do David)
+# Gerador de Relatório Oficial Estruturado (Modelo da Foto)
 def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
     for _, row in df_os_rows.iterrows():
@@ -182,13 +180,13 @@ if "logado" not in st.session_state:
     st.session_state.perfil = ""
     st.session_state.empresa_vinculada = ""
 
-# Carregamento Inicial
+# Carregamento dos Bancos de Dados
 df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
 df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','cidade','est','status'])
 df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs'])
 
-# --- RECURSO: LOGIN E PORTAL PÚBLICO DE AUTO-CADASTRO PARA O CLIENTE ---
+# Interface de Login / Portal do Cliente
 if not st.session_state.logado:
     st.markdown('<div class="main-title">Portal de Serviços AD</div>', unsafe_allow_html=True)
     
@@ -232,7 +230,7 @@ if not st.session_state.logado:
         c_tel = st.text_input("Seu Telefone / WhatsApp (Com DDD):", key="pub_tel")
         c_vei = st.text_input("Modelo do Veículo e Ano (Ex: Polo 2020):", key="pub_vei")
         c_pla = st.text_input("Placa do Veículo:", key="pub_pla")
-        c_est = st.selectbox("Estado (UF) do Veículo:", options=ESTADOS_BR, index=19, key="pub_est") # Padrão RN
+        c_est = st.selectbox("Estado (UF) do Veículo:", options=ESTADOS_BR, index=19, key="pub_est")
         
         lista_empresas_publicas = ["AD RASTREAMENTO VEICULAR"]
         if not df_empresas.empty:
@@ -248,7 +246,6 @@ if not st.session_state.logado:
             else:
                 prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
                 
-                # Salvamento completo garantindo que nenhuma informação do cliente suma
                 novo_cliente_pub = pd.DataFrame([{
                     'id': str(prox_id),
                     'nome': c_nome.upper(),
@@ -267,7 +264,7 @@ if not st.session_state.logado:
                 st.rerun()
     st.stop()
 
-# --- ÁREA INTERNA LOGADA (ADMIN / PARCEIRO) ---
+# --- ÁREA INTERNA LOGADA ---
 col_user, col_logout = st.columns([5, 1])
 with col_user:
     st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
@@ -276,7 +273,7 @@ with col_logout:
         st.session_state.logado = False
         st.rerun()
 
-# --- INTERFACE DO ADMINISTRADOR ---
+# --- VISÃO DO ADMINISTRADOR ---
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
@@ -370,7 +367,6 @@ if st.session_state.perfil == "Admin":
                         st.error("Identifique o Nome e o Telefone do prestador.")
                     else:
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
-                        # CORREÇÃO: Aplica a hora de Brasília corrigida na abertura do chamado
                         agora_str = obter_hora_brasilia()
                         
                         nova_os = pd.DataFrame([{
@@ -428,19 +424,15 @@ if st.session_state.perfil == "Admin":
                 if not df_os_filtrada.empty:
                     st.markdown(exportar_pdf_html_oficial(df_os_filtrada, df_clientes, "relatorio_geral_filtrado"), unsafe_allow_html=True)
             
-            # CORREÇÃO EXCLUSIVA SOLICITADA POR DAVID ALLAN: Filtro por cliente escolhendo uma OS isolada
             else:
                 st.markdown("### 📄 Localizar OS por Cliente")
                 lista_clientes_com_os = list(df_os['cliente_nome'].unique())
                 cli_alvo_pdf = st.selectbox("Selecione o Cliente para listar os acionamentos:", options=lista_clientes_com_os)
                 
-                # Filtra o histórico apenas daquele cliente selecionado
                 df_os_do_cliente = df_os[df_os['cliente_nome'] == cli_alvo_pdf].sort_values(by='id', ascending=False)
-                
-                # Monta a lista de OS dele para escolher qual baixar
                 lista_os_dele = [f"Chamado Nº: {r['id']} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_os_do_cliente.iterrows()]
                 
-                os_escolhida_str = st.selectbox("Selecione qual acionamento deseja extrair o PDF:", options=lista_os_dele, index=0) # Último como padrão
+                os_escolhida_str = st.selectbox("Selecione qual acionamento deseja extrair o PDF:", options=lista_os_dele, index=0)
                 os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
                 
                 df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
@@ -531,6 +523,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.aba_empresa_index = "Listar"
             if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
             else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
+        # CORREÇÃO DA LINHA 533: else reestruturado sem o caractere "t" parasita
         else:
             st.session_state.aba_empresa_index = "Incluir / Editar"
             modo_e = st.checkbox("Editar empresa existente")
