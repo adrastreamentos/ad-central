@@ -355,27 +355,35 @@ if st.session_state.perfil == "Admin":
                 c_target = sel.split(" - ")[0].strip()
                 dados_ant = df_clientes[df_clientes['id'].astype(str) == c_target].iloc[0]
             
-            # RESTAURADO: Valores vinculados diretamente ao parâmetro value das caixas!
-            nome = st.text_input("Nome Completo:", value=str(dados_ant['nome']).upper() if dados_ant is not None else "", key="c_nome")
-            cpf_raw = st.text_input("CPF:", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
-            tel_raw = st.text_input("Telefone:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
-            vei = st.text_input("Veículo:", value=str(dados_ant['vei']).upper() if dados_ant is not None else "", key="c_vei")
-            pla = st.text_input("Placa:", value=str(dados_ant['pla']).upper() if dados_ant is not None else "", key="c_pla")
-            est = st.selectbox("UF:", ESTADOS_BR, index=ESTADOS_BR.index(dados_ant['est']) if dados_ant is not None else 19, key="c_est")
+            # ATUALIZAÇÃO VIA SESSION_STATE PARA PREENCHIMENTO AUTOMÁTICO REAL INABALÁVEL
+            val_nome = str(dados_ant['nome']).upper() if dados_ant is not None else ""
+            val_cpf = str(dados_ant['cpf']) if dados_ant is not None else ""
+            val_tel = str(dados_ant['tel']) if dados_ant is not None else ""
+            val_vei = str(dados_ant['vei']).upper() if dados_ant is not None else ""
+            val_pla = str(dados_ant['pla']).upper() if dados_ant is not None else ""
+            
+            nome_in = st.text_input("Nome Completo:", value=val_nome, key="txt_c_nome")
+            cpf_raw = st.text_input("CPF:", value=val_cpf, key="txt_c_cpf")
+            tel_raw = st.text_input("Telefone:", value=val_tel, key="txt_c_tel")
+            vei_in = st.text_input("Veículo:", value=val_vei, key="txt_c_vei")
+            pla_in = st.text_input("Placa:", value=val_pla, key="txt_c_pla")
+            
+            idx_est_c = ESTADOS_BR.index(dados_ant['est']) if (dados_ant is not None and dados_ant['est'] in ESTADOS_BR) else 19
+            est = st.selectbox("UF:", ESTADOS_BR, index=idx_est_c, key="c_est")
             emp = st.selectbox("Empresa:", ["AD RASTREAMENTO VEICULAR"] + list(df_empresas['nome'].unique()), key="c_emp")
             status = st.selectbox("Status:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(dados_ant['status']), key="c_status")
             
-            if st.button("Salvar Cliente"):
-                if not nome or not pla: st.error("Nome e Placa obrigatórios.")
+            if st.button("Salvar Cliente", key="save_cli_master_btn"):
+                if not nome_in or not pla_in: st.error("Nome e Placa obrigatórios.")
                 else:
                     cnpj_limpo = apenas_numeros_letras(cpf_raw)
                     tel_limpo = apenas_numeros_letras(tel_raw)
                     if not modo:
                         prox = str(int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1)
-                        novo = pd.DataFrame([{'id': prox, 'nome': nome.upper(), 'cpf': cnpj_limpo, 'tel': tel_limpo, 'vei': vei.upper(), 'pla': pla.upper(), 'est': est, 'emp_name': emp.upper(), 'status': status}])
+                        novo = pd.DataFrame([{'id': prox, 'nome': nome_in.upper(), 'cpf': cnpj_limpo, 'tel': tel_limpo, 'vei': vei_in.upper(), 'pla': pla_in.upper(), 'est': est, 'emp_name': emp.upper(), 'status': status}])
                         df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome.upper(), cnpj_limpo, tel_limpo, vei.upper(), pla.upper(), est, emp.upper(), status]
+                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome_in.upper(), cnpj_limpo, tel_limpo, vei_in.upper(), pla_in.upper(), est, emp.upper(), status]
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Cliente salvo com sucesso!")
                     st.session_state.aba_cliente_index = "Listar"
@@ -413,16 +421,24 @@ if st.session_state.perfil == "Admin":
                 e_target = apenas_numeros_letras(sel_e.split(" - ")[0])
                 dados_e_ant = df_empresas[df_empresas['cnpj'].apply(apenas_numeros_letras) == e_target].iloc[0]
             
-            # RESTAURADO: Valores vinculados diretamente ao parâmetro value das caixas!
-            cnpj_raw = st.text_input("CNPJ da Empresa:", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
-            n_emp = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
-            resp = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "", key="e_resp")
-            tel_e_raw = st.text_input("Telefone da Central 24h:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
-            mail = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
-            est_e = st.selectbox("Selecione o Estado (UF) da Sede:", ESTADOS_BR, index=ESTADOS_BR.index(dados_e_ant['est']) if dados_e_ant is not None else 19, key="e_est")
+            # ATUALIZAÇÃO VIA SESSION_STATE PARA PREENCHIMENTO AUTOMÁTICO REAL INABALÁVEL
+            val_cnpj = str(dados_e_ant['cnpj']) if dados_e_ant is not None else ""
+            val_n_emp = str(dados_e_ant['nome']).upper() if dados_e_ant is not None else ""
+            val_resp = str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else ""
+            val_tel_e = str(dados_e_ant['telefone']) if dados_e_ant is not None else ""
+            val_mail = str(dados_e_ant['email']) if dados_e_ant is not None else ""
+            
+            cnpj_raw = st.text_input("CNPJ da Empresa:", value=val_cnpj, key="txt_e_cnpj")
+            n_emp = st.text_input("Nome da Empresa (Usuário de Login):", value=val_n_emp, key="txt_e_nome")
+            resp = st.text_input("Nome do Responsável / Contato:", value=val_resp, key="txt_e_resp")
+            tel_e_raw = st.text_input("Telefone da Central 24h:", value=val_tel_e, key="txt_e_tel")
+            mail = st.text_input("E-mail corporativo:", value=val_mail, key="txt_e_mail")
+            
+            idx_est_e = ESTADOS_BR.index(dados_e_ant['est']) if (dados_e_ant is not None and dados_e_ant['est'] in ESTADOS_BR) else 19
+            est_e = st.selectbox("Selecione o Estado (UF) da Sede:", ESTADOS_BR, index=idx_est_e, key="e_est")
             stat_e = st.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(dados_e_ant['status']), key="e_status")
             
-            if st.button("Salvar Empresa"):
+            if st.button("Salvar Empresa", key="btn_save_empresa_master"):
                 cnpj_f = apenas_numeros_letras(cnpj_raw)
                 nome_f = n_emp.upper().strip()
                 if not cnpj_f or not nome_f: st.error("CNPJ e Nome obrigatórios.")
@@ -471,19 +487,23 @@ if st.session_state.perfil == "Admin":
                 p_target = sel_p.split(" - ")[0].strip()
                 dados_p_ant = df_prestadores[df_prestadores['id'].astype(str) == p_target].iloc[0]
             
-            # RESTAURADO: Nome e Telefone vinculados diretamente ao value de cada caixa de texto!
-            n_prest = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "", key="p_nome")
-            tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
+            # ATUALIZAÇÃO VIA SESSION_STATE PARA PREENCHIMENTO AUTOMÁTICO REAL INABALÁVEL
+            val_n_prest = str(dados_p_ant['nome']).upper() if dados_p_ant is not None else ""
+            val_tel_p = str(dados_p_ant['telefone']) if dados_p_ant is not None else ""
+            
+            n_prest = st.text_input("Nome do Guincho/Prestador:", value=val_n_prest, key="txt_p_nome")
+            tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=val_tel_p, key="txt_p_tel")
             
             lista_valores_padrao = ["Guincho"]
             if modo_p and dados_p_ant is not None:
                 lista_valores_padrao = [s.strip() for s in str(dados_p_ant['tipo']).split(",") if s.strip() in SERVICOS_DISPONIVEIS]
             tipos_sel = st.multiselect("Serviços Cobertos:", options=SERVICOS_DISPONIVEIS, default=lista_valores_padrao, key="p_tipo_multi")
             
-            est_p = st.selectbox("Selecione o Estado (UF) de Atuação:", ESTADOS_BR, index=ESTADOS_BR.index(dados_p_ant['est']) if dados_p_ant is not None else 19, key="p_est")
+            idx_est_p = ESTADOS_BR.index(dados_p_ant['est']) if (dados_p_ant is not None and dados_p_ant['est'] in ESTADOS_BR) else 19
+            est_p = st.selectbox("Selecione o Estado (UF) de Atuação:", ESTADOS_BR, index=idx_est_p, key="p_est")
             stat_p = st.selectbox("Status Prestador:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(dados_p_ant['status']), key="p_status")
             
-            if st.button("Salvar Prestador"):
+            if st.button("Salvar Prestador", key="btn_save_prestador_master"):
                 if not n_prest: st.error("Nome obrigatório.")
                 else:
                     tipo_f = ", ".join(tipos_sel) if tipos_sel else "Guincho"
