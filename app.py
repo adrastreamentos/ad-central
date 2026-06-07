@@ -202,11 +202,11 @@ with col_logout:
 def colorir_status(val):
     return 'color: green; font-weight: bold;' if val == 'Ativo' else 'color: red; font-weight: bold;'
 
-# --- ABA MASTER DO ADMINISTRADOR ---
+# --- VISÃO DO ADMINISTRADOR MASTER ---
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
-    # ==================== ABA: NOVA OS ====================
+    # Nova OS
     with menu[0]:
         if df_clientes.empty: st.warning("Nenhum cliente cadastrado no sistema.")
         else:
@@ -291,7 +291,7 @@ if st.session_state.perfil == "Admin":
                         time.sleep(1)
                         st.rerun()
 
-    # ==================== ABA: RELATÓRIOS & DESPACHO ====================
+    # Relatórios e Despacho
     with menu[1]:
         st.subheader("📊 Painel Logístico de Acompanhamento e Despacho 24h")
         if df_os.empty: st.info("Nenhuma OS aberta.")
@@ -355,6 +355,7 @@ if st.session_state.perfil == "Admin":
                 c_target = sel.split(" - ")[0].strip()
                 dados_ant = df_clientes[df_clientes['id'].astype(str) == c_target].iloc[0]
             
+            # RESTAURADO: Valores vinculados diretamente ao parâmetro value das caixas!
             nome = st.text_input("Nome Completo:", value=str(dados_ant['nome']).upper() if dados_ant is not None else "", key="c_nome")
             cpf_raw = st.text_input("CPF:", value=str(dados_ant['cpf']) if dados_ant is not None else "", key="c_cpf")
             tel_raw = st.text_input("Telefone:", value=str(dados_ant['tel']) if dados_ant is not None else "", key="c_tel")
@@ -367,19 +368,20 @@ if st.session_state.perfil == "Admin":
             if st.button("Salvar Cliente"):
                 if not nome or not pla: st.error("Nome e Placa obrigatórios.")
                 else:
+                    cnpj_limpo = apenas_numeros_letras(cpf_raw)
+                    tel_limpo = apenas_numeros_letras(tel_raw)
                     if not modo:
                         prox = str(int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1)
-                        novo = pd.DataFrame([{'id': prox, 'nome': nome.upper(), 'cpf': apenas_numeros_letras(cpf_raw), 'tel': apenas_numeros_letras(tel_raw), 'vei': vei.upper(), 'pla': pla.upper(), 'est': est, 'emp_name': emp.upper(), 'status': status}])
+                        novo = pd.DataFrame([{'id': prox, 'nome': nome.upper(), 'cpf': cnpj_limpo, 'tel': tel_limpo, 'vei': vei.upper(), 'pla': pla.upper(), 'est': est, 'emp_name': emp.upper(), 'status': status}])
                         df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == str(dados_ant['id']), ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome.upper(), apenas_numeros_letras(cpf_raw), apenas_numeros_letras(tel_raw), vei.upper(), pla.upper(), est, emp.upper(), status]
+                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status']] = [nome.upper(), cnpj_limpo, tel_limpo, vei.upper(), pla.upper(), est, emp.upper(), status]
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Cliente salvo com sucesso!")
                     st.session_state.aba_cliente_index = "Listar"
                     time.sleep(1)
                     st.rerun()
 
-            # RESTAURADO: Botão de exclusão permanente para Clientes
             if modo and c_target is not None:
                 st.write("---")
                 if st.button("❌ Excluir Cliente Permanentemente", key="del_cli_btn_master"):
@@ -411,12 +413,13 @@ if st.session_state.perfil == "Admin":
                 e_target = apenas_numeros_letras(sel_e.split(" - ")[0])
                 dados_e_ant = df_empresas[df_empresas['cnpj'].apply(apenas_numeros_letras) == e_target].iloc[0]
             
-            cnpj_raw = st.text_input("CNPJ:", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
-            n_emp = st.text_input("Nome (Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
-            resp = st.text_input("Responsável:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "", key="e_resp")
-            tel_e_raw = st.text_input("Telefone da Central:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
-            mail = st.text_input("E-mail:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
-            est_e = st.selectbox("UF Sede:", ESTADOS_BR, index=ESTADOS_BR.index(dados_e_ant['est']) if dados_e_ant is not None else 19, key="e_est")
+            # RESTAURADO: Valores vinculados diretamente ao parâmetro value das caixas!
+            cnpj_raw = st.text_input("CNPJ da Empresa:", value=str(dados_e_ant['cnpj']) if dados_e_ant is not None else "", key="e_cnpj")
+            n_emp = st.text_input("Nome da Empresa (Usuário de Login):", value=str(dados_e_ant['nome']).upper() if dados_e_ant is not None else "", key="e_nome")
+            resp = st.text_input("Nome do Responsável / Contato:", value=str(dados_e_ant['responsavel']).upper() if dados_e_ant is not None else "", key="e_resp")
+            tel_e_raw = st.text_input("Telefone da Central 24h:", value=str(dados_e_ant['telefone']) if dados_e_ant is not None else "", key="e_tel")
+            mail = st.text_input("E-mail corporativo:", value=str(dados_e_ant['email']) if dados_e_ant is not None else "", key="e_mail")
+            est_e = st.selectbox("Selecione o Estado (UF) da Sede:", ESTADOS_BR, index=ESTADOS_BR.index(dados_e_ant['est']) if dados_e_ant is not None else 19, key="e_est")
             stat_e = st.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(dados_e_ant['status']), key="e_status")
             
             if st.button("Salvar Empresa"):
@@ -430,14 +433,11 @@ if st.session_state.perfil == "Admin":
                     else:
                         df_empresas.loc[df_empresas['cnpj'].apply(apenas_numeros_letras) == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj_f, nome_f, resp.upper(), apenas_numeros_letras(tel_e_raw), mail, est_e, stat_e]
                     salvar_dados(df_empresas, FILE_EMPRESAS)
-                    
-                    # REATIVADO: Mensagem de confirmação verde e redirecionamento de tela
                     st.success("✅ Empresa salva com sucesso!")
                     st.session_state.aba_empresa_index = "Listar"
                     time.sleep(1)
                     st.rerun()
 
-            # RESTAURADO: Botão de exclusão permanente para Empresas
             if modo_e and e_target is not None:
                 st.write("---")
                 if st.button("❌ Excluir Empresa Permanentemente", key="del_emp_btn_master"):
@@ -471,36 +471,35 @@ if st.session_state.perfil == "Admin":
                 p_target = sel_p.split(" - ")[0].strip()
                 dados_p_ant = df_prestadores[df_prestadores['id'].astype(str) == p_target].iloc[0]
             
-            n_prest = st.text_input("Nome do Guincho:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "", key="p_nome")
-            tel_p_raw = st.text_input("Telefone:", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
+            # RESTAURADO: Nome e Telefone vinculados diretamente ao value de cada caixa de texto!
+            n_prest = st.text_input("Nome do Guincho/Prestador:", value=str(dados_p_ant['nome']).upper() if dados_p_ant is not None else "", key="p_nome")
+            tel_p_raw = st.text_input("Telefone de Contato (Com DDD):", value=str(dados_p_ant['telefone']) if dados_p_ant is not None else "", key="p_tel")
             
             lista_valores_padrao = ["Guincho"]
             if modo_p and dados_p_ant is not None:
                 lista_valores_padrao = [s.strip() for s in str(dados_p_ant['tipo']).split(",") if s.strip() in SERVICOS_DISPONIVEIS]
             tipos_sel = st.multiselect("Serviços Cobertos:", options=SERVICOS_DISPONIVEIS, default=lista_valores_padrao, key="p_tipo_multi")
             
-            est_p = st.selectbox("UF Atuação:", ESTADOS_BR, index=ESTADOS_BR.index(dados_p_ant['est']) if dados_p_ant is not None else 19, key="p_est")
+            est_p = st.selectbox("Selecione o Estado (UF) de Atuação:", ESTADOS_BR, index=ESTADOS_BR.index(dados_p_ant['est']) if dados_p_ant is not None else 19, key="p_est")
             stat_p = st.selectbox("Status Prestador:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(dados_p_ant['status']), key="p_status")
             
             if st.button("Salvar Prestador"):
                 if not n_prest: st.error("Nome obrigatório.")
                 else:
                     tipo_f = ", ".join(tipos_sel) if tipos_sel else "Guincho"
+                    tel_limpo = apenas_numeros_letras(tel_p_raw)
                     if not modo_p:
                         prox_p = str(int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1)
-                        novo_p = pd.DataFrame([{'id': prox_p, 'nome': n_prest.upper(), 'tipo': tipo_f, 'telefone': apenas_numeros_letras(tel_p_raw), 'est': est_p, 'status': stat_p}])
+                        novo_p = pd.DataFrame([{'id': prox_p, 'nome': n_prest.upper(), 'tipo': tipo_f, 'telefone': tel_limpo, 'est': est_p, 'status': stat_p}])
                         df_prestadores = pd.concat([df_prestadores, novo_p], ignore_index=True)
                     else:
-                        df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','tipo','telefone','est','status']] = [n_prest.upper(), tipo_f, apenas_numeros_letras(tel_p_raw), est_p, stat_p]
+                        df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','tipo','telefone','est','status']] = [n_prest.upper(), tipo_f, tel_limpo, est_p, stat_p]
                     salvar_dados(df_prestadores, FILE_PRESTADORES)
-                    
-                    # REATIVADO: Mensagem de confirmação verde e redirecionamento de tela
                     st.success("✅ Prestador salvo com sucesso!")
                     st.session_state.aba_prestador_index = "Listar"
                     time.sleep(1)
                     st.rerun()
 
-            # RESTAURADO: Botão de exclusão permanente para Prestadores
             if modo_p and p_target is not None:
                 st.write("---")
                 if st.button("❌ Excluir Prestador Permanentemente", key="del_prest_btn_master"):
