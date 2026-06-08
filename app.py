@@ -446,7 +446,7 @@ if st.session_state.perfil == "Admin":
                             time.sleep(1.5)
                             st.rerun()
                     with col_btn2:
-                        # ATUALIZAÇÃO: Botão de enviar fixado e disponível enquanto a OS está em andamento na aba de relatórios
+                        # Botão de enviar fixado e disponível enquanto a OS está em andamento na aba de relatórios
                         st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">➡️ Enviar OS para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
                 else:
                     st.success("✅ Chamado Encerrado. O documento oficial de impressão está pronto abaixo:")
@@ -704,7 +704,7 @@ if st.session_state.perfil == "Admin":
             stat_p = st.selectbox("Status do Guincho:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(str(dados_p_ant['status'])), key="p_status")
             
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
-                if modo_p && dados_p_ant is not None:
+                if modo_p and dados_p_ant is not None:
                     n_prest = n_prest_in.upper() if n_prest_in else dados_p_ant['nome']
                     t_prest = t_prest_in.upper() if t_prest_in else dados_p_ant['tipo']
                     tel_p = apenas_numeros_letras(tel_p_raw) if tel_p_raw else dados_p_ant['telefone']
