@@ -272,7 +272,7 @@ if st.session_state.perfil == "Admin":
             if df_filtrado_cli.empty:
                 st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
             else:
-                # ATUALIZAÇÃO: Mostra nome, placa e veículo claramente para seleção, suportando clientes com múltiplos carros
+                # Mostra nome, placa e veículo claramente para seleção, suportando clientes com múltiplos carros
                 lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Veículo: {str(c['vei']).upper()} | Placa: {str(c['pla']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
                 c_ed_str = st.selectbox("Selecione o cliente e o veículo exato para este atendimento:", options=lista_ed_ops, key="sel_ed")
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
@@ -353,22 +353,6 @@ if st.session_state.perfil == "Admin":
                         salvar_dados(df_os, FILE_OS)
                         st.success(f"✅ Chamado Nº {nova_id} Aberto com Sucesso e em Andamento!")
                         
-                        texto_whatsapp = (
-                            f"*{str(cliente_dados['emp_name']).upper()} - ASSISTÊNCIA 24H*\n"
-                            f"-----------------------------------------\n"
-                            f"*Chamado Nº:* {nova_id}\n"
-                            f"*Data/Hora:* {agora_str}\n"
-                            f"*Serviço:* {tipo_servico} | *Motivo:* {motivo_servico}\n\n"
-                            f"*Cliente:* {str(cliente_dados['nome']).upper()}\n"
-                            f"*Telefone do Cliente:* {str(cliente_dados['tel'])}\n\n"
-                            f"*Veículo:* {str(cliente_dados['vei'])} - Placa: {str(cliente_dados['pla']).upper()}\n\n"
-                            f"*Origem:* {localizacao}\n"
-                            f"*Destino:* {destino}\n\n"
-                            f"*Obs:* {obs}"
-                        )
-                        link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
-                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Enviar Diretamente para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
-                        
                         # LIMPEZA AUTOMÁTICA DE TELA: Reseta as variáveis para a tela nascer limpa no próximo chamado
                         st.session_state.busca_input = ""
                         st.session_state.loc_input = ""
@@ -418,30 +402,64 @@ if st.session_state.perfil == "Admin":
                 os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
                 
                 df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
-                status_atual_os = str(df_os_unica.iloc[0].get('status_os', 'ENCERRADO')).upper()
+                row_os = df_os_unica.iloc[0]
+                status_atual_os = str(row_os.get('status_os', 'ENCERRADO')).upper()
                 
                 st.write("---")
                 st.markdown("#### Preview da Ordem de Serviço Escolhida:")
+                
+                # Coleta e tratamento dinâmico de dados para envio via WhatsApp do Prestador
+                prestador_info = str(row_os['prestador'])
+                tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
+                
+                cli_id_os = str(row_os['cliente_id'])
+                df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
+                tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
+                vei_cliente_os = df_cli_orig.iloc[0]['vei'] if not df_cli_orig.empty else ""
+                pla_cliente_os = df_cli_orig.iloc[0]['pla'] if not df_cli_orig.empty else ""
+                
+                texto_whatsapp = (
+                    f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n"
+                    f"-----------------------------------------\n"
+                    f"*Chamado Nº:* {row_os['id']}\n"
+                    f"*Data/Hora:* {row_os['data_hora']}\n"
+                    f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
+                    f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
+                    f"*Telefone do Cliente:* {tel_cliente_os}\n\n"
+                    f"*Veículo:* {vei_cliente_os} - Placa: {str(pla_cliente_os).upper()}\n\n"
+                    f"*Origem:* {row_os['localizacao']}\n"
+                    f"*Destino:* {row_os['destino']}\n\n"
+                    f"*Obs:* {row_os['obs']}"
+                )
+                link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
                 
                 # TRAVA INTELIGENTE SOLICITADA PELO DAVID ALLAN: Só libera a impressão se a OS estiver finalizada!
                 if status_atual_os == "EM ATENDIMENTO":
                     st.warning("⚠️ ESTE CLIENTE ESTÁ EM ATENDIMENTO NO MOMENTO. É necessário encerrar o chamado abaixo para liberar a impressão do PDF oficial.")
                     
-                    if st.button("🔒 Encerrar Atendimento e Concluir OS", key="btn_close_os"):
-                        df_os.loc[df_os['id'].astype(str) == os_alvo_id, 'status_os'] = "ENCERRADO"
-                        salvar_dados(df_os, FILE_OS)
-                        st.success(f"🎉 Chamado Nº {os_alvo_id} Encerrado com Sucesso! Relatório Liberado.")
-                        time.sleep(1.5)
-                        st.rerun()
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("🔒 Encerrar Atendimento e Concluir OS", key="btn_close_os"):
+                            df_os.loc[df_os['id'].astype(str) == os_alvo_id, 'status_os'] = "ENCERRADO"
+                            salvar_dados(df_os, FILE_OS)
+                            st.success(f"🎉 Chamado Nº {os_alvo_id} Encerrado com Sucesso! Relatório Liberado.")
+                            time.sleep(1.5)
+                            st.rerun()
+                    with col_btn2:
+                        # ATUALIZAÇÃO: Botão de enviar fixado e disponível enquanto a OS está em andamento na aba de relatórios
+                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">➡️ Enviar OS para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
                 else:
                     st.success("✅ Chamado Encerrado. O documento oficial de impressão está pronto abaixo:")
                     st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"os_individual_{os_alvo_id}"), unsafe_allow_html=True)
+                    
+                    st.write("")
+                    # Mantém a opção fixa mesmo após o encerramento do chamado
+                    st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Reenviar Informações para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes")
         
-        # ATUALIZAÇÃO: Campo de busca de clientes
         busca_cli = st.text_input("🔍 Buscar Cliente na Lista (Nome, Placa ou CPF):", key="busca_cli_tab")
         
         if "aba_cliente_index" not in st.session_state: st.session_state.aba_cliente_index = "Listar"
@@ -452,7 +470,6 @@ if st.session_state.perfil == "Admin":
             if df_clientes.empty: 
                 st.info("Nenhum cliente cadastrado.")
             else: 
-                # ATUALIZAÇÃO: Filtrando o dataframe com base na busca
                 df_view_cli = df_clientes.copy()
                 if busca_cli:
                     df_view_cli = df_view_cli[
@@ -546,7 +563,6 @@ if st.session_state.perfil == "Admin":
     with menu[3]:
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
         
-        # ATUALIZAÇÃO: Campo de busca de empresas
         busca_emp = st.text_input("🔍 Buscar Empresa na Lista (Nome ou CNPJ):", key="busca_emp_tab")
         
         if "aba_empresa_index" not in st.session_state: st.session_state.aba_empresa_index = "Listar"
@@ -557,7 +573,6 @@ if st.session_state.perfil == "Admin":
             if df_empresas.empty: 
                 st.info("Nenhuma empresa cadastrada.")
             else: 
-                # ATUALIZAÇÃO: Filtrando o dataframe com base na busca
                 df_view_emp = df_empresas.copy()
                 if busca_emp:
                     df_view_emp = df_view_emp[
@@ -644,7 +659,6 @@ if st.session_state.perfil == "Admin":
     with menu[4]:
         st.subheader("🔧 Gerenciamento de Prestadores (Guinchos)")
         
-        # ATUALIZAÇÃO: Campo de busca de prestadores
         busca_pres = st.text_input("🔍 Buscar Prestador na Lista (Nome ou Tipo):", key="busca_pres_tab")
         
         if "aba_prestador_index" not in st.session_state: st.session_state.aba_prestador_index = "Listar"
@@ -655,7 +669,6 @@ if st.session_state.perfil == "Admin":
             if df_prestadores.empty: 
                 st.info("Nenhum prestador cadastrado.")
             else: 
-                # ATUALIZAÇÃO: Filtrando o dataframe com base na busca
                 df_view_pres = df_prestadores.copy()
                 if busca_pres:
                     df_view_pres = df_view_pres[
@@ -691,7 +704,7 @@ if st.session_state.perfil == "Admin":
             stat_p = st.selectbox("Status do Guincho:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(str(dados_p_ant['status'])), key="p_status")
             
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
-                if modo_p and dados_p_ant is not None:
+                if modo_p && dados_p_ant is not None:
                     n_prest = n_prest_in.upper() if n_prest_in else dados_p_ant['nome']
                     t_prest = t_prest_in.upper() if t_prest_in else dados_p_ant['tipo']
                     tel_p = apenas_numeros_letras(tel_p_raw) if tel_p_raw else dados_p_ant['telefone']
