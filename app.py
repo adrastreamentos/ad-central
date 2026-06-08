@@ -38,6 +38,48 @@ FILE_PRESTADORES = os.path.join(FOLDER, "banco_prestadores.csv")
 FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 
 # ===================================================================================
+# FUNÇÕES CORE E SISTEMA PRINCIPAL (Colocadas no topo para uso no portal)
+# ===================================================================================
+
+def obter_hora_brasilia():
+    fuso_brasilia = timezone(timedelta(hours=-3))
+    return datetime.now(fuso_brasilia).strftime("%Y-%m-%d %H:%M:%S")
+
+def apenas_numeros_letras(texto):
+    return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
+
+def salvar_no_github(caminho_local):
+    token = st.secrets.get("GITHUB_TOKEN", None)
+    repo = "adrastreamentos/ad-central"
+    if not token: return
+    url = f"https://api.github.com/repos/{repo}/contents/{caminho_local.replace(os.sep, '/')}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    res = requests.get(url, headers=headers)
+    sha = res.json().get("sha", None) if res.status_code == 200 else None
+    with open(caminho_local, "rb") as f:
+        content = base64.b64encode(f.read()).decode("utf-8")
+    data = {"message": f"🔥 Auto-salvamento: {caminho_local}", "content": content, "branch": "main"}
+    if sha: data["sha"] = sha
+    requests.put(url, headers=headers, json=data)
+
+def salvar_dados(df, caminho):
+    df.to_csv(caminho, index=False)
+    salvar_no_github(caminho)
+
+def carregar_dados(caminho, colunas_obrigatorias):
+    try:
+        df = pd.read_csv(caminho)
+        df.columns = df.columns.str.strip().str.lower()
+        for col in colunas_obrigatorias:
+            if col not in df.columns:
+                df[col] = "" 
+        for col in df.columns:
+            df[col] = df[col].fillna("").astype(str).str.strip()
+        return df
+    except:
+        return pd.DataFrame(columns=colunas_obrigatorias)
+
+# ===================================================================================
 # PORTA LATERAL DO PRESTADOR (Acessível apenas via URL com ?portal=prestador)
 # ===================================================================================
 query_params = st.query_params
@@ -47,16 +89,7 @@ if query_params.get("portal") == "prestador":
     
     st.info("Para se cadastrar na nossa rede ou acessar seu painel, utilize as opções abaixo.")
     
-    def carregar_prestadores_portal():
-        try:
-            df = pd.read_csv(FILE_PRESTADORES)
-            for col in ['id','nome','tipo','telefone','est','status','homologado','senha','frota']:
-                if col not in df.columns: df[col] = ""
-            return df
-        except:
-            return pd.DataFrame(columns=['id','nome','tipo','telefone','est','status','homologado','senha','frota'])
-
-    df_p_portal = carregar_prestadores_portal()
+    df_p_portal = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','est','status','homologado','senha','frota'])
     
     tab_p1, tab_p2 = st.tabs(["🔒 Já tenho cadastro (Login)", "📝 Quero me cadastrar"])
     
@@ -102,52 +135,11 @@ if query_params.get("portal") == "prestador":
                         'homologado': 'Pendente', 'senha': nova_senha, 'frota': '[]'
                     }])
                     df_p_portal = pd.concat([df_p_portal, novo_p], ignore_index=True)
-                    df_p_portal.to_csv(FILE_PRESTADORES, index=False)
+                    # CORREÇÃO 1: Usando salvar_dados para enviar pro GitHub e não só localmente
+                    salvar_dados(df_p_portal, FILE_PRESTADORES)
                     st.success("Cadastro enviado com sucesso! Aguarde aprovação da central.")
-    st.stop() # Para a execução aqui para o prestador não ver o sistema admin
+    st.stop() 
 
-# ===================================================================================
-# FUNÇÕES CORE E SISTEMA PRINCIPAL
-# ===================================================================================
-
-def obter_hora_brasilia():
-    fuso_brasilia = timezone(timedelta(hours=-3))
-    return datetime.now(fuso_brasilia).strftime("%Y-%m-%d %H:%M:%S")
-
-def apenas_numeros_letras(texto):
-    return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
-
-def salvar_no_github(caminho_local):
-    token = st.secrets.get("GITHUB_TOKEN", None)
-    repo = "adrastreamentos/ad-central"
-    if not token: return
-    url = f"https://api.github.com/repos/{repo}/contents/{caminho_local.replace(os.sep, '/')}"
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-    res = requests.get(url, headers=headers)
-    sha = res.json().get("sha", None) if res.status_code == 200 else None
-    with open(caminho_local, "rb") as f:
-        content = base64.b64encode(f.read()).decode("utf-8")
-    data = {"message": f"🔥 Auto-salvamento: {caminho_local}", "content": content, "branch": "main"}
-    if sha: data["sha"] = sha
-    requests.put(url, headers=headers, json=data)
-
-# A VACINA: Evita KeyErrors adicionando as colunas em branco se não existirem
-def carregar_dados(caminho, colunas_obrigatorias):
-    try:
-        df = pd.read_csv(caminho)
-        df.columns = df.columns.str.strip().str.lower()
-        for col in colunas_obrigatorias:
-            if col not in df.columns:
-                df[col] = "" 
-        for col in df.columns:
-            df[col] = df[col].fillna("").astype(str).str.strip()
-        return df
-    except:
-        return pd.DataFrame(columns=colunas_obrigatorias)
-
-def salvar_dados(df, caminho):
-    df.to_csv(caminho, index=False)
-    salvar_no_github(caminho)
 
 def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
@@ -222,7 +214,6 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
     href = f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Relatório Oficial (PDF)</button></a>'
     return href
 
-# Inicialização caso não existam no diretório
 if not os.path.exists(FILE_CLIENTES): pd.DataFrame(columns=['id','nome','cpf','tel','vei','pla','est','emp_name','status','vei_2','pla_2','veiculos_lista']).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS): pd.DataFrame(columns=['cnpj','nome','responsavel','telefone','email','est','status']).to_csv(FILE_EMPRESAS, index=False)
 if not os.path.exists(FILE_PRESTADORES): pd.DataFrame(columns=['id','nome','tipo','telefone','est','status','homologado','senha','frota']).to_csv(FILE_PRESTADORES, index=False)
@@ -233,7 +224,6 @@ df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefo
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','est','status','homologado','senha','frota'])
 df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os', 'veiculo_desc'])
 
-
 # ===================================================================================
 # CONTROLE DE SESSÃO E LOGIN (ANTI-F5 com URL Params)
 # ===================================================================================
@@ -243,7 +233,6 @@ if "logado" not in st.session_state:
     st.session_state.perfil = ""
     st.session_state.empresa_vinculada = ""
 
-# Auto-login verificando a chave na URL
 if not st.session_state.logado:
     sess_param = st.query_params.get("session")
     if sess_param == "admin_ad":
@@ -274,7 +263,9 @@ if not st.session_state.logado:
                 st.session_state.logado = True
                 st.session_state.user = "AD Rastreamento Veicular (ADMIN)"
                 st.session_state.perfil = "Admin"
-                st.query_params["session"] = "admin_ad" # Grava chave anti-f5
+                st.query_params["session"] = "admin_ad"
+                # CORREÇÃO 3: Delay para o navegador registrar o URL Anti-F5
+                time.sleep(0.5) 
                 st.rerun()
             else:
                 if not df_empresas.empty:
@@ -289,7 +280,9 @@ if not st.session_state.logado:
                         st.session_state.user = nome_valido.upper()
                         st.session_state.perfil = "Parceiro"
                         st.session_state.empresa_vinculada = nome_valido
-                        st.query_params["session"] = f"parc_{urllib.parse.quote(nome_valido)}" # Grava chave anti-f5
+                        st.query_params["session"] = f"parc_{urllib.parse.quote(nome_valido)}"
+                        # CORREÇÃO 3: Delay para o navegador registrar o URL Anti-F5
+                        time.sleep(0.5)
                         st.rerun()
                     else: st.error("Usuário ou senha incorretos.")
                 else: st.error("Usuário ou senha incorretos.")
@@ -305,7 +298,7 @@ with col_user:
 with col_logout:
     if st.button("Sair / Logoff"):
         st.session_state.logado = False
-        st.query_params.clear() # Limpa a chave F5
+        st.query_params.clear()
         st.rerun()
 
 def colorir_status(val):
@@ -351,7 +344,6 @@ if st.session_state.perfil == "Admin":
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
                 cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
                 
-                # Resgatando a frota (Tabela Json ou colunas antigas)
                 lista_frota_opcoes = []
                 if pd.notna(cliente_dados.get('veiculos_lista')) and cliente_dados['veiculos_lista']:
                     try:
@@ -378,7 +370,6 @@ if st.session_state.perfil == "Admin":
                     
                     st.info(f"📍 Cliente vinculado à empresa: **{str(cliente_dados['emp_name']).upper()}** | Estado (UF): **{uf_cliente}**")
                     
-                    # Alerta Inteligente de 60 dias
                     if not df_os.empty and 'placa' in df_os.columns:
                         df_os_copy = df_os.copy()
                         df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
@@ -565,7 +556,7 @@ if st.session_state.perfil == "Admin":
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
 
-    # ==================== ABA: CLIENTES (FROTA ILIMITADA DINÂMICA) ====================
+    # ==================== ABA: CLIENTES ====================
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada)")
         
@@ -579,14 +570,14 @@ if st.session_state.perfil == "Admin":
             else: 
                 df_view_cli = df_clientes.copy()
                 if busca_cli:
+                    # CORREÇÃO 2: A busca_cli.lower() para o motor achar pela palavra correta
                     df_view_cli = df_view_cli[
                         df_view_cli['nome'].str.contains(busca_cli, case=False, na=False) | 
                         df_view_cli['pla'].str.contains(busca_cli, case=False, na=False) | 
                         df_view_cli['cpf'].str.contains(busca_cli, case=False, na=False) |
-                        df_view_cli['veiculos_lista'].str.lower().str.contains(busca.lower(), na=False)
+                        df_view_cli['veiculos_lista'].str.lower().str.contains(busca_cli.lower(), na=False)
                     ]
                 
-                # Expanders por empresa
                 empresas_na_lista = df_view_cli['emp_name'].unique()
                 for emp in empresas_na_lista:
                     nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
@@ -613,7 +604,6 @@ if st.session_state.perfil == "Admin":
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa - Adicione quantos quiser)**")
             
-            # Carrega a frota anterior ou gera uma vazia
             frota_inicial = []
             if dados_ant is not None:
                 if pd.notna(dados_ant.get('veiculos_lista')) and dados_ant['veiculos_lista']:
