@@ -202,7 +202,7 @@ if not st.session_state.logado:
         if st.button("Entrar no Sistema", use_container_width=True):
             if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
                 st.session_state.logado = True
-                st.session_state.user = "AD Rastreamento (ADMIN)"
+                st.session_state.user = "AD Rastreamento Veicular (ADMIN)"
                 st.session_state.perfil = "Admin"
                 st.rerun()
             else:
@@ -246,7 +246,7 @@ if st.session_state.perfil == "Admin":
         if df_clientes.empty:
             st.warning("Nenhum cliente cadastrado no sistema.")
         else:
-            st.subheader("🔍 Localizar Cliente")
+            st.subheader("🔍 Localizar Cliente e Veículo")
             
             # Inicializa estados de sessão para controle de limpeza de campos de texto
             if "busca_input" not in st.session_state: st.session_state.busca_input = ""
@@ -254,7 +254,7 @@ if st.session_state.perfil == "Admin":
             if "dest_input" not in st.session_state: st.session_state.dest_input = ""
             if "obs_input" not in st.session_state: st.session_state.obs_input = ""
             
-            busca = st.text_input("Digite o Nome, Placa ou CPF do cliente para buscar:", value=st.session_state.busca_input)
+            busca = st.text_input("Digite o Nome, Placa ou CPF do cliente para buscar (Exibe todos os veículos do cliente):", value=st.session_state.busca_input)
             
             if busca:
                 df_clientes_busca = df_clientes.copy()
@@ -262,18 +262,19 @@ if st.session_state.perfil == "Admin":
                 busca_limpa = apenas_numeros_letras(busca)
                 
                 df_filtrado_cli = df_clientes_busca[
-                    df_clientes_busca['nome'].str.lower().str.contains(busca.lower()) |
-                    df_clientes_busca['pla'].str.lower().str.contains(busca.lower()) |
-                    df_clientes_busca['cpf_limpo'].str.contains(busca_limpa)
+                    df_clientes_busca['nome'].str.lower().str.contains(busca.lower(), na=False) |
+                    df_clientes_busca['pla'].str.lower().str.contains(busca.lower(), na=False) |
+                    df_clientes_busca['cpf_limpo'].str.contains(busca_limpa, na=False)
                 ]
             else:
                 df_filtrado_cli = df_clientes
                 
             if df_filtrado_cli.empty:
-                st.error("Nenhum cliente encontrado com esse termo de busca.")
+                st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
             else:
-                lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Placa: {str(c['pla']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
-                c_ed_str = st.selectbox("Selecione o cliente confirmado abaixo:", options=lista_ed_ops, key="sel_ed")
+                # ATUALIZAÇÃO: Mostra nome, placa e veículo claramente para seleção, suportando clientes com múltiplos carros
+                lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Veículo: {str(c['vei']).upper()} | Placa: {str(c['pla']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
+                c_ed_str = st.selectbox("Selecione o cliente e o veículo exato para este atendimento:", options=lista_ed_ops, key="sel_ed")
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
                 cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
                 
@@ -439,13 +440,27 @@ if st.session_state.perfil == "Admin":
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes")
+        
+        # ATUALIZAÇÃO: Campo de busca de clientes
+        busca_cli = st.text_input("🔍 Buscar Cliente na Lista (Nome, Placa ou CPF):", key="busca_cli_tab")
+        
         if "aba_cliente_index" not in st.session_state: st.session_state.aba_cliente_index = "Listar"
         opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_cliente_index == "Listar" else 1)
         
         if opcao == "Listar":
             st.session_state.aba_cliente_index = "Listar"
-            if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
-            else: st.dataframe(df_clientes.style.map(colorir_status, subset=['status']), use_container_width=True)
+            if df_clientes.empty: 
+                st.info("Nenhum cliente cadastrado.")
+            else: 
+                # ATUALIZAÇÃO: Filtrando o dataframe com base na busca
+                df_view_cli = df_clientes.copy()
+                if busca_cli:
+                    df_view_cli = df_view_cli[
+                        df_view_cli['nome'].str.contains(busca_cli, case=False, na=False) | 
+                        df_view_cli['pla'].str.contains(busca_cli, case=False, na=False) | 
+                        df_view_cli['cpf'].str.contains(busca_cli, case=False, na=False)
+                    ]
+                st.dataframe(df_view_cli.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_cliente_index = "Incluir / Editar"
             modo = st.checkbox("Editar cliente existente")
@@ -530,13 +545,26 @@ if st.session_state.perfil == "Admin":
     # ==================== ABA: EMPRESAS ====================
     with menu[3]:
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
+        
+        # ATUALIZAÇÃO: Campo de busca de empresas
+        busca_emp = st.text_input("🔍 Buscar Empresa na Lista (Nome ou CNPJ):", key="busca_emp_tab")
+        
         if "aba_empresa_index" not in st.session_state: st.session_state.aba_empresa_index = "Listar"
         opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_empresa_index == "Listar" else 1)
         
         if opcao_e == "Listar":
             st.session_state.aba_empresa_index = "Listar"
-            if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
-            else: st.dataframe(df_empresas.style.map(colorir_status, subset=['status']), use_container_width=True)
+            if df_empresas.empty: 
+                st.info("Nenhuma empresa cadastrada.")
+            else: 
+                # ATUALIZAÇÃO: Filtrando o dataframe com base na busca
+                df_view_emp = df_empresas.copy()
+                if busca_emp:
+                    df_view_emp = df_view_emp[
+                        df_view_emp['nome'].str.contains(busca_emp, case=False, na=False) | 
+                        df_view_emp['cnpj'].str.contains(busca_emp, case=False, na=False)
+                    ]
+                st.dataframe(df_view_emp.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_empresa_index = "Incluir / Editar"
             modo_e = st.checkbox("Editar empresa existente")
@@ -615,13 +643,26 @@ if st.session_state.perfil == "Admin":
     # ==================== ABA: PRESTADORES ====================
     with menu[4]:
         st.subheader("🔧 Gerenciamento de Prestadores (Guinchos)")
+        
+        # ATUALIZAÇÃO: Campo de busca de prestadores
+        busca_pres = st.text_input("🔍 Buscar Prestador na Lista (Nome ou Tipo):", key="busca_pres_tab")
+        
         if "aba_prestador_index" not in st.session_state: st.session_state.aba_prestador_index = "Listar"
         opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_prestador_index == "Listar" else 1)
         
         if opcao_p == "Listar":
             st.session_state.aba_prestador_index = "Listar"
-            if df_prestadores.empty: st.info("Nenhum prestador cadastrado.")
-            else: st.dataframe(df_prestadores, use_container_width=True)
+            if df_prestadores.empty: 
+                st.info("Nenhum prestador cadastrado.")
+            else: 
+                # ATUALIZAÇÃO: Filtrando o dataframe com base na busca
+                df_view_pres = df_prestadores.copy()
+                if busca_pres:
+                    df_view_pres = df_view_pres[
+                        df_view_pres['nome'].str.contains(busca_pres, case=False, na=False) | 
+                        df_view_pres['tipo'].str.contains(busca_pres, case=False, na=False)
+                    ]
+                st.dataframe(df_view_pres, use_container_width=True)
         else:
             st.session_state.aba_prestador_index = "Incluir / Editar"
             modo_p = st.checkbox("Editar prestador existente")
