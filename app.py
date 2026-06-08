@@ -29,6 +29,7 @@ st.markdown("""
 # Lista Oficial de Estados do Brasil e Planos KM
 ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
 PLANOS_KM = ["Sem Limite", "50km", "100km", "150km", "200km", "300km", "400km", "500km"]
+OPCOES_SERVICOS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"]
 
 # Caminhos dos arquivos de banco de dados locais
 FOLDER = "AD_Assistencia"
@@ -125,7 +126,7 @@ if st.query_params.get("portal") == "prestador":
                 st.write("Preencha os dados para análise da central:")
                 c1, c2 = st.columns(2)
                 novo_nome = c1.text_input("Razão Social / Nome Completo")
-                novo_tipo = c2.selectbox("Tipo Principal de Guincho", ["Plataforma", "Asa Delta", "Lança", "Munck", "Outro"])
+                novo_tipos_lista = c2.multiselect("Tipos de Serviço Prestado:", OPCOES_SERVICOS, default=["Guincho"])
                 novo_tel = c1.text_input("Telefone com DDD (Será seu Login)")
                 nova_senha = c2.text_input("Crie uma Senha", type="password")
                 novo_end = c1.text_input("Endereço / Logradouro")
@@ -135,12 +136,15 @@ if st.query_params.get("portal") == "prestador":
                 
                 if st.form_submit_button("Enviar Cadastro"):
                     tel_limpo = "".join(filter(str.isalnum, str(novo_tel)))
+                    tipo_final_str = ", ".join(novo_tipos_lista)
                     if not novo_nome or not tel_limpo or not nova_senha:
                         st.error("Nome, Telefone e Senha são obrigatórios.")
+                    elif not novo_tipos_lista:
+                        st.error("Selecione ao menos um tipo de serviço prestado.")
                     else:
                         prox_id = int(df_p_portal['id'].astype(float).max() + 1) if not df_p_portal.empty else 1
                         novo_p = pd.DataFrame([{
-                            'id': str(prox_id), 'nome': novo_nome.upper(), 'tipo': novo_tipo.upper(), 
+                            'id': str(prox_id), 'nome': novo_nome.upper(), 'tipo': tipo_final_str, 
                             'telefone': tel_limpo, 'endereco': novo_end, 'cidade': novo_cid.upper(), 'cep': novo_cep,
                             'est': novo_est, 'status': 'Ativo', 'homologado': 'Pendente', 'senha': nova_senha, 'frota': '[]'
                         }])
@@ -159,9 +163,15 @@ if st.query_params.get("portal") == "prestador":
             st.session_state.logado_prestador = False
             st.rerun()
             
-        st.write("Atualize seus dados de contato e localização para garantir acionamentos precisos.")
+        st.write("Atualize seus dados de contato, serviços e localização para garantir acionamentos precisos.")
         
         with st.form("form_edit_prestador"):
+            servicos_atuais_logado = []
+            if pd.notna(p_dados_atual.get('tipo')):
+                servicos_atuais_logado = [s.strip() for s in str(p_dados_atual['tipo']).split(',')]
+                servicos_atuais_logado = [s for s in servicos_atuais_logado if s in OPCOES_SERVICOS]
+            
+            e_tipos_lista = st.multiselect("Tipos de Serviço Prestado:", OPCOES_SERVICOS, default=servicos_atuais_logado)
             e_tel = st.text_input("Telefone de Contato (Com DDD)", value=p_dados_atual.get('telefone',''))
             e_end = st.text_input("Endereço / Base", value=p_dados_atual.get('endereco',''))
             c1, c2 = st.columns(2)
@@ -172,8 +182,9 @@ if st.query_params.get("portal") == "prestador":
             e_est = st.selectbox("Estado", ESTADOS_BR, index=idx_est)
             
             if st.form_submit_button("Salvar Minhas Informações"):
-                df_p_portal.loc[df_p_portal['id'] == id_logado, ['telefone','endereco','cidade','cep','est']] = [
-                    apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est
+                e_tipo_str = ", ".join(e_tipos_lista)
+                df_p_portal.loc[df_p_portal['id'] == id_logado, ['tipo','telefone','endereco','cidade','cep','est']] = [
+                    e_tipo_str, apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est
                 ]
                 salvar_dados(df_p_portal, FILE_PRESTADORES)
                 st.success("Dados atualizados com sucesso na Central da AD Rastreamento Veicular!")
@@ -649,7 +660,6 @@ if st.session_state.perfil == "Admin":
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            # CHAVE DINÂMICA: Força o Streamlit a puxar os dados do banco pro formulário
             k_cli = str(c_target) if c_target else "new"
             
             c1, c2 = st.columns(2)
@@ -770,32 +780,25 @@ if st.session_state.perfil == "Admin":
             
             k_emp = str(e_target) if e_target else "new"
             
-            cnpj_raw = st.text_input("Alterar CNPJ da Empresa (Deixe em branco para não mexer):", key=f"e_cnpj_{k_emp}", value=dados_e_ant['cnpj'] if dados_e_ant is not None else "")
-            n_emp_in = st.text_input("Alterar Nome da Empresa (Deixe em branco para não mexer):", key=f"e_nome_{k_emp}", value=dados_e_ant['nome'] if dados_e_ant is not None else "")
-            resp_in = st.text_input("Alterar Nome do Responsável:", key=f"e_resp_{k_emp}", value=dados_e_ant['responsavel'] if dados_e_ant is not None else "")
-            tel_e_raw = st.text_input("Alterar Telefone da Central 24h:", key=f"e_tel_{k_emp}", value=dados_e_ant['telefone'] if dados_e_ant is not None else "")
-            mail_in = st.text_input("Alterar E-mail corporativo:", key=f"e_mail_{k_emp}", value=dados_e_ant['email'] if dados_e_ant is not None else "")
+            cnpj_raw = st.text_input("CNPJ da Empresa:", key=f"e_cnpj_{k_emp}", value=dados_e_ant['cnpj'] if dados_e_ant is not None else "")
+            n_emp_in = st.text_input("Nome da Empresa:", key=f"e_nome_{k_emp}", value=dados_e_ant['nome'] if dados_e_ant is not None else "")
+            resp_in = st.text_input("Nome do Responsável:", key=f"e_resp_{k_emp}", value=dados_e_ant['responsavel'] if dados_e_ant is not None else "")
+            tel_e_raw = st.text_input("Telefone da Central:", key=f"e_tel_{k_emp}", value=dados_e_ant['telefone'] if dados_e_ant is not None else "")
+            mail_in = st.text_input("E-mail corporativo:", key=f"e_mail_{k_emp}", value=dados_e_ant['email'] if dados_e_ant is not None else "")
             
             idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if (dados_e_ant is not None and str(dados_e_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est_e = st.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e, key=f"e_est_{k_emp}")
             stat_e = st.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0 if dados_e_ant is None else ["Ativo", "Inativo"].index(str(dados_e_ant['status'])), key=f"e_status_{k_emp}")
             
             if st.button("Salvar Empresa", key="save_emp_btn_novo_direto"):
-                if modo_e and dados_e_ant is not None:
-                    cnpj = apenas_numeros_letras(cnpj_raw) if cnpj_raw else dados_e_ant['cnpj']
-                    nome_empresa = n_emp_in.upper() if n_emp_in else str(dados_e_ant['nome']).upper()
-                    responsavel = resp_in.upper() if resp_in else dados_e_ant['responsavel']
-                    telefone = apenas_numeros_letras(tel_e_raw) if tel_e_raw else dados_e_ant['telefone']
-                    email = mail_in if mail_in else dados_e_ant['email']
-                else:
-                    cnpj = apenas_numeros_letras(cnpj_raw)
-                    nome_empresa = n_emp_in.upper()
-                    responsavel = resp_in.upper()
-                    telefone = apenas_numeros_letras(tel_e_raw)
-                    email = mail_in
+                cnpj = apenas_numeros_letras(cnpj_raw)
+                nome_empresa = n_emp_in.upper()
+                responsavel = resp_in.upper()
+                telefone = apenas_numeros_letras(tel_e_raw)
+                email = mail_in
                 
                 if not cnpj or not nome_empresa:
-                    st.error("CNPJ e Nome da Empresa são obrigatórios para novos cadastros.")
+                    st.error("CNPJ e Nome da Empresa são obrigatórios para salvar.")
                 else:
                     if not modo_e:
                         novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': nome_empresa, 'responsavel': responsavel, 'telefone': telefone, 'email': email, 'est': est_e, 'status': stat_e}])
@@ -883,7 +886,15 @@ if st.session_state.perfil == "Admin":
             
             c1, c2 = st.columns(2)
             n_prest_in = c1.text_input("Nome do Guincho/Prestador:", key=f"p_nome_{k_pre}", value=dados_p_ant['nome'] if dados_p_ant is not None else "")
-            t_prest_in = c2.text_input("Tipo de Serviço prestado:", key=f"p_tipo_{k_pre}", value=dados_p_ant['tipo'] if dados_p_ant is not None else "")
+            
+            servicos_atuais = []
+            if dados_p_ant is not None and pd.notna(dados_p_ant['tipo']):
+                partes = [s.strip() for s in str(dados_p_ant['tipo']).split(',')]
+                servicos_atuais = [s for s in partes if s in OPCOES_SERVICOS]
+                if not servicos_atuais and partes and partes[0]:
+                    servicos_atuais = ["Guincho"] 
+            
+            t_prest_lista = c2.multiselect("Tipos de Serviço Prestado:", options=OPCOES_SERVICOS, default=servicos_atuais, key=f"p_tipo_{k_pre}")
             tel_p_raw = c1.text_input("Telefone de Contato (Com DDD):", key=f"p_tel_{k_pre}", value=dados_p_ant['telefone'] if dados_p_ant is not None else "")
             
             end_p_in = c2.text_input("Endereço / Base:", key=f"p_end_{k_pre}", value=dados_p_ant.get('endereco','') if dados_p_ant is not None else "")
@@ -895,17 +906,14 @@ if st.session_state.perfil == "Admin":
             stat_p = c2.selectbox("Status do Guincho:", ["Ativo", "Inativo"], index=0 if dados_p_ant is None else ["Ativo", "Inativo"].index(str(dados_p_ant['status'])), key=f"p_status_{k_pre}")
             
             if st.button("Salvar Prestador", key="save_prest_btn_novo"):
-                if modo_p and dados_p_ant is not None:
-                    n_prest = n_prest_in.upper() if n_prest_in else dados_p_ant['nome']
-                    t_prest = t_prest_in.upper() if t_prest_in else dados_p_ant['tipo']
-                    tel_p = apenas_numeros_letras(tel_p_raw) if tel_p_raw else dados_p_ant['telefone']
-                else:
-                    n_prest = n_prest_in.upper()
-                    t_prest = t_prest_in.upper()
-                    tel_p = apenas_numeros_letras(tel_p_raw)
+                n_prest = n_prest_in.upper()
+                t_prest = ", ".join(t_prest_lista)
+                tel_p = apenas_numeros_letras(tel_p_raw)
                 
                 if not n_prest:
                     st.error("O Nome do prestador é obrigatório para novos registros.")
+                elif not t_prest_lista:
+                    st.error("Selecione ao menos um tipo de serviço prestado.")
                 else:
                     if not modo_p:
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
