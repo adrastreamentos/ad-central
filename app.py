@@ -26,7 +26,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Lista Oficial de Estados do Brasil e Planos KM
+# Lista Oficial de Estados do Brasil, Planos KM e Serviços
 ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
 PLANOS_KM = ["Sem Limite", "50km", "100km", "150km", "200km", "300km", "400km", "500km"]
 OPCOES_SERVICOS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"]
@@ -422,6 +422,7 @@ if st.session_state.perfil == "Admin":
                     veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
                     uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
                     plano_km_cliente = str(cliente_dados.get('plano_km', 'N/D'))
+                    cidade_cliente = str(cliente_dados.get('cidade', '')).strip().upper()
                     
                     st.info(f"📍 Cliente: **{str(cliente_dados['emp_name']).upper()}** | UF do Veículo: **{uf_cliente}**")
                     st.markdown(f'<div class="info-box">🛣️ PLANO KM CONTRATADO: {plano_km_cliente}</div>', unsafe_allow_html=True)
@@ -466,14 +467,22 @@ if st.session_state.perfil == "Admin":
                     
                     lista_p_ops = ["Outro (Digitar Manualmente)"]
                     if not df_prestadores.empty:
-                        df_prest_filtrados = df_prestadores[(df_prestadores['est'].str.strip().str.upper() == uf_cliente) & (df_prestadores['status'] == 'Ativo') & (df_prestadores['homologado'] == 'Aprovado')]
+                        df_prest_filtrados = df_prestadores[(df_prestadores['est'].str.strip().str.upper() == uf_cliente) & (df_prestadores['status'] == 'Ativo') & (df_prestadores['homologado'] == 'Aprovado')].copy()
+                        
                         if not df_prest_filtrados.empty:
-                            lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}" for _, r in df_prest_filtrados.iterrows()]
+                            # Lógica de Nível 1: Ordenação por proximidade (Mesma Cidade)
+                            df_prest_filtrados['prioridade'] = df_prest_filtrados['cidade'].apply(lambda x: 0 if str(x).strip().upper() == cidade_cliente and cidade_cliente != "" else 1)
+                            df_prest_filtrados = df_prest_filtrados.sort_values(by=['prioridade', 'nome'])
+                            
+                            for _, r in df_prest_filtrados.iterrows():
+                                marcador = "📍 [MAIS PRÓXIMO] " if r['prioridade'] == 0 else ""
+                                lista_p_ops.append(f"{marcador}{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
                         else:
                             df_aprovados = df_prestadores[df_prestadores['homologado'] == 'Aprovado']
-                            lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}" for _, r in df_aprovados.iterrows()]
+                            for _, r in df_aprovados.iterrows():
+                                lista_p_ops.append(f"{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
                     
-                    prestador_sel = st.selectbox("Prestador homologado para o Estado do Cliente:", lista_p_ops)
+                    prestador_sel = st.selectbox("Prestadores homologados (Ordenados por proximidade):", lista_p_ops)
                     
                     if prestador_sel == "Outro (Digitar Manualmente)":
                         p_nome_manual = st.text_input("Nome do Prestador Manual:")
@@ -481,8 +490,9 @@ if st.session_state.perfil == "Admin":
                         prestador_final = p_nome_manual
                         tel_prestador_final = apenas_numeros_letras(p_tel_manual)
                     else:
-                        prestador_final = prestador_sel.split(" - Tel:")[0]
-                        tel_prestador_final = apenas_numeros_letras(prestador_sel.split(" - Tel:")[1].split("-")[0].strip())
+                        prestador_limpo = prestador_sel.replace("📍 [MAIS PRÓXIMO] ", "")
+                        prestador_final = prestador_limpo.split(" - Tel:")[0]
+                        tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
                     
                     localizacao = st.text_input("Endereço de Origem (Localização atual):", value=st.session_state.loc_input)
                     destino = st.text_input("Endereço de Destino:", value=st.session_state.dest_input)
