@@ -6,6 +6,7 @@ import urllib.parse
 import base64
 import time
 import requests
+import json
 
 # Configuração da Página com a identidade visual da AD
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
@@ -65,14 +66,15 @@ if query_params.get("portal") == "prestador":
         if st.button("Acessar Painel"):
             doc_limpo = "".join(filter(str.isalnum, str(doc_login)))
             match = df_p_portal[(df_p_portal['telefone'] == doc_limpo) & (df_p_portal['senha'] == senha_login)]
-            match = df_p_portal[df_p_portal['senha'] == senha_login]
+            if match.empty:
+                match = df_p_portal[df_p_portal['senha'] == senha_login]
             
             if not match.empty:
                 status_hom = match.iloc[0].get('homologado', 'Pendente')
                 if status_hom == 'Aprovado':
                     st.success(f"Bem-vindo, {match.iloc[0]['nome']}! (Funcionalidade de frota multiveículo em construção para a próxima fase).")
                 elif status_hom == 'Reprovado':
-                    st.error("Seu cadastro foi arquivado. Entre em contato com o suporte da AD Rastreamento.")
+                    st.error("Seu cadastro foi arquivado. Entre em contato com o suporte da AD Rastreamento Veicular.")
                 else:
                     st.warning("Seu cadastro ainda está em análise pela nossa central.")
             else:
@@ -102,20 +104,11 @@ if query_params.get("portal") == "prestador":
                     df_p_portal = pd.concat([df_p_portal, novo_p], ignore_index=True)
                     df_p_portal.to_csv(FILE_PRESTADORES, index=False)
                     st.success("Cadastro enviado com sucesso! Aguarde aprovação da central.")
-    st.stop()
+    st.stop() # Para a execução aqui para o prestador não ver o sistema admin
 
 # ===================================================================================
 # FUNÇÕES CORE E SISTEMA PRINCIPAL
 # ===================================================================================
-
-if not os.path.exists(FILE_CLIENTES):
-    pd.DataFrame(columns=['id','nome','cpf','tel','vei','pla','est','emp_name','status','vei_2','pla_2']).to_csv(FILE_CLIENTES, index=False)
-if not os.path.exists(FILE_EMPRESAS):
-    pd.DataFrame(columns=['cnpj','nome','responsavel','telefone','email','est','status']).to_csv(FILE_EMPRESAS, index=False)
-if not os.path.exists(FILE_PRESTADORES):
-    pd.DataFrame(columns=['id','nome','tipo','telefone','est','status','homologado','senha','frota']).to_csv(FILE_PRESTADORES, index=False)
-if not os.path.exists(FILE_OS):
-    pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os']).to_csv(FILE_OS, index=False)
 
 def obter_hora_brasilia():
     fuso_brasilia = timezone(timedelta(hours=-3))
@@ -138,6 +131,7 @@ def salvar_no_github(caminho_local):
     if sha: data["sha"] = sha
     requests.put(url, headers=headers, json=data)
 
+# A VACINA: Evita KeyErrors adicionando as colunas em branco se não existirem
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
         df = pd.read_csv(caminho)
@@ -228,16 +222,40 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
     href = f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; box-shadow: 0px 4px 6px rgba(0,0,0,0.1);">🖨️ Baixar Relatório Oficial (PDF)</button></a>'
     return href
 
+# Inicialização caso não existam no diretório
+if not os.path.exists(FILE_CLIENTES): pd.DataFrame(columns=['id','nome','cpf','tel','vei','pla','est','emp_name','status','vei_2','pla_2','veiculos_lista']).to_csv(FILE_CLIENTES, index=False)
+if not os.path.exists(FILE_EMPRESAS): pd.DataFrame(columns=['cnpj','nome','responsavel','telefone','email','est','status']).to_csv(FILE_EMPRESAS, index=False)
+if not os.path.exists(FILE_PRESTADORES): pd.DataFrame(columns=['id','nome','tipo','telefone','est','status','homologado','senha','frota']).to_csv(FILE_PRESTADORES, index=False)
+if not os.path.exists(FILE_OS): pd.DataFrame(columns=['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc']).to_csv(FILE_OS, index=False)
+
+df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status', 'vei_2', 'pla_2', 'veiculos_lista'])
+df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
+df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','est','status','homologado','senha','frota'])
+df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os', 'veiculo_desc'])
+
+
+# ===================================================================================
+# CONTROLE DE SESSÃO E LOGIN (ANTI-F5 com URL Params)
+# ===================================================================================
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.user = ""
     st.session_state.perfil = ""
     st.session_state.empresa_vinculada = ""
 
-df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status', 'vei_2', 'pla_2'])
-df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
-df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','est','status','homologado','senha','frota'])
-df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os'])
+# Auto-login verificando a chave na URL
+if not st.session_state.logado:
+    sess_param = st.query_params.get("session")
+    if sess_param == "admin_ad":
+        st.session_state.logado = True
+        st.session_state.user = "AD Rastreamento Veicular (ADMIN)"
+        st.session_state.perfil = "Admin"
+    elif sess_param and sess_param.startswith("parc_"):
+        nome_parc = urllib.parse.unquote(sess_param.split("parc_")[1])
+        st.session_state.logado = True
+        st.session_state.user = nome_parc.upper()
+        st.session_state.perfil = "Parceiro"
+        st.session_state.empresa_vinculada = nome_parc
 
 # --- TELA DE LOGIN ---
 if not st.session_state.logado:
@@ -256,6 +274,7 @@ if not st.session_state.logado:
                 st.session_state.logado = True
                 st.session_state.user = "AD Rastreamento Veicular (ADMIN)"
                 st.session_state.perfil = "Admin"
+                st.query_params["session"] = "admin_ad" # Grava chave anti-f5
                 st.rerun()
             else:
                 if not df_empresas.empty:
@@ -266,9 +285,11 @@ if not st.session_state.logado:
                     parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_comparar'] == senha_input) & (df_empresas_login['nome_comparar'] == usuario_input)]
                     if not parceiro_valid.empty:
                         st.session_state.logado = True
-                        st.session_state.user = parceiro_valid.iloc[0]['nome'].upper()
+                        nome_valido = parceiro_valid.iloc[0]['nome']
+                        st.session_state.user = nome_valido.upper()
                         st.session_state.perfil = "Parceiro"
-                        st.session_state.empresa_vinculada = parceiro_valid.iloc[0]['nome']
+                        st.session_state.empresa_vinculada = nome_valido
+                        st.query_params["session"] = f"parc_{urllib.parse.quote(nome_valido)}" # Grava chave anti-f5
                         st.rerun()
                     else: st.error("Usuário ou senha incorretos.")
                 else: st.error("Usuário ou senha incorretos.")
@@ -284,6 +305,7 @@ with col_user:
 with col_logout:
     if st.button("Sair / Logoff"):
         st.session_state.logado = False
+        st.query_params.clear() # Limpa a chave F5
         st.rerun()
 
 def colorir_status(val):
@@ -315,7 +337,8 @@ if st.session_state.perfil == "Admin":
                 df_filtrado_cli = df_clientes_busca[
                     df_clientes_busca['nome'].str.lower().str.contains(busca.lower(), na=False) |
                     df_clientes_busca['pla'].str.lower().str.contains(busca.lower(), na=False) |
-                    df_clientes_busca['cpf_limpo'].str.contains(busca_limpa, na=False)
+                    df_clientes_busca['cpf_limpo'].str.contains(busca_limpa, na=False) |
+                    df_clientes_busca['veiculos_lista'].str.lower().str.contains(busca.lower(), na=False)
                 ]
             else:
                 df_filtrado_cli = df_clientes
@@ -323,104 +346,122 @@ if st.session_state.perfil == "Admin":
             if df_filtrado_cli.empty:
                 st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
             else:
-                lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Veículo: {str(c['vei']).upper()} | Placa: {str(c['pla']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
-                c_ed_str = st.selectbox("Selecione o cliente e o veículo exato para este atendimento:", options=lista_ed_ops, key="sel_ed")
+                lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
+                c_ed_str = st.selectbox("Selecione o Cliente:", options=lista_ed_ops, key="sel_ed")
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
                 cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
                 
-                uf_cliente = str(cliente_dados['est']).strip().upper()
-                placa_alvo = str(cliente_dados['pla']).strip().upper()
-                if not uf_cliente: uf_cliente = "RN"
-                st.info(f"📍 Cliente vinculado à empresa: **{str(cliente_dados['emp_name']).upper()}** | Estado do Veículo: **{uf_cliente}**")
+                # Resgatando a frota (Tabela Json ou colunas antigas)
+                lista_frota_opcoes = []
+                if pd.notna(cliente_dados.get('veiculos_lista')) and cliente_dados['veiculos_lista']:
+                    try:
+                        frota_json = json.loads(cliente_dados['veiculos_lista'])
+                        for v in frota_json:
+                            if v.get('Placa'):
+                                lista_frota_opcoes.append(f"{v.get('Modelo/Ano', 'Veículo')} - Placa: {v.get('Placa')}")
+                    except: pass
                 
-                if not df_os.empty and 'placa' in df_os.columns:
-                    df_os_copy = df_os.copy()
-                    df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
-                    os_hist = df_os_copy[df_os_copy['placa'].astype(str).str.upper() == placa_alvo]
-                    
-                    if not os_hist.empty:
-                        ultima_data = os_hist['data_hora'].max()
-                        if pd.notna(ultima_data):
-                            dias_passados = (datetime.now() - ultima_data).days
-                            if dias_passados < 60:
-                                st.markdown(f'<div class="alert-box alert-danger">⚠️ ATENÇÃO: Último acionamento deste veículo foi há {dias_passados} dias (Data: {ultima_data.strftime("%d/%m/%Y")}). Cliente sujeito à restrição contratual dos 60 dias.</div>', unsafe_allow_html=True)
-                            else:
-                                st.markdown(f'<div class="alert-box alert-success">✅ VIGÊNCIA LIBERADA: Último uso há {dias_passados} dias (Mais de 60 dias).</div>', unsafe_allow_html=True)
-
-                ano_atual = datetime.now().year
-                total_guinchos, total_p_seca, total_p_eletrica, total_borraceiro, total_chaveiro = 0, 0, 0, 0, 0
+                if not lista_frota_opcoes:
+                    if pd.notna(cliente_dados.get('pla')) and str(cliente_dados['pla']).strip():
+                        lista_frota_opcoes.append(f"{cliente_dados.get('vei', 'Veículo')} - Placa: {cliente_dados['pla']}")
+                    if pd.notna(cliente_dados.get('pla_2')) and str(cliente_dados['pla_2']).strip():
+                        lista_frota_opcoes.append(f"{cliente_dados.get('vei_2', 'Veículo')} - Placa: {cliente_dados['pla_2']}")
                 
-                if not df_os.empty and 'placa' in df_os.columns:
-                    os_cliente_ano = df_os_copy[(df_os_copy['placa'].astype(str).str.upper() == placa_alvo) & (df_os_copy['data_hora'].dt.year == ano_atual)]
-                    
-                    for _, o in os_cliente_ano.iterrows():
-                        serv = str(o['tipo_servico']).lower()
-                        if "guincho" in serv: total_guinchos += 1
-                        elif "pane seca" in serv: total_p_seca += 1
-                        elif "pane el" in serv or "eletrica" in serv: total_p_eletrica += 1
-                        elif "chaveiro" in serv: total_chaveiro += 1
-                        elif "borraceiro" in serv: total_borraceiro += 1
-                
-                st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual}) - Exclusivo do Veículo (Placa: {placa_alvo})")
-                c1, c2, c3, c4, c5 = st.columns(5)
-                c1.metric("Guinchos Utilizados", f"{total_guinchos} / 2")
-                c2.metric("Pane Seca Utilizada", f"{total_p_seca} / 1")
-                c3.metric("Pane Elétrica Utilizada", f"{total_p_eletrica} / 1")
-                c4.metric("Chaveiro Utilizado", f"{total_chaveiro} / 1")
-                c5.metric("Borraceiro Utilizado", f"{total_borraceiro} / 1")
-                
-                st.write("---")
-                
-                tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borraceiro", "Chaveiro"])
-                motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
-                
-                lista_p_ops = ["Outro (Digitar Manualmente)"]
-                if not df_prestadores.empty:
-                    df_prest_filtrados = df_prestadores[(df_prestadores['est'].str.strip().str.upper() == uf_cliente) & (df_prestadores['status'] == 'Ativo')]
-                    if not df_prest_filtrados.empty:
-                        lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['est']).upper()})" for _, r in df_prest_filtrados.iterrows()]
-                    else:
-                        lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['est']).upper()})" for _, r in df_prestadores.iterrows()]
-                
-                prestador_sel = st.selectbox("Prestador homologado para o Estado do Cliente:", lista_p_ops)
-                
-                if prestador_sel == "Outro (Digitar Manualmente)":
-                    p_nome_manual = st.text_input("Nome do Prestador Manual:")
-                    p_tel_manual = st.text_input("Telefone do Prestador Manual (DDD + Número):")
-                    prestador_final = p_nome_manual
-                    tel_prestador_final = apenas_numeros_letras(p_tel_manual)
+                if not lista_frota_opcoes:
+                    st.error("Este cliente não possui veículos cadastrados com placa válida.")
                 else:
-                    prestador_final = prestador_sel.split(" - Tel:")[0]
-                    tel_cru = prestador_sel.split(" - Tel:")[1].split("(")[0].strip()
-                    tel_prestador_final = apenas_numeros_letras(tel_cru)
-                
-                localizacao = st.text_input("Endereço de Origem (Localização atual):", value=st.session_state.loc_input)
-                destino = st.text_input("Endereço de Destino:", value=st.session_state.dest_input)
-                obs = st.text_area("Observações:", value=st.session_state.obs_input)
-                
-                if st.button("🚀 Iniciar Atendimento / Gerar OS"):
-                    if not prestador_final or not tel_prestador_final:
-                        st.error("Identifique o Nome e o Telefone do prestador.")
+                    veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
+                    
+                    placa_alvo = veiculo_sel_os.split("Placa: ")[1].strip().upper()
+                    veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
+                    uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
+                    
+                    st.info(f"📍 Cliente vinculado à empresa: **{str(cliente_dados['emp_name']).upper()}** | Estado (UF): **{uf_cliente}**")
+                    
+                    # Alerta Inteligente de 60 dias
+                    if not df_os.empty and 'placa' in df_os.columns:
+                        df_os_copy = df_os.copy()
+                        df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
+                        os_hist = df_os_copy[df_os_copy['placa'].astype(str).str.upper() == placa_alvo]
+                        if not os_hist.empty:
+                            ultima_data = os_hist['data_hora'].max()
+                            if pd.notna(ultima_data):
+                                dias_passados = (datetime.now() - ultima_data).days
+                                if dias_passados < 60:
+                                    st.markdown(f'<div class="alert-box alert-danger">⚠️ ATENÇÃO: Último acionamento da placa {placa_alvo} foi há {dias_passados} dias (Data: {ultima_data.strftime("%d/%m/%Y")}). Cliente sujeito à restrição contratual dos 60 dias.</div>', unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f'<div class="alert-box alert-success">✅ VIGÊNCIA LIBERADA: Último uso há {dias_passados} dias (Mais de 60 dias).</div>', unsafe_allow_html=True)
+
+                    ano_atual = datetime.now().year
+                    total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
+                    if not df_os.empty and 'placa' in df_os.columns:
+                        os_cliente_ano = df_os_copy[(df_os_copy['placa'].astype(str).str.upper() == placa_alvo) & (df_os_copy['data_hora'].dt.year == ano_atual)]
+                        for _, o in os_cliente_ano.iterrows():
+                            serv = str(o['tipo_servico']).lower()
+                            if "guincho" in serv: total_g += 1
+                            elif "pane seca" in serv: total_ps += 1
+                            elif "pane el" in serv or "eletrica" in serv: total_pe += 1
+                            elif "chaveiro" in serv: total_c += 1
+                            elif "borraceiro" in serv: total_b += 1
+                    
+                    st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual}) - Placa: {placa_alvo}")
+                    c1, c2, c3, c4, c5 = st.columns(5)
+                    c1.metric("Guinchos", f"{total_g} / 2")
+                    c2.metric("Pane Seca", f"{total_ps} / 1")
+                    c3.metric("Elétrica", f"{total_pe} / 1")
+                    c4.metric("Chaveiro", f"{total_c} / 1")
+                    c5.metric("Borraceiro", f"{total_b} / 1")
+                    
+                    st.write("---")
+                    
+                    tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borraceiro", "Chaveiro"])
+                    motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
+                    
+                    lista_p_ops = ["Outro (Digitar Manualmente)"]
+                    if not df_prestadores.empty:
+                        df_prest_filtrados = df_prestadores[(df_prestadores['est'].str.strip().str.upper() == uf_cliente) & (df_prestadores['status'] == 'Ativo')]
+                        if not df_prest_filtrados.empty:
+                            lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['est']).upper()})" for _, r in df_prest_filtrados.iterrows()]
+                        else:
+                            lista_p_ops += [f"{str(r['nome'])} - Tel: {str(r['telefone'])} ({str(r['est']).upper()})" for _, r in df_prestadores.iterrows()]
+                    
+                    prestador_sel = st.selectbox("Prestador homologado para o Estado do Cliente:", lista_p_ops)
+                    
+                    if prestador_sel == "Outro (Digitar Manualmente)":
+                        p_nome_manual = st.text_input("Nome do Prestador Manual:")
+                        p_tel_manual = st.text_input("Telefone do Prestador Manual (DDD + Número):")
+                        prestador_final = p_nome_manual
+                        tel_prestador_final = apenas_numeros_letras(p_tel_manual)
                     else:
-                        nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
-                        agora_str = obter_hora_brasilia()
-                        
-                        nova_os = pd.DataFrame([{
-                            'id': str(nova_id), 'data_hora': agora_str, 'cliente_id': str(c_id),
-                            'cliente_nome': str(cliente_dados['nome']), 'placa': placa_alvo, 'empresa': str(cliente_dados['emp_name']),
-                            'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}",
-                            'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO"
-                        }])
-                        df_os = pd.concat([df_os, nova_os], ignore_index=True)
-                        salvar_dados(df_os, FILE_OS)
-                        st.success(f"✅ Chamado Nº {nova_id} Aberto! Vá para a aba 'Relatórios' -> 'OS em Andamento' para notificar o prestador e finalizar.")
-                        
-                        st.session_state.busca_input = ""
-                        st.session_state.loc_input = ""
-                        st.session_state.dest_input = ""
-                        st.session_state.obs_input = ""
-                        time.sleep(2.5)
-                        st.rerun()
+                        prestador_final = prestador_sel.split(" - Tel:")[0]
+                        tel_prestador_final = apenas_numeros_letras(prestador_sel.split(" - Tel:")[1].split("(")[0].strip())
+                    
+                    localizacao = st.text_input("Endereço de Origem (Localização atual):", value=st.session_state.loc_input)
+                    destino = st.text_input("Endereço de Destino:", value=st.session_state.dest_input)
+                    obs = st.text_area("Observações:", value=st.session_state.obs_input)
+                    
+                    if st.button("🚀 Iniciar Atendimento / Gerar OS"):
+                        if not prestador_final or not tel_prestador_final:
+                            st.error("Identifique o Nome e o Telefone do prestador.")
+                        else:
+                            nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
+                            nova_os = pd.DataFrame([{
+                                'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(c_id),
+                                'cliente_nome': str(cliente_dados['nome']), 'placa': placa_alvo, 'veiculo_desc': veiculo_desc_alvo,
+                                'empresa': str(cliente_dados['emp_name']), 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 
+                                'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}",
+                                'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO"
+                            }])
+                            df_os = pd.concat([df_os, nova_os], ignore_index=True)
+                            salvar_dados(df_os, FILE_OS)
+                            st.success(f"✅ Chamado Nº {nova_id} Aberto! Vá para a aba 'Relatórios' -> 'OS em Andamento' para notificar o prestador e finalizar.")
+                            
+                            st.session_state.busca_input = ""
+                            st.session_state.loc_input = ""
+                            st.session_state.dest_input = ""
+                            st.session_state.obs_input = ""
+                            time.sleep(2)
+                            st.rerun()
 
     # ==================== ABA: RELATÓRIOS & ENCERRAMENTO ====================
     with menu[1]:
@@ -452,8 +493,6 @@ if st.session_state.perfil == "Admin":
                     cli_id_os = str(row_os['cliente_id'])
                     df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
                     tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
-                    vei_cliente_os = df_cli_orig.iloc[0]['vei'] if not df_cli_orig.empty else ""
-                    pla_cliente_os = str(row_os.get('placa', '')).upper()
                     
                     texto_whatsapp = (
                         f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n"
@@ -463,7 +502,7 @@ if st.session_state.perfil == "Admin":
                         f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
                         f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
                         f"*Telefone do Cliente:* {tel_cliente_os}\n\n"
-                        f"*Veículo:* {vei_cliente_os} - Placa: {pla_cliente_os}\n\n"
+                        f"*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n"
                         f"*Origem:* {row_os['localizacao']}\n"
                         f"*Destino:* {row_os['destino']}\n\n"
                         f"*Obs:* {row_os['obs']}"
@@ -526,19 +565,17 @@ if st.session_state.perfil == "Admin":
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
 
-    # ==================== ABA: CLIENTES ====================
+    # ==================== ABA: CLIENTES (FROTA ILIMITADA DINÂMICA) ====================
     with menu[2]:
-        st.subheader("👤 Gerenciamento de Clientes (Multiveículos)")
+        st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada)")
         
         busca_cli = st.text_input("🔍 Buscar Cliente na Lista (Nome, Placa ou CPF):", key="busca_cli_tab")
-        
         if "aba_cliente_index" not in st.session_state: st.session_state.aba_cliente_index = "Listar"
         opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_cliente_index == "Listar" else 1)
         
         if opcao == "Listar":
             st.session_state.aba_cliente_index = "Listar"
-            if df_clientes.empty: 
-                st.info("Nenhum cliente cadastrado.")
+            if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
             else: 
                 df_view_cli = df_clientes.copy()
                 if busca_cli:
@@ -546,16 +583,16 @@ if st.session_state.perfil == "Admin":
                         df_view_cli['nome'].str.contains(busca_cli, case=False, na=False) | 
                         df_view_cli['pla'].str.contains(busca_cli, case=False, na=False) | 
                         df_view_cli['cpf'].str.contains(busca_cli, case=False, na=False) |
-                        df_view_cli['pla_2'].str.contains(busca_cli, case=False, na=False)
+                        df_view_cli['veiculos_lista'].str.lower().str.contains(busca.lower(), na=False)
                     ]
                 
+                # Expanders por empresa
                 empresas_na_lista = df_view_cli['emp_name'].unique()
-                
                 for emp in empresas_na_lista:
                     nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
                     with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=False):
                         df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
-                        st.dataframe(df_emp_filtrada.style.map(colorir_status, subset=['status']), use_container_width=True)
+                        st.dataframe(df_emp_filtrada[['nome','cpf','tel','est','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_cliente_index = "Incluir / Editar"
             modo = st.checkbox("Editar cliente existente")
@@ -569,77 +606,66 @@ if st.session_state.perfil == "Admin":
                 df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                 if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            if modo and dados_ant is not None:
-                st.markdown(f"""
-                > 📑 **Dados Cadastrados Atualmente:** > * **Nome:** {dados_ant['nome']} | **CPF/CNPJ:** {dados_ant['cpf']} | **Telefone:** {dados_ant['tel']}  
-                > * **Veículo 1:** {dados_ant['vei']} | **Placa 1:** {dados_ant['pla']} | **Vínculo:** {dados_ant['emp_name']}  
-                > * **Veículo 2:** {dados_ant.get('vei_2','')} | **Placa 2:** {dados_ant.get('pla_2','')}
-                """)
-                
-            nome_in = st.text_input("Nome Completo:", key="c_nome")
-            cpf_raw = st.text_input("CPF/CNPJ (Aceita pontos/traços):", key="c_cpf")
-            tel_raw = st.text_input("Telefone de Contato:", key="c_tel")
+            nome_in = st.text_input("Nome Completo:", key="c_nome", value=dados_ant['nome'] if dados_ant is not None else "")
+            cpf_raw = st.text_input("CPF/CNPJ:", key="c_cpf", value=dados_ant['cpf'] if dados_ant is not None else "")
+            tel_raw = st.text_input("Telefone de Contato:", key="c_tel", value=dados_ant['tel'] if dados_ant is not None else "")
             
-            col_v1, col_v2 = st.columns(2)
-            with col_v1:
-                st.write("**Veículo Principal**")
-                vei_in = st.text_input("Veículo 1 (Modelo/Ano):", key="c_vei")
-                pla_in = st.text_input("Placa 1:", key="c_pla")
-            with col_v2:
-                st.write("**Veículo Adicional (Opcional)**")
-                vei_2_in = st.text_input("Veículo 2 (Modelo/Ano):", key="c_vei2")
-                pla_2_in = st.text_input("Placa 2:", key="c_pla2")
+            st.write("---")
+            st.write("🚗 **Frota do Cliente (Tabela Interativa - Adicione quantos quiser)**")
+            
+            # Carrega a frota anterior ou gera uma vazia
+            frota_inicial = []
+            if dados_ant is not None:
+                if pd.notna(dados_ant.get('veiculos_lista')) and dados_ant['veiculos_lista']:
+                    try: frota_inicial = json.loads(dados_ant['veiculos_lista'])
+                    except: pass
+                if not frota_inicial:
+                    if pd.notna(dados_ant.get('vei')) and dados_ant['vei'] != 'nan':
+                        frota_inicial.append({"Modelo/Ano": dados_ant['vei'], "Placa": str(dados_ant['pla']).upper()})
+                    if pd.notna(dados_ant.get('vei_2')) and dados_ant['vei_2'] != 'nan' and dados_ant['vei_2']:
+                        frota_inicial.append({"Modelo/Ano": dados_ant['vei_2'], "Placa": str(dados_ant['pla_2']).upper()})
+            
+            if not frota_inicial:
+                frota_inicial = [{"Modelo/Ano": "", "Placa": ""}]
+                
+            df_frota_editavel = pd.DataFrame(frota_inicial)
+            frota_editada = st.data_editor(df_frota_editavel, num_rows="dynamic", use_container_width=True, key="ed_frota_cli")
+            st.write("---")
             
             idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
-            est = st.selectbox("Selecione o Estado (UF) do Veículo Principal:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
+            est = st.selectbox("Estado (UF) Predominante:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
             
-            lista_empresas_disponiveis = []
-            if not df_empresas.empty:
-                lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()]
-            if not lista_empresas_disponiveis:
-                lista_empresas_disponiveis = ["NENHUMA EMPRESA CADASTRADA"]
-            
-            idx_emp = 0
-            if dados_ant is not None:
-                emp_ant_upper = str(dados_ant['emp_name']).upper()
-                if emp_ant_upper in lista_empresas_disponiveis: idx_emp = lista_empresas_disponiveis.index(emp_ant_upper)
-                    
-            emp = st.selectbox("Selecione a Empresa Vinculada para este Cliente:", options=lista_empresas_disponiveis, index=idx_emp, key="c_emp")
+            lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
+            idx_emp = lista_empresas_disponiveis.index(str(dados_ant['emp_name']).upper()) if dados_ant is not None and str(dados_ant['emp_name']).upper() in lista_empresas_disponiveis else 0
+            emp = st.selectbox("Empresa Vinculada:", options=lista_empresas_disponiveis, index=idx_emp, key="c_emp")
             status = st.selectbox("Status do Cliente:", ["Ativo", "Inativo"], index=0 if dados_ant is None else ["Ativo", "Inativo"].index(str(dados_ant['status'])), key="c_status")
             
             if st.button("Salvar Cliente", key="save_cli_btn_novo"):
-                if modo and dados_ant is not None:
-                    nome = nome_in if nome_in else dados_ant['nome']
-                    cpf = apenas_numeros_letras(cpf_raw) if cpf_raw else dados_ant['cpf']
-                    tel = apenas_numeros_letras(tel_raw) if tel_raw else dados_ant['tel']
-                    vei = vei_in if vei_in else dados_ant['vei']
-                    pla = pla_in.upper().replace("-","").replace(" ","") if pla_in else dados_ant['pla']
-                    vei_2 = vei_2_in if vei_2_in else dados_ant.get('vei_2', '')
-                    pla_2 = pla_2_in.upper().replace("-","").replace(" ","") if pla_2_in else dados_ant.get('pla_2', '')
-                else:
-                    nome = nome_in
-                    cpf = apenas_numeros_letras(cpf_raw)
-                    tel = apenas_numeros_letras(tel_raw)
-                    vei = vei_in
-                    pla = pla_in.upper().replace("-","").replace(" ","")
-                    vei_2 = vei_2_in
-                    pla_2 = pla_2_in.upper().replace("-","").replace(" ","")
+                nome = nome_in.upper()
+                cpf = apenas_numeros_letras(cpf_raw)
+                tel = apenas_numeros_letras(tel_raw)
                 
-                if not nome or not pla:
-                    st.error("Nome e Placa 1 são obrigatórios para concluir o registro.")
+                frota_limpa = frota_editada.dropna(how='all')
+                frota_limpa['Placa'] = frota_limpa['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
+                frota_json_str = json.dumps(frota_limpa.to_dict('records'))
+                
+                vei_prin = frota_limpa.iloc[0]['Modelo/Ano'] if not frota_limpa.empty else ""
+                pla_prin = frota_limpa.iloc[0]['Placa'] if not frota_limpa.empty else ""
+                
+                if not nome or not pla_prin:
+                    st.error("Nome e ao menos 1 Placa de Veículo são obrigatórios.")
                 else:
                     if not modo:
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome.upper(), 'cpf': cpf, 'tel': tel, 'vei': vei.upper(), 'pla': pla, 'est': est, 'emp_name': emp.upper(), 'status': status, 'vei_2': vei_2.upper(), 'pla_2': pla_2}])
+                        novo = pd.DataFrame([{'id': str(prox), 'nome': nome, 'cpf': cpf, 'tel': tel, 'vei': vei_prin, 'pla': pla_prin, 'est': est, 'emp_name': emp.upper(), 'status': status, 'veiculos_lista': frota_json_str}])
                         df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status','vei_2','pla_2']] = [nome.upper(), cpf, tel, vei.upper(), pla, est, emp.upper(), status, vei_2.upper(), pla_2]
+                        df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','vei','pla','est','emp_name','status','veiculos_lista']] = [nome, cpf, tel, vei_prin, pla_prin, est, emp.upper(), status, frota_json_str]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Cliente salvo com sucesso!")
-                    st.session_state.aba_cliente_index = "Listar"
+                    st.success("✅ Cliente e Frota salvos com sucesso!")
                     time.sleep(1)
                     st.rerun()
-
+            
             if modo and c_target is not None:
                 st.write("---")
                 if st.button("❌ Excluir Cliente Permanentemente", key="del_cli_btn_novo"):
@@ -876,56 +902,56 @@ else:
                 df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
                 if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
             
-            if modo_part and dados_part_ant is not None:
-                st.markdown(f"""
-                > 👥 **Dados Cadastrados Atualmente:** > * **Cliente:** {dados_part_ant['nome']} | **CPF:** {dados_part_ant['cpf']} | **Tel:** {dados_part_ant['tel']}  
-                > * **Veículo 1:** {dados_part_ant['vei']} | **Placa 1:** {dados_part_ant['pla']}  
-                > * **Veículo 2:** {dados_part_ant.get('vei_2','')} | **Placa 2:** {dados_part_ant.get('pla_2','')}
-                """)
+            p_nome_in = st.text_input("Nome Completo:", key="part_nome", value=dados_part_ant['nome'] if dados_part_ant is not None else "")
+            p_cpf_raw = st.text_input("CPF:", key="part_cpf", value=dados_part_ant['cpf'] if dados_part_ant is not None else "")
+            p_tel_raw = st.text_input("Telefone:", key="part_tel", value=dados_part_ant['tel'] if dados_part_ant is not None else "")
             
-            p_nome_in = st.text_input("Nome Completo:", key="part_nome")
-            p_cpf_raw = st.text_input("CPF:", key="part_cpf")
-            p_tel_raw = st.text_input("Telefone:", key="part_tel")
+            st.write("---")
+            st.write("🚗 **Frota do Cliente (Tabela Interativa)**")
             
-            col_p_v1, col_p_v2 = st.columns(2)
-            with col_p_v1:
-                p_vei_in = st.text_input("Veículo 1:", key="part_vei")
-                p_pla_in = st.text_input("Placa 1:", key="part_pla")
-            with col_p_v2:
-                p_vei_2_in = st.text_input("Veículo 2 (Opcional):", key="part_vei2")
-                p_pla_2_in = st.text_input("Placa 2:", key="part_pla2")
+            frota_inicial_p = []
+            if dados_part_ant is not None:
+                if pd.notna(dados_part_ant.get('veiculos_lista')) and dados_part_ant['veiculos_lista']:
+                    try: frota_inicial_p = json.loads(dados_part_ant['veiculos_lista'])
+                    except: pass
+                if not frota_inicial_p:
+                    if pd.notna(dados_part_ant.get('vei')) and dados_part_ant['vei'] != 'nan':
+                        frota_inicial_p.append({"Modelo/Ano": dados_part_ant['vei'], "Placa": str(dados_part_ant['pla']).upper()})
+                    if pd.notna(dados_part_ant.get('vei_2')) and dados_part_ant['vei_2'] != 'nan' and dados_part_ant['vei_2']:
+                        frota_inicial_p.append({"Modelo/Ano": dados_part_ant['vei_2'], "Placa": str(dados_part_ant['pla_2']).upper()})
+            
+            if not frota_inicial_p:
+                frota_inicial_p = [{"Modelo/Ano": "", "Placa": ""}]
+                
+            df_frota_editavel_p = pd.DataFrame(frota_inicial_p)
+            frota_editada_p = st.data_editor(df_frota_editavel_p, num_rows="dynamic", use_container_width=True, key="ed_frota_cli_part")
+            st.write("---")
             
             idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             p_est = st.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
             p_stat = st.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0 if dados_part_ant is None else ["Ativo", "Inativo"].index(str(dados_part_ant['status'])), key="part_status")
             
             if st.button("Confirmar Registro", key="save_part_btn_novo"):
-                if modo_part and dados_part_ant is not None:
-                    p_nome = p_nome_in.upper() if p_nome_in else dados_part_ant['nome']
-                    p_cpf = apenas_numeros_letras(p_cpf_raw) if p_cpf_raw else dados_part_ant['cpf']
-                    p_tel = apenas_numeros_letras(p_tel_raw) if p_tel_raw else dados_part_ant['tel']
-                    p_vei = p_vei_in.upper() if p_vei_in else dados_part_ant['vei']
-                    p_pla = p_pla_in.upper().replace("-","").replace(" ","") if p_pla_in else dados_part_ant['pla']
-                    p_vei_2 = p_vei_2_in.upper() if p_vei_2_in else dados_part_ant.get('vei_2','')
-                    p_pla_2 = p_pla_2_in.upper().replace("-","").replace(" ","") if p_pla_2_in else dados_part_ant.get('pla_2','')
-                else:
-                    p_nome = p_nome_in.upper()
-                    p_cpf = apenas_numeros_letras(p_cpf_raw)
-                    p_tel = apenas_numeros_letras(p_tel_raw)
-                    p_vei = p_vei_in.upper()
-                    p_pla = p_pla_in.upper().replace("-","").replace(" ","")
-                    p_vei_2 = p_vei_2_in.upper()
-                    p_pla_2 = p_pla_2_in.upper().replace("-","").replace(" ","")
+                p_nome = p_nome_in.upper()
+                p_cpf = apenas_numeros_letras(p_cpf_raw)
+                p_tel = apenas_numeros_letras(p_tel_raw)
                 
-                if not p_nome or not p_pla:
-                    st.error("Nome e Placa 1 são obrigatórios.")
+                frota_limpa_p = frota_editada_p.dropna(how='all')
+                frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
+                frota_json_str_p = json.dumps(frota_limpa_p.to_dict('records'))
+                
+                vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
+                pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
+                
+                if not p_nome or not pla_prin_p:
+                    st.error("Nome e ao menos 1 Placa são obrigatórios.")
                 else:
                     if not modo_part:
                         prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome, 'cpf': p_cpf, 'tel': p_tel, 'vei': p_vei, 'pla': p_pla, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat, 'vei_2': p_vei_2, 'pla_2': p_pla_2}])
+                        novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome, 'cpf': p_cpf, 'tel': p_tel, 'vei': vei_prin_p, 'pla': pla_prin_p, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat, 'veiculos_lista': frota_json_str_p}])
                         df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
                     else:
-                        df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status','vei_2','pla_2']] = [p_nome, p_cpf, p_tel, p_vei, p_pla, p_est, p_stat, p_vei_2, p_pla_2]
+                        df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','vei','pla','est','status','veiculos_lista']] = [p_nome, p_cpf, p_tel, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Registro atualizado com sucesso!")
                     st.session_state.aba_parceiro_index = "Visualizar"
