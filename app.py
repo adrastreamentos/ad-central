@@ -617,7 +617,9 @@ if st.session_state.perfil == "Admin":
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
             else: 
                 df_view_cli = df_clientes.copy()
+                expandir_pastas = False # Variável para controlar a abertura das pastas!
                 if busca_cli:
+                    expandir_pastas = True # Abre sozinho se houver busca
                     df_view_cli = df_view_cli[
                         df_view_cli['nome'].str.contains(busca_cli, case=False, na=False) | 
                         df_view_cli['pla'].str.contains(busca_cli, case=False, na=False) | 
@@ -626,11 +628,15 @@ if st.session_state.perfil == "Admin":
                     ]
                 
                 empresas_na_lista = df_view_cli['emp_name'].unique()
-                for emp in empresas_na_lista:
-                    nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
-                    with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=False):
-                        df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
-                        st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
+                if len(empresas_na_lista) == 0:
+                    st.warning("Nenhum cliente encontrado com esse termo.")
+                else:
+                    for emp in empresas_na_lista:
+                        nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
+                        # Aplicando a inteligência para abrir a pasta ao pesquisar
+                        with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=expandir_pastas):
+                            df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
+                            st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_cliente_index = "Incluir / Editar"
             modo = st.checkbox("Editar cliente existente")
@@ -649,7 +655,6 @@ if st.session_state.perfil == "Admin":
             cpf_raw = c2.text_input("CPF/CNPJ:", key="c_cpf", value=dados_ant['cpf'] if dados_ant is not None else "")
             tel_raw = c1.text_input("Telefone de Contato:", key="c_tel", value=dados_ant['tel'] if dados_ant is not None else "")
             
-            # Novos Campos Endereço
             end_in = c2.text_input("Endereço Completo:", key="c_end", value=dados_ant.get('endereco', '') if dados_ant is not None else "")
             cid_in = c1.text_input("Cidade:", key="c_cid", value=dados_ant.get('cidade', '') if dados_ant is not None else "")
             cep_in = c2.text_input("CEP:", key="c_cep", value=dados_ant.get('cep', '') if dados_ant is not None else "")
@@ -679,7 +684,6 @@ if st.session_state.perfil == "Admin":
             idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est = col_b1.selectbox("Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
             
-            # Campo Plano KM
             idx_plano = PLANOS_KM.index(str(dados_ant.get('plano_km', 'Sem Limite'))) if dados_ant is not None and str(dados_ant.get('plano_km', 'Sem Limite')) in PLANOS_KM else 0
             plano_km = col_b2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=idx_plano, key="c_plano")
             
@@ -876,7 +880,6 @@ if st.session_state.perfil == "Admin":
             t_prest_in = c2.text_input("Tipo de Serviço prestado:", key="p_tipo", value=dados_p_ant['tipo'] if dados_p_ant is not None else "")
             tel_p_raw = c1.text_input("Telefone de Contato (Com DDD):", key="p_tel", value=dados_p_ant['telefone'] if dados_p_ant is not None else "")
             
-            # Novos Campos Endereço
             end_p_in = c2.text_input("Endereço / Base:", key="p_end", value=dados_p_ant.get('endereco','') if dados_p_ant is not None else "")
             cid_p_in = c1.text_input("Cidade Base:", key="p_cid", value=dados_p_ant.get('cidade','') if dados_p_ant is not None else "")
             cep_p_in = c2.text_input("CEP:", key="p_cep", value=dados_p_ant.get('cep','') if dados_p_ant is not None else "")
@@ -950,7 +953,6 @@ else:
             p_cpf_raw = c2.text_input("CPF:", key="part_cpf", value=dados_part_ant['cpf'] if dados_part_ant is not None else "")
             p_tel_raw = c1.text_input("Telefone:", key="part_tel", value=dados_part_ant['tel'] if dados_part_ant is not None else "")
             
-            # Novos Campos Endereço Parceiro
             p_end_in = c2.text_input("Endereço Completo:", key="part_end", value=dados_part_ant.get('endereco', '') if dados_part_ant is not None else "")
             p_cid_in = c1.text_input("Cidade:", key="part_cid", value=dados_part_ant.get('cidade', '') if dados_part_ant is not None else "")
             p_cep_in = c2.text_input("CEP:", key="part_cep", value=dados_part_ant.get('cep', '') if dados_part_ant is not None else "")
@@ -980,7 +982,6 @@ else:
             idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if (dados_part_ant is not None and str(dados_part_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part, key="part_est")
             
-            # Campo Plano KM
             idx_plano_p = PLANOS_KM.index(str(dados_part_ant.get('plano_km', 'Sem Limite'))) if dados_part_ant is not None and str(dados_part_ant.get('plano_km', 'Sem Limite')) in PLANOS_KM else 0
             p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=idx_plano_p, key="part_plano")
             
