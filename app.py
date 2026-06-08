@@ -23,7 +23,6 @@ st.markdown("""
 
 # Lista Oficial de Estados do Brasil
 ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
-SERVICOS_DISPONIVEIS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borraceiro", "Chaveiro"]
 
 # Caminhos dos arquivos de banco de dados locais
 FOLDER = "AD_Assistencia"
@@ -309,6 +308,7 @@ if st.session_state.perfil == "Admin":
                 destino = st.text_input("Endereço de Destino:", value=st.session_state.dest_input)
                 obs = st.text_area("Observações:", value=st.session_state.obs_input)
                 
+                # --- BOTÃO GERAR OS ---
                 if st.button("🚀 Iniciar Atendimento / Gerar OS"):
                     if not prestador_final or not tel_prestador_final:
                         st.error("Identifique o Nome e o Telefone do prestador.")
@@ -324,51 +324,56 @@ if st.session_state.perfil == "Admin":
                         }])
                         df_os = pd.concat([df_os, nova_os], ignore_index=True)
                         salvar_dados(df_os, FILE_OS)
-                        st.session_state.nova_os_id = nova_id
+                        st.session_state.nova_os_id = nova_id # ID fixo para os botões abaixo
                         st.success(f"✅ Chamado Nº {nova_id} Aberto!")
                         st.rerun()
 
+                # --- BOTÕES DE AÇÃO FIXOS APÓS GERAR ---
                 if "nova_os_id" in st.session_state:
                     os_id = st.session_state.nova_os_id
                     st.write("---")
+                    st.subheader(f"Opções para OS Nº {os_id}")
                     col_zap, col_close = st.columns(2)
                     with col_zap:
                         texto_w = f"Chamado OS {os_id} - Cliente: {cliente_dados['nome']}"
                         link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_w)}"
-                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px; border: none; border-radius: 4px;">📲 Enviar Zap Prestador</button></a>', unsafe_allow_html=True)
+                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Enviar WhatsApp ao Prestador</button></a>', unsafe_allow_html=True)
                     with col_close:
-                        if st.button("🔒 Encerrar Atendimento"):
+                        if st.button("🔒 Encerrar Atendimento Agora"):
                             df_os.loc[df_os['id'].astype(str) == str(os_id), 'status_os'] = "ENCERRADO"
                             salvar_dados(df_os, FILE_OS)
                             del st.session_state.nova_os_id
+                            st.success("Chamado Encerrado!")
                             st.rerun()
 
     # ==================== ABA: RELATÓRIOS & ENCERRAMENTO ====================
     with menu[1]:
         st.subheader("📊 Painel de Emissão de Documentos e Encerramento")
-        if df_os.empty: st.info("Nenhuma OS aberta.")
+        if df_os.empty: st.info("Nenhuma OS aberta no sistema.")
         else:
             for idx, row in df_os.sort_values(by='id', ascending=False).iterrows():
                 os_id_str = str(row['id'])
-                st.write(f"OS {os_id_str} | {row['cliente_nome']} | Status: {row['status_os']}")
+                st.write(f"OS Nº {os_id_str} | Cliente: {row['cliente_nome']} | Status: {row['status_os']}")
                 if str(row['status_os']).upper() == "EM ATENDIMENTO":
-                    if st.button("Encerrar", key=f"enc_rel_{os_id_str}"):
-                        df_os.loc[idx, 'status_os'] = "ENCERRADO"; salvar_dados(df_os, FILE_OS); st.rerun()
+                    if st.button("Encerrar OS", key=f"enc_rel_{os_id_str}"):
+                        df_os.loc[idx, 'status_os'] = "ENCERRADO"
+                        salvar_dados(df_os, FILE_OS)
+                        st.rerun()
                 st.markdown("---")
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
-        st.subheader("👤 Clientes")
+        st.subheader("👤 Gerenciamento de Clientes")
         modo = st.checkbox("Editar cliente")
         dados = None
         if modo and not df_clientes.empty:
             sel = st.selectbox("Selecione:", [f"{r['id']} - {r['nome']}" for _, r in df_clientes.iterrows()])
             dados = df_clientes[df_clientes['id'].astype(str) == sel.split(" - ")[0]].iloc[0]
-        n = st.text_input("Nome:", value=dados['nome'] if dados is not None else "", key="c_nome")
-        c = st.text_input("CPF:", value=dados['cpf'] if dados is not None else "", key="c_cpf")
-        t = st.text_input("Tel:", value=dados['tel'] if dados is not None else "", key="c_tel")
-        v = st.text_input("Veículo:", value=dados['vei'] if dados is not None else "", key="c_vei")
-        p = st.text_input("Placa:", value=dados['pla'] if dados is not None else "", key="c_pla")
+        n = st.text_input("Nome:", value=str(dados['nome']) if dados is not None else "", key="c_nome")
+        c = st.text_input("CPF:", value=str(dados['cpf']) if dados is not None else "", key="c_cpf")
+        t = st.text_input("Tel:", value=str(dados['tel']) if dados is not None else "", key="c_tel")
+        v = st.text_input("Veículo:", value=str(dados['vei']) if dados is not None else "", key="c_vei")
+        p = st.text_input("Placa:", value=str(dados['pla']) if dados is not None else "", key="c_pla")
         if st.button("Salvar Cliente"):
             if modo and dados is not None:
                 df_clientes.loc[df_clientes['id'].astype(str) == str(dados['id']), ['nome','cpf','tel','vei','pla']] = [n.upper(), c, t, v.upper(), p.upper()]
@@ -397,16 +402,19 @@ if st.session_state.perfil == "Admin":
 
     # ==================== ABA: PRESTADORES ====================
     with menu[4]:
-        st.subheader("🔧 Prestadores")
+        st.subheader("🔧 Gerenciamento de Prestadores")
         modo_p = st.checkbox("Editar prestador")
         dados_p = None
         if modo_p and not df_prestadores.empty:
             sel_p = st.selectbox("Selecione:", [f"{r['id']} - {r['nome']}" for _, r in df_prestadores.iterrows()])
             dados_p = df_prestadores[df_prestadores['id'].astype(str) == sel_p.split(" - ")[0]].iloc[0]
         n_p = st.text_input("Nome:", value=str(dados_p['nome']) if dados_p is not None else "", key="p_nome")
-        # MELHORIA: Multiselect com Guincho padrão
+        
+        # A MELHORIA: Substituindo o texto simples por multiselect com padrão "Guincho"
+        tipos_disponiveis = ["Guincho", "Pane Seca", "Pane Elétrica", "Borraceiro", "Chaveiro"]
         serv_atuais = [s.strip() for s in str(dados_p['tipo']).split(",")] if dados_p is not None else ["Guincho"]
-        tipos_sel = st.multiselect("Serviços:", SERVICOS_DISPONIVEIS, default=serv_atuais)
+        tipos_sel = st.multiselect("Serviços:", tipos_disponiveis, default=serv_atuais)
+        
         if st.button("Salvar Prestador"):
             tipo_f = ", ".join(tipos_sel) if tipos_sel else "Guincho"
             if modo_p and dados_p is not None:
