@@ -33,7 +33,7 @@ FILE_EMPRESAS = os.path.join(FOLDER, "banco_empresas.csv")
 FILE_PRESTADORES = os.path.join(FOLDER, "banco_prestadores.csv")
 FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 
-# Inicialização dos arquivos CSV caso não existam (Adicionado 'placa' na OS)
+# Inicialização dos arquivos CSV caso não existam
 if not os.path.exists(FILE_CLIENTES):
     pd.DataFrame(columns=['id','nome','cpf','tel','vei','pla','est','emp_name','status']).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS):
@@ -105,7 +105,7 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
         df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == cli_id_busca]
         
         tel_cliente = row.get('tel', '')
-        veiculo_cliente = str(row.get('vei', '')).upper()
+        veiculo_cliente = ""
         placa_cliente = str(row.get('placa', '')).upper()
         estado_cliente = "RN"
         status_da_os = str(row.get('status_os', 'ENCERRADO')).upper()
@@ -113,7 +113,8 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
         if not df_c_alvo.empty:
             if not tel_cliente: tel_cliente = df_c_alvo.iloc[0].get('tel', '')
             if not veiculo_cliente: veiculo_cliente = str(df_c_alvo.iloc[0].get('vei', '')).upper()
-            if not placa_cliente: placa_cliente = str(df_c_alvo.iloc[0].get('pla', '')).upper()
+            if not placa_cliente or placa_cliente == 'NAN' or placa_cliente == 'N/D': 
+                placa_cliente = str(df_c_alvo.iloc[0].get('pla', '')).upper()
             estado_cliente = str(df_c_alvo.iloc[0].get('est', '')).upper()
             
         motivo_str = str(row['motivo']).upper() if 'motivo' in row and row['motivo'] else "PANE MECÂNICA"
@@ -185,7 +186,6 @@ if "logado" not in st.session_state:
 df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status'])
 df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','est','status'])
-# ATUALIZADO: Coluna 'placa' garantida no banco de dados da OS
 df_os = carregar_dados(FILE_OS, ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os'])
 
 # --- TELA DE LOGIN ---
@@ -249,7 +249,6 @@ if st.session_state.perfil == "Admin":
         else:
             st.subheader("🔍 Localizar Cliente e Veículo")
             
-            # Inicializa estados de sessão para controle de limpeza de campos de texto
             if "busca_input" not in st.session_state: st.session_state.busca_input = ""
             if "loc_input" not in st.session_state: st.session_state.loc_input = ""
             if "dest_input" not in st.session_state: st.session_state.dest_input = ""
@@ -273,7 +272,6 @@ if st.session_state.perfil == "Admin":
             if df_filtrado_cli.empty:
                 st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
             else:
-                # Mostra nome, placa e veículo claramente para seleção, suportando clientes com múltiplos carros
                 lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Veículo: {str(c['vei']).upper()} | Placa: {str(c['pla']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
                 c_ed_str = st.selectbox("Selecione o cliente e o veículo exato para este atendimento:", options=lista_ed_ops, key="sel_ed")
                 c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
@@ -284,7 +282,6 @@ if st.session_state.perfil == "Admin":
                 if not uf_cliente: uf_cliente = "RN"
                 st.info(f"📍 Cliente vinculado à empresa: **{str(cliente_dados['emp_name']).upper()}** | Estado do Veículo: **{uf_cliente}**")
                 
-                # ATUALIZADO: Contador anual de acionamentos agora é calculado EXCLUSIVAMENTE POR PLACA DO VEÍCULO
                 ano_atual = datetime.now().year
                 total_guinchos, total_p_seca, total_p_eletrica, total_borraceiro, total_chaveiro = 0, 0, 0, 0, 0
                 
@@ -292,8 +289,7 @@ if st.session_state.perfil == "Admin":
                     df_os_copy = df_os.copy()
                     df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
                     
-                    # Filtra apenas OS da placa selecionada naquele ano
-                    os_cliente_ano = df_os_copy[(df_os_copy['placa'].astype(str) == placa_alvo) & (df_os_copy['data_hora'].dt.year == ano_atual)]
+                    os_cliente_ano = df_os_copy[(df_os_copy['placa'].astype(str).str.upper() == placa_alvo) & (df_os_copy['data_hora'].dt.year == ano_atual)]
                     
                     for _, o in os_cliente_ano.iterrows():
                         serv = str(o['tipo_servico']).lower()
@@ -347,7 +343,6 @@ if st.session_state.perfil == "Admin":
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
                         agora_str = obter_hora_brasilia()
                         
-                        # ATUALIZADO: A OS agora guarda a 'placa' individualmente e o botão do WhatsApp foi para a aba de relatórios.
                         nova_os = pd.DataFrame([{
                             'id': str(nova_id), 'data_hora': agora_str, 'cliente_id': str(c_id),
                             'cliente_nome': str(cliente_dados['nome']), 'placa': placa_alvo, 'empresa': str(cliente_dados['emp_name']),
@@ -358,7 +353,6 @@ if st.session_state.perfil == "Admin":
                         salvar_dados(df_os, FILE_OS)
                         st.success(f"✅ Chamado Nº {nova_id} Aberto com Sucesso e em Andamento! Acesse a Aba de Relatórios para gerenciar o chamado e notificar o prestador.")
                         
-                        # LIMPEZA AUTOMÁTICA DE TELA
                         st.session_state.busca_input = ""
                         st.session_state.loc_input = ""
                         st.session_state.dest_input = ""
@@ -377,17 +371,19 @@ if st.session_state.perfil == "Admin":
             if tipo_relatorio == "Tabela Filtrada Geral":
                 col_f1, col_f2 = st.columns(2)
                 with col_f1:
-                    lista_filt_emp = ["TODAS"] + list(df_os['empresa'].unique())
+                    # ATUALIZAÇÃO 1: Puxa empresas baseadas exclusivamente no banco de dados validado de empresas
+                    empresas_ativas = [str(e).upper() for e in df_empresas['nome'].unique()] if not df_empresas.empty else []
+                    lista_filt_emp = ["TODAS"] + empresas_ativas
                     emp_escolhida = st.selectbox("Filtrar por Empresa:", options=lista_filt_emp)
                 with col_f2:
-                    lista_filt_cli = ["TODOS"] + list(df_os['cliente_nome'].unique())
-                    cli_escolhido = st.selectbox("Filtrar por Cliente Específico:", options=lista_filt_cli)
+                    # ATUALIZAÇÃO 2: Busca por cliente é textual e não registra histórico em selectbox
+                    cli_escolhido = st.text_input("Filtrar por Nome ou Placa Específica:")
                     
                 df_os_filtrada = df_os.copy()
                 if emp_escolhida != "TODAS":
-                    df_os_filtrada = df_os_filtrada[df_os_filtrada['empresa'] == emp_escolhida]
-                if cli_escolhido != "TODOS":
-                    df_os_filtrada = df_os_filtrada[df_os_filtrada['cliente_nome'] == cli_escolhido]
+                    df_os_filtrada = df_os_filtrada[df_os_filtrada['empresa'].str.upper() == emp_escolhida]
+                if cli_escolhido:
+                    df_os_filtrada = df_os_filtrada[df_os_filtrada['cliente_nome'].str.contains(cli_escolhido, case=False, na=False) | df_os_filtrada['placa'].str.contains(cli_escolhido, case=False, na=False)]
                     
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
@@ -396,69 +392,73 @@ if st.session_state.perfil == "Admin":
                     st.markdown(exportar_pdf_html_oficial(df_os_filtrada, df_clientes, "relatorio_geral_filtrado"), unsafe_allow_html=True)
             
             else:
-                st.markdown("### 📄 Localizar OS por Cliente / Placa")
-                lista_clientes_com_os = list(df_os['cliente_nome'].unique())
-                cli_alvo_pdf = st.selectbox("Selecione o Cliente para listar os acionamentos:", options=lista_clientes_com_os)
+                st.markdown("### 📄 Localizar OS por Placa ou Nome")
+                # ATUALIZAÇÃO 3: Busca individual por placa e sem gravar a pessoa no selectbox fixo
+                busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para localizar o acionamento:")
                 
-                df_os_do_cliente = df_os[df_os['cliente_nome'] == cli_alvo_pdf].sort_values(by='id', ascending=False)
-                
-                # ATUALIZADO: Mostra a placa diretamente na lista de OS
-                lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']} | Status: {r.get('status_os', 'ENCERRADO')}" for _, r in df_os_do_cliente.iterrows()]
-                
-                os_escolhida_str = st.selectbox("Selecione qual acionamento deseja visualizar/encerrar:", options=lista_os_dele, index=0)
-                os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
-                
-                df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
-                row_os = df_os_unica.iloc[0]
-                status_atual_os = str(row_os.get('status_os', 'ENCERRADO')).upper()
-                
-                st.write("---")
-                st.markdown("#### Preview da Ordem de Serviço Escolhida:")
-                
-                # Coleta e tratamento dinâmico de dados para envio via WhatsApp do Prestador
-                prestador_info = str(row_os['prestador'])
-                tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
-                
-                cli_id_os = str(row_os['cliente_id'])
-                df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
-                tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
-                vei_cliente_os = df_cli_orig.iloc[0]['vei'] if not df_cli_orig.empty else ""
-                pla_cliente_os = df_cli_orig.iloc[0]['pla'] if not df_cli_orig.empty else ""
-                
-                texto_whatsapp = (
-                    f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n"
-                    f"-----------------------------------------\n"
-                    f"*Chamado Nº:* {row_os['id']}\n"
-                    f"*Data/Hora:* {row_os['data_hora']}\n"
-                    f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
-                    f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
-                    f"*Telefone do Cliente:* {tel_cliente_os}\n\n"
-                    f"*Veículo:* {vei_cliente_os} - Placa: {str(pla_cliente_os).upper()}\n\n"
-                    f"*Origem:* {row_os['localizacao']}\n"
-                    f"*Destino:* {row_os['destino']}\n\n"
-                    f"*Obs:* {row_os['obs']}"
-                )
-                link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
-                
-                if status_atual_os == "EM ATENDIMENTO":
-                    st.warning("⚠️ ESTE CLIENTE ESTÁ EM ATENDIMENTO NO MOMENTO. É necessário encerrar o chamado abaixo para liberar a impressão do PDF oficial.")
+                if busca_os_relatorio:
+                    df_os_do_cliente = df_os[df_os['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_os['placa'].str.contains(busca_os_relatorio, case=False, na=False)].sort_values(by='id', ascending=False)
                     
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        if st.button("🔒 Encerrar Atendimento e Concluir OS", key="btn_close_os"):
-                            df_os.loc[df_os['id'].astype(str) == os_alvo_id, 'status_os'] = "ENCERRADO"
-                            salvar_dados(df_os, FILE_OS)
-                            st.success(f"🎉 Chamado Nº {os_alvo_id} Encerrado com Sucesso! Relatório Liberado.")
-                            time.sleep(1.5)
-                            st.rerun()
-                    with col_btn2:
-                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">➡️ Enviar OS para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
+                    if df_os_do_cliente.empty:
+                        st.warning("Nenhum acionamento encontrado para essa placa ou nome.")
+                    else:
+                        lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']} | Status: {r.get('status_os', 'ENCERRADO')}" for _, r in df_os_do_cliente.iterrows()]
+                        
+                        os_escolhida_str = st.selectbox("Selecione qual acionamento deseja visualizar/encerrar:", options=lista_os_dele, index=0)
+                        os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
+                        
+                        df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
+                        row_os = df_os_unica.iloc[0]
+                        status_atual_os = str(row_os.get('status_os', 'ENCERRADO')).upper()
+                        
+                        st.write("---")
+                        st.markdown("#### Preview da Ordem de Serviço Escolhida:")
+                        
+                        prestador_info = str(row_os['prestador'])
+                        tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
+                        
+                        cli_id_os = str(row_os['cliente_id'])
+                        df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
+                        tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
+                        vei_cliente_os = df_cli_orig.iloc[0]['vei'] if not df_cli_orig.empty else ""
+                        pla_cliente_os = df_cli_orig.iloc[0]['pla'] if not df_cli_orig.empty else ""
+                        
+                        texto_whatsapp = (
+                            f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n"
+                            f"-----------------------------------------\n"
+                            f"*Chamado Nº:* {row_os['id']}\n"
+                            f"*Data/Hora:* {row_os['data_hora']}\n"
+                            f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
+                            f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
+                            f"*Telefone do Cliente:* {tel_cliente_os}\n\n"
+                            f"*Veículo:* {vei_cliente_os} - Placa: {str(pla_cliente_os).upper()}\n\n"
+                            f"*Origem:* {row_os['localizacao']}\n"
+                            f"*Destino:* {row_os['destino']}\n\n"
+                            f"*Obs:* {row_os['obs']}"
+                        )
+                        link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
+                        
+                        if status_atual_os == "EM ATENDIMENTO":
+                            st.warning("⚠️ ESTE VEÍCULO ESTÁ EM ATENDIMENTO NO MOMENTO. É necessário encerrar o chamado abaixo para liberar a impressão do PDF oficial.")
+                            
+                            col_btn1, col_btn2 = st.columns(2)
+                            with col_btn1:
+                                if st.button("🔒 Encerrar Atendimento e Concluir OS", key="btn_close_os"):
+                                    df_os.loc[df_os['id'].astype(str) == os_alvo_id, 'status_os'] = "ENCERRADO"
+                                    salvar_dados(df_os, FILE_OS)
+                                    st.success(f"🎉 Chamado Nº {os_alvo_id} Encerrado com Sucesso! Relatório Liberado.")
+                                    time.sleep(1.5)
+                                    st.rerun()
+                            with col_btn2:
+                                st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">➡️ Enviar OS para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
+                        else:
+                            st.success("✅ Chamado Encerrado. O documento oficial de impressão está pronto abaixo:")
+                            st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"os_individual_{os_alvo_id}"), unsafe_allow_html=True)
+                            
+                            st.write("")
+                            st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Reenviar Informações para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
                 else:
-                    st.success("✅ Chamado Encerrado. O documento oficial de impressão está pronto abaixo:")
-                    st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"os_individual_{os_alvo_id}"), unsafe_allow_html=True)
-                    
-                    st.write("")
-                    st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">➡️ Reenviar Informações para o WhatsApp do Prestador</button></a>', unsafe_allow_html=True)
+                    st.info("Por favor, digite a Placa ou o Nome acima para encontrar o acionamento e gerar o relatório individual.")
 
     # ==================== ABA: CLIENTES ====================
     with menu[2]:
@@ -510,11 +510,12 @@ if st.session_state.perfil == "Admin":
             idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if (dados_ant is not None and str(dados_ant['est']).upper() in ESTADOS_BR) else ESTADOS_BR.index("RN")
             est = st.selectbox("Selecione o Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c, key="c_est")
             
-            lista_empresas_disponiveis = ["AD RASTREAMENTO VEICULAR"]
+            # ATUALIZAÇÃO 4: Remove a inserção forçada da AD Rastreamento e puxa somente do banco real
+            lista_empresas_disponiveis = []
             if not df_empresas.empty:
                 lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()]
-                if "AD RASTREAMENTO VEICULAR" not in lista_empresas_disponiveis:
-                    lista_empresas_disponiveis.insert(0, "AD RASTREAMENTO VEICULAR")
+            if not lista_empresas_disponiveis:
+                lista_empresas_disponiveis = ["NENHUMA EMPRESA CADASTRADA"]
             
             idx_emp = 0
             if dados_ant is not None:
