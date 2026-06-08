@@ -64,8 +64,7 @@ if query_params.get("portal") == "prestador":
         senha_login = st.text_input("Senha", type="password", key="login_senha_p")
         if st.button("Acessar Painel"):
             doc_limpo = "".join(filter(str.isalnum, str(doc_login)))
-            match = df_p_portal[(df_p_portal['telefone'] == doc_limpo) & (df_p_portal['senha'] == senha_login)] # Usando telefone como doc provisorio no exemplo ou podemos buscar direto
-            # Verificação simplificada pelo Nome/Telefone/Senha
+            match = df_p_portal[(df_p_portal['telefone'] == doc_limpo) & (df_p_portal['senha'] == senha_login)]
             match = df_p_portal[df_p_portal['senha'] == senha_login]
             
             if not match.empty:
@@ -103,13 +102,12 @@ if query_params.get("portal") == "prestador":
                     df_p_portal = pd.concat([df_p_portal, novo_p], ignore_index=True)
                     df_p_portal.to_csv(FILE_PRESTADORES, index=False)
                     st.success("Cadastro enviado com sucesso! Aguarde aprovação da central.")
-    st.stop() # Interrompe o carregamento do restante da página para o prestador não ver o sistema admin
+    st.stop()
 
 # ===================================================================================
 # FUNÇÕES CORE E SISTEMA PRINCIPAL
 # ===================================================================================
 
-# Inicialização dos arquivos CSV caso não existam
 if not os.path.exists(FILE_CLIENTES):
     pd.DataFrame(columns=['id','nome','cpf','tel','vei','pla','est','emp_name','status','vei_2','pla_2']).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS):
@@ -140,14 +138,13 @@ def salvar_no_github(caminho_local):
     if sha: data["sha"] = sha
     requests.put(url, headers=headers, json=data)
 
-# A VACINA: Esta função garante que as colunas novas sejam adicionadas aos arquivos antigos sem travar
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
         df = pd.read_csv(caminho)
         df.columns = df.columns.str.strip().str.lower()
         for col in colunas_obrigatorias:
             if col not in df.columns:
-                df[col] = "" # Vacina: cria coluna em branco se não existir
+                df[col] = "" 
         for col in df.columns:
             df[col] = df[col].fillna("").astype(str).str.strip()
         return df
@@ -237,7 +234,6 @@ if "logado" not in st.session_state:
     st.session_state.perfil = ""
     st.session_state.empresa_vinculada = ""
 
-# CARREGAMENTO DOS BANCOS DE DADOS COM AS COLUNAS NOVAS DA VACINA
 df_clientes = carregar_dados(FILE_CLIENTES, ['id','nome','cpf','tel','vei','pla','est','emp_name','status', 'vei_2', 'pla_2'])
 df_empresas = carregar_dados(FILE_EMPRESAS, ['cnpj','nome','responsavel','telefone','email','est','status'])
 df_prestadores = carregar_dados(FILE_PRESTADORES, ['id','nome','tipo','telefone','est','status','homologado','senha','frota'])
@@ -337,7 +333,6 @@ if st.session_state.perfil == "Admin":
                 if not uf_cliente: uf_cliente = "RN"
                 st.info(f"📍 Cliente vinculado à empresa: **{str(cliente_dados['emp_name']).upper()}** | Estado do Veículo: **{uf_cliente}**")
                 
-                # ---- PONTO DE MELHORIA: ALERTA INTELIGENTE DE VIGÊNCIA DE 60 DIAS ----
                 if not df_os.empty and 'placa' in df_os.columns:
                     df_os_copy = df_os.copy()
                     df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
@@ -351,7 +346,6 @@ if st.session_state.perfil == "Admin":
                                 st.markdown(f'<div class="alert-box alert-danger">⚠️ ATENÇÃO: Último acionamento deste veículo foi há {dias_passados} dias (Data: {ultima_data.strftime("%d/%m/%Y")}). Cliente sujeito à restrição contratual dos 60 dias.</div>', unsafe_allow_html=True)
                             else:
                                 st.markdown(f'<div class="alert-box alert-success">✅ VIGÊNCIA LIBERADA: Último uso há {dias_passados} dias (Mais de 60 dias).</div>', unsafe_allow_html=True)
-                # ------------------------------------------------------------------------
 
                 ano_atual = datetime.now().year
                 total_guinchos, total_p_seca, total_p_eletrica, total_borraceiro, total_chaveiro = 0, 0, 0, 0, 0
@@ -552,9 +546,16 @@ if st.session_state.perfil == "Admin":
                         df_view_cli['nome'].str.contains(busca_cli, case=False, na=False) | 
                         df_view_cli['pla'].str.contains(busca_cli, case=False, na=False) | 
                         df_view_cli['cpf'].str.contains(busca_cli, case=False, na=False) |
-                        df_view_cli['pla_2'].str.contains(busca_cli, case=False, na=False) # Busca pela placa 2 também
+                        df_view_cli['pla_2'].str.contains(busca_cli, case=False, na=False)
                     ]
-                st.dataframe(df_view_cli.style.map(colorir_status, subset=['status']), use_container_width=True)
+                
+                empresas_na_lista = df_view_cli['emp_name'].unique()
+                
+                for emp in empresas_na_lista:
+                    nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
+                    with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=False):
+                        df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
+                        st.dataframe(df_emp_filtrada.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
             st.session_state.aba_cliente_index = "Incluir / Editar"
             modo = st.checkbox("Editar cliente existente")
@@ -749,7 +750,6 @@ if st.session_state.perfil == "Admin":
     with menu[4]:
         st.subheader("🔧 Gerenciamento de Prestadores (Guinchos)")
         
-        # ---- PONTO DE MELHORIA: ALERTA DE HOMOLOGAÇÃO ----
         pendentes = df_prestadores[df_prestadores['homologado'] == 'Pendente']
         if not pendentes.empty:
             st.error(f"⚠️ Atenção Administrativa: Existem {len(pendentes)} prestadores aguardando homologação! Eles se cadastraram via Portal externo.")
@@ -770,7 +770,6 @@ if st.session_state.perfil == "Admin":
                         time.sleep(1)
                         st.rerun()
             st.write("---")
-        # --------------------------------------------------
         
         busca_pres = st.text_input("🔍 Buscar Prestador na Lista (Nome ou Tipo):", key="busca_pres_tab")
         
