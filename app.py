@@ -654,10 +654,15 @@ if st.session_state.perfil == "Admin":
                         df_view_cli['veiculos_lista'].str.lower().str.contains(busca_cli.lower(), na=False)
                     ]
                 
-                # FUNÇÃO PARA GERAR O HISTÓRICO DE ACIONAMENTOS NA TABELA
+                # FUNÇÃO PARA GERAR O HISTÓRICO DE ACIONAMENTOS NA TABELA CORRIGIDA
                 def formatar_historico(c_id):
-                    os_cli = df_os[df_os['cliente_id'] == str(c_id)]
-                    if os_cli.empty: return "Nenhum"
+                    if df_os.empty: return "Nenhum Serviço Solicitado"
+                    c_id_str = str(c_id).strip()
+                    if not c_id_str or c_id_str.lower() == 'nan': return "Nenhum Serviço Solicitado"
+                    
+                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == c_id_str]
+                    if os_cli.empty: return "Nenhum Serviço Solicitado"
+                    
                     res = []
                     for _, r in os_cli.iterrows():
                         try:
@@ -982,10 +987,14 @@ else:
         if op_part == "Visualizar":
             if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado por sua empresa.")
             else: 
-                # ADICIONANDO HISTÓRICO PARA O PARCEIRO TAMBÉM
                 def formatar_historico_p(c_id):
-                    os_cli = df_os[df_os['cliente_id'] == str(c_id)]
-                    if os_cli.empty: return "Nenhum"
+                    if df_os.empty: return "Nenhum Serviço Solicitado"
+                    c_id_str = str(c_id).strip()
+                    if not c_id_str or c_id_str.lower() == 'nan': return "Nenhum Serviço Solicitado"
+                    
+                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == c_id_str]
+                    if os_cli.empty: return "Nenhum Serviço Solicitado"
+                    
                     res = []
                     for _, r in os_cli.iterrows():
                         try:
