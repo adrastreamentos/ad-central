@@ -144,7 +144,7 @@ if st.query_params.get("portal") == "prestador":
                     tel_limpo = "".join(filter(str.isalnum, str(novo_tel)))
                     tipo_final_str = ", ".join(novo_tipos_lista)
                     
-                    if not lazy_nome or not cpf_limpo or not nova_senha:
+                    if not novo_nome or not cpf_limpo or not nova_senha:
                         st.error("Nome, CPF/CNPJ e Senha são obrigatórios.")
                     elif not novo_tipos_lista:
                         st.error("Selecione ao menos um tipo de serviço prestado.")
@@ -195,11 +195,11 @@ if st.query_params.get("portal") == "prestador":
                     e_tipo_str, apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est
                 ]
                 salvar_dados(df_p_portal, FILE_PRESTADORES)
-                st.success("Dados updated com sucesso na Central da AD Rastreamento Veicular!")
+                st.success("Dados atualizados com sucesso na Central da AD Rastreamento Veicular!")
                 time.sleep(1.5)
                 st.rerun()
 
-    st.stop()
+    st.stop() # Para execução aqui no portal do prestador
 
 # ===================================================================================
 # GERAÇÃO DE RELATÓRIO PDF (HTML)
@@ -384,7 +384,6 @@ if st.session_state.perfil == "Admin":
             
             busca = st.text_input("Digite o Nome, Placa ou CPF do cliente para buscar:", value=st.session_state.busca_input)
             
-            # ATUALIZAÇÃO REQUERIDA: A tela agora só monta o painel se a busca for executada
             if busca:
                 df_clientes_busca = df_clientes.copy()
                 df_clientes_busca['cpf_limpo'] = df_clientes_busca['cpf'].apply(apenas_numeros_letras)
@@ -744,8 +743,8 @@ if st.session_state.perfil == "Admin":
             
             if st.button("Salvar Cliente", key="save_cli_btn_novo"):
                 nome = nome_in.upper()
-                cpf = apes_numeros_letras(cpf_raw)
-                tel = apes_numeros_letras(tel_raw)
+                cpf = apenas_numeros_letras(cpf_raw)
+                tel = apenas_numeros_letras(tel_raw)
                 
                 frota_limpa = frota_editada.dropna(how='all')
                 frota_limpa['Placa'] = frota_limpa['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
@@ -892,7 +891,7 @@ if st.session_state.perfil == "Admin":
         busca_pres = st.text_input("🔍 Buscar Prestador na Lista (Nome, Tipo ou Cidade):", key="busca_pres_tab")
         
         if "acao_pre_admin" not in st.session_state: st.session_state.acao_pre_admin = "Listar"
-        opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_pre_admin")
+        opcao_p = radio_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_pre_admin")
         
         if opcao_p == "Listar":
             if df_prestadores.empty: 
@@ -1082,7 +1081,7 @@ else:
                     else:
                         df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome, p_cpf, p_tel, p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Registro updated com sucesso!")
+                    st.success("✅ Registro atualizado com sucesso!")
                     st.session_state.acao_cli_part = "Visualizar"
                     time.sleep(1)
                     st.rerun()
