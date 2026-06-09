@@ -71,13 +71,16 @@ def salvar_dados(df, caminho):
 
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
-        df = pd.read_csv(caminho)
+        # Lê os dados forçando como string para evitar que o Pandas crie o ".0" (float) nos telefones/CPFs
+        df = pd.read_csv(caminho, dtype=str)
         df.columns = df.columns.str.strip().str.lower()
         for col in colunas_obrigatorias:
             if col not in df.columns:
                 df[col] = "" 
         for col in df.columns:
             df[col] = df[col].fillna("").astype(str).str.strip()
+            # Vacina extra para limpar o ".0" caso ele já esteja salvo no arquivo CSV antigo
+            df[col] = df[col].str.replace(r'\.0$', '', regex=True)
         return df
     except:
         return pd.DataFrame(columns=colunas_obrigatorias)
@@ -162,7 +165,7 @@ if st.query_params.get("portal") == "prestador":
     # PAINEL LOGADO DO PRESTADOR
     if st.session_state.logado_prestador:
         id_logado = st.session_state.id_prestador_logado
-        p_dados_atual = df_p_portal[df_p_portal['id'] == id_logado].iloc[0]
+        p_dados_atual = df_p_portal[df_p_portal['id'] == str(id_logado)].iloc[0]
         
         col_cab1, col_cab2 = st.columns([4, 1])
         col_cab1.subheader(f"Painel Operacional: {p_dados_atual['nome']}")
@@ -191,7 +194,7 @@ if st.query_params.get("portal") == "prestador":
             
             if st.form_submit_button("Salvar Minhas Informações"):
                 e_tipo_str = ", ".join(e_tipos_lista)
-                df_p_portal.loc[df_p_portal['id'] == id_logado, ['tipo','telefone','endereco','cidade','cep','est']] = [
+                df_p_portal.loc[df_p_portal['id'] == str(id_logado), ['tipo','telefone','endereco','cidade','cep','est']] = [
                     e_tipo_str, apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est
                 ]
                 salvar_dados(df_p_portal, FILE_PRESTADORES)
@@ -401,10 +404,11 @@ if st.session_state.perfil == "Admin":
                 if df_filtrado_cli.empty:
                     st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
                 else:
-                    lista_ed_ops = [f"ID: {str(c['id'])} | {str(c['nome']).upper()} | Empresa: {str(c['emp_name']).upper()}" for _, c in df_filtrado_cli.iterrows()]
-                    c_ed_str = st.selectbox("Selecione o Cliente:", options=lista_ed_ops, key="sel_ed")
-                    c_id = c_ed_str.split("|")[0].replace("ID:", "").strip()
-                    cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_id].iloc[0]
+                    # Uso de dicionário na seleção resolve o bug de nomes idênticos e traços
+                    opcoes_cli_os = {str(r['id']): f"{str(r['nome']).upper()} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_filtrado_cli.iterrows()}
+                    c_target_os = st.selectbox("Selecione o Cliente:", options=list(opcoes_cli_os.keys()), format_func=lambda x: opcoes_cli_os[x], key="sel_ed")
+                    
+                    cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_target_os].iloc[0]
                     
                     lista_frota_opcoes = []
                     if pd.notna(cliente_dados.get('veiculos_lista')) and cliente_dados['veiculos_lista']:
@@ -511,7 +515,7 @@ if st.session_state.perfil == "Admin":
                             else:
                                 nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
                                 nova_os = pd.DataFrame([{
-                                    'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(c_id),
+                                    'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(c_target_os),
                                     'cliente_nome': str(cliente_dados['nome']), 'placa': placa_alvo, 'veiculo_desc': veiculo_desc_alvo,
                                     'empresa': str(cliente_dados['emp_name']), 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 
                                     'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}",
@@ -648,24 +652,22 @@ if st.session_state.perfil == "Admin":
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
         
-        busca_cli = st.text_input("🔍 Buscar Cliente na Lista (Nome, Placa ou CPF):", key="busca_cli_tab")
-        
-        if "aba_cliente_admin" not in st.session_state: st.session_state.aba_cliente_admin = "Listar"
-        opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_cliente_admin == "Listar" else 1)
-        st.session_state.aba_cliente_admin = opcao
+        busca_cli_lista = st.text_input("🔍 Buscar Cliente na Lista (Nome, Placa ou CPF):", key="busca_cli_tab")
+        if "acao_cli_admin" not in st.session_state: st.session_state.acao_cli_admin = "Listar"
+        opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_cli_admin")
         
         if opcao == "Listar":
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
             else: 
                 df_view_cli = df_clientes.copy()
                 expandir_pastas = False 
-                if busca_cli:
+                if busca_cli_lista:
                     expandir_pastas = True 
                     df_view_cli = df_view_cli[
-                        df_view_cli['nome'].str.contains(busca_cli, case=False, na=False) | 
-                        df_view_cli['pla'].str.contains(busca_cli, case=False, na=False) | 
-                        df_view_cli['cpf'].str.contains(busca_cli, case=False, na=False) |
-                        df_view_cli['veiculos_lista'].str.lower().str.contains(busca_cli.lower(), na=False)
+                        df_view_cli['nome'].str.contains(busca_cli_lista, case=False, na=False) | 
+                        df_view_cli['pla'].str.contains(busca_cli_lista, case=False, na=False) | 
+                        df_view_cli['cpf'].str.contains(busca_cli_lista, case=False, na=False) |
+                        df_view_cli['veiculos_lista'].str.lower().str.contains(busca_cli_lista.lower(), na=False)
                     ]
                 
                 # FUNÇÃO DE HISTÓRICO COM PROTEÇÃO CONTRA FANTASMAS
@@ -704,30 +706,20 @@ if st.session_state.perfil == "Admin":
             dados_ant = None
             
             if modo and not df_clientes.empty:
-                # NOVO MOTOR DE BUSCA PARA EDIÇÃO DE CLIENTES
-                busca_edit_admin = st.text_input("🔎 Digite Nome, CPF ou Placa para achar o cliente rápido:", key="busca_ed_adm")
-                df_edit_cli = df_clientes.copy()
+                # BUSCA NATIVA INTELIGENTE (Streamlit Native Selectbox Search)
+                opcoes_dict = {}
+                for _, r in df_clientes.iterrows():
+                    opcoes_dict[str(r['id'])] = f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])} | Empresa: {str(r['emp_name']).upper()}"
                 
-                if busca_edit_admin:
-                    df_edit_cli = df_edit_cli[
-                        df_edit_cli['nome'].str.contains(busca_edit_admin, case=False, na=False) | 
-                        df_edit_cli['pla'].str.contains(busca_edit_admin, case=False, na=False) | 
-                        df_edit_cli['cpf'].str.contains(busca_edit_admin, case=False, na=False) |
-                        df_edit_cli['veiculos_lista'].str.lower().str.contains(busca_edit_admin.lower(), na=False)
-                    ]
+                c_target = st.selectbox("🔎 Clique e digite para achar o cliente (Nome, CPF ou Empresa):", options=list(opcoes_dict.keys()), format_func=lambda x: opcoes_dict[x])
                 
-                if df_edit_cli.empty:
-                    st.warning("Nenhum cliente encontrado com esse termo.")
-                else:
-                    lista_ops_c = [f"{str(r['id'])} - {str(r['nome']).upper()} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_edit_cli.iterrows()]
-                    sel = st.selectbox("Selecione o cliente para visualizar e alterar os dados:", options=lista_ops_c)
-                    c_target = sel.split(" - ")[0].strip()
-                    df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
-                    if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
+                df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
+                if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
+            k_cli = str(c_target) if c_target else "new"
+            
+            # Só mostra formulário se for inclusão nova ou se achou um cliente para editar
             if not modo or dados_ant is not None:
-                k_cli = str(c_target) if c_target else "new"
-                
                 c1, c2 = st.columns(2)
                 nome_in = c1.text_input("Nome Completo:", key=f"c_nome_{k_cli}", value=dados_ant['nome'] if dados_ant is not None else "")
                 cpf_raw = c2.text_input("CPF/CNPJ:", key=f"c_cpf_{k_cli}", value=dados_ant['cpf'] if dados_ant is not None else "")
@@ -794,7 +786,7 @@ if st.session_state.perfil == "Admin":
                             df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','emp_name','status','veiculos_lista']] = [nome, cpf, tel, end_in, cid_in.upper(), cep_in, plano_km, vei_prin, pla_prin, est, emp.upper(), status, frota_json_str]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.success("✅ Cliente e Frota salvos com sucesso!")
-                        st.session_state.aba_cliente_admin = "Listar"
+                        st.session_state.acao_cli_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
                 
@@ -804,7 +796,7 @@ if st.session_state.perfil == "Admin":
                         df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.error("🗑️ Cliente excluído permanentemente!")
-                        st.session_state.aba_cliente_admin = "Listar"
+                        st.session_state.acao_cli_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -812,21 +804,20 @@ if st.session_state.perfil == "Admin":
     with menu[3]:
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
         
-        busca_emp = st.text_input("🔍 Buscar Empresa na Lista (Nome ou CNPJ):", key="busca_emp_tab")
+        busca_emp_lista = st.text_input("🔍 Buscar Empresa na Lista (Nome ou CNPJ):", key="busca_emp_tab")
         
-        if "aba_empresa_admin" not in st.session_state: st.session_state.aba_empresa_admin = "Listar"
-        opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_empresa_admin == "Listar" else 1)
-        st.session_state.aba_empresa_admin = opcao_e
+        if "acao_emp_admin" not in st.session_state: st.session_state.acao_emp_admin = "Listar"
+        opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_emp_admin")
         
         if opcao_e == "Listar":
             if df_empresas.empty: 
                 st.info("Nenhuma empresa cadastrada.")
             else: 
                 df_view_emp = df_empresas.copy()
-                if busca_emp:
+                if busca_emp_lista:
                     df_view_emp = df_view_emp[
-                        df_view_emp['nome'].str.contains(busca_emp, case=False, na=False) | 
-                        df_view_emp['cnpj'].str.contains(busca_emp, case=False, na=False)
+                        df_view_emp['nome'].str.contains(busca_emp_lista, case=False, na=False) | 
+                        df_view_emp['cnpj'].str.contains(busca_emp_lista, case=False, na=False)
                     ]
                 st.dataframe(df_view_emp.style.map(colorir_status, subset=['status']), use_container_width=True)
         else:
@@ -835,26 +826,11 @@ if st.session_state.perfil == "Admin":
             dados_e_ant = None
             
             if modo_e and not df_empresas.empty:
-                # NOVO MOTOR DE BUSCA PARA EDIÇÃO DE EMPRESAS
-                busca_edit_emp = st.text_input("🔎 Digite o Nome ou CNPJ para achar a empresa rápido:", key="busca_ed_emp")
-                df_edit_emp = df_empresas.copy()
-                if busca_edit_emp:
-                    df_edit_emp = df_edit_emp[
-                        df_edit_emp['nome'].str.contains(busca_edit_emp, case=False, na=False) | 
-                        df_edit_emp['cnpj'].str.contains(busca_edit_emp, case=False, na=False)
-                    ]
+                opcoes_emp = {str(r['cnpj']): f"{str(r['nome']).upper()} | CNPJ: {str(r['cnpj'])}" for _, r in df_empresas.iterrows()}
+                e_target = st.selectbox("🔎 Clique e digite para achar a empresa:", options=list(opcoes_emp.keys()), format_func=lambda x: opcoes_emp[x])
                 
-                if df_edit_emp.empty:
-                    st.warning("Nenhuma empresa encontrada com esse termo.")
-                else:
-                    lista_ops_e = [f"{str(r['cnpj'])} - {str(r['nome']).upper()}" for _, r in df_edit_emp.iterrows()]
-                    sel_e = st.selectbox("Selecione a empresa para visualizar e alterar os dados:", options=lista_ops_e)
-                    e_target = apenas_numeros_letras(sel_e.split(" - ")[0].strip())
-                    
-                    df_empresas_busca = df_empresas.copy()
-                    df_empresas_busca['cnpj_limpo'] = df_empresas_busca['cnpj'].apply(apenas_numeros_letras)
-                    df_resultado_e = df_empresas_busca[df_empresas_busca['cnpj_limpo'] == e_target]
-                    if not df_resultado_e.empty: dados_e_ant = df_resultado_e.iloc[0]
+                df_resultado_e = df_empresas[df_empresas['cnpj'].astype(str) == e_target]
+                if not df_resultado_e.empty: dados_e_ant = df_resultado_e.iloc[0]
             
             if not modo_e or dados_e_ant is not None:
                 k_emp = str(e_target) if e_target else "new"
@@ -885,25 +861,21 @@ if st.session_state.perfil == "Admin":
                             novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': nome_empresa, 'responsavel': responsavel, 'telefone': telefone, 'email': email, 'est': est_e, 'status': stat_e}])
                             df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
                         else:
-                            df_empresas['cnpj_limpo_check'] = df_empresas['cnpj'].apply(apenas_numeros_letras)
-                            df_empresas.loc[df_empresas['cnpj_limpo_check'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, nome_empresa, responsavel, telefone, email, est_e, stat_e]
-                            df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
+                            df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, nome_empresa, responsavel, telefone, email, est_e, stat_e]
                             
                         salvar_dados(df_empresas, FILE_EMPRESAS)
                         st.success("✅ Empresa salva com sucesso!")
-                        st.session_state.aba_empresa_admin = "Listar"
+                        st.session_state.acao_emp_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
                 if modo_e and e_target is not None:
                     st.write("---")
                     if st.button("❌ Excluir Empresa Permanentemente", key="excluir_emp_definitivo"):
-                        df_empresas['cnpj_limpo_check'] = df_empresas['cnpj'].apply(apenas_numeros_letras)
-                        df_empresas = df_empresas[df_empresas['cnpj_limpo_check'] != e_target]
-                        df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
+                        df_empresas = df_empresas[df_empresas['cnpj'] != e_target]
                         salvar_dados(df_empresas, FILE_EMPRESAS)
                         st.error("🗑️ Empresa excluída permanentemente!")
-                        st.session_state.aba_empresa_admin = "Listar"
+                        st.session_state.acao_emp_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -932,22 +904,21 @@ if st.session_state.perfil == "Admin":
                         st.rerun()
             st.write("---")
         
-        busca_pres = st.text_input("🔍 Buscar Prestador na Lista (Nome, Tipo ou Cidade):", key="busca_pres_tab")
+        busca_pres_lista = st.text_input("🔍 Buscar Prestador na Lista (Nome, Tipo ou Cidade):", key="busca_pres_tab")
         
-        if "aba_prestador_admin" not in st.session_state: st.session_state.aba_prestador_admin = "Listar"
-        opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_prestador_admin == "Listar" else 1)
-        st.session_state.aba_prestador_admin = opcao_p
+        if "acao_pre_admin" not in st.session_state: st.session_state.acao_pre_admin = "Listar"
+        opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_pre_admin")
         
         if opcao_p == "Listar":
             if df_prestadores.empty: 
                 st.info("Nenhum prestador cadastrado.")
             else: 
                 df_view_pres = df_prestadores.copy()
-                if busca_pres:
+                if busca_pres_lista:
                     df_view_pres = df_view_pres[
-                        df_view_pres['nome'].str.contains(busca_pres, case=False, na=False) | 
-                        df_view_pres['tipo'].str.contains(busca_pres, case=False, na=False) |
-                        df_view_pres['cidade'].str.contains(busca_pres, case=False, na=False)
+                        df_view_pres['nome'].str.contains(busca_pres_lista, case=False, na=False) | 
+                        df_view_pres['tipo'].str.contains(busca_pres_lista, case=False, na=False) |
+                        df_view_pres['cidade'].str.contains(busca_pres_lista, case=False, na=False)
                     ]
                 st.dataframe(df_view_pres[['nome','cpf','tipo','telefone','cidade','est','status','homologado']], use_container_width=True)
         else:
@@ -956,23 +927,11 @@ if st.session_state.perfil == "Admin":
             dados_p_ant = None
             
             if modo_p and not df_prestadores.empty:
-                # NOVO MOTOR DE BUSCA PARA EDIÇÃO DE PRESTADORES
-                busca_edit_pre = st.text_input("🔎 Digite Nome ou Cidade para achar o prestador rápido:", key="busca_ed_pre")
-                df_edit_pre = df_prestadores.copy()
-                if busca_edit_pre:
-                    df_edit_pre = df_edit_pre[
-                        df_edit_pre['nome'].str.contains(busca_edit_pre, case=False, na=False) | 
-                        df_edit_pre['cidade'].str.contains(busca_edit_pre, case=False, na=False)
-                    ]
-                    
-                if df_edit_pre.empty:
-                    st.warning("Nenhum prestador encontrado com esse termo.")
-                else:
-                    lista_ops_p = [f"{str(r['id'])} - {str(r['nome']).upper()} ({str(r['cidade']).upper()})" for _, r in df_edit_pre.iterrows()]
-                    sel_p = st.selectbox("Selecione o prestador para visualizar e alterar os dados:", options=lista_ops_p)
-                    p_target = sel_p.split(" - ")[0].strip()
-                    df_busca_p = df_prestadores[df_prestadores['id'].astype(str) == p_target]
-                    if not df_busca_p.empty: dados_p_ant = df_busca_p.iloc[0]
+                opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
+                p_target = st.selectbox("🔎 Clique e digite para achar o prestador:", options=list(opcoes_pre.keys()), format_func=lambda x: opcoes_pre[x])
+                
+                df_busca_p = df_prestadores[df_prestadores['id'].astype(str) == p_target]
+                if not df_busca_p.empty: dados_p_ant = df_busca_p.iloc[0]
             
             if not modo_p or dados_p_ant is not None:
                 k_pre = str(p_target) if p_target else "new"
@@ -1018,7 +977,7 @@ if st.session_state.perfil == "Admin":
                             df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','cpf','tipo','telefone','endereco','cidade','cep','est','status']] = [n_prest, cpf_p, t_prest, tel_p, end_p_in, cid_p_in.upper(), cep_p_in, est_p, stat_p]
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
                         st.success("✅ Prestador salvo com sucesso!")
-                        st.session_state.aba_prestador_admin = "Listar"
+                        st.session_state.acao_pre_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -1028,7 +987,7 @@ if st.session_state.perfil == "Admin":
                         df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target]
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
                         st.error("🗑️ Prestador excluído permanentemente!")
-                        st.session_state.aba_prestador_admin = "Listar"
+                        st.session_state.acao_pre_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -1039,9 +998,8 @@ else:
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         
-        if "aba_cliente_part" not in st.session_state: st.session_state.aba_cliente_part = "Visualizar"
-        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Editar Cliente"], horizontal=True, index=0 if st.session_state.aba_cliente_part == "Visualizar" else 1)
-        st.session_state.aba_cliente_part = op_part
+        if "acao_cli_part" not in st.session_state: st.session_state.acao_cli_part = "Visualizar"
+        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Editar Cliente"], horizontal=True, key="acao_cli_part")
         
         if op_part == "Visualizar":
             if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado por sua empresa.")
@@ -1072,24 +1030,11 @@ else:
             dados_part_ant = None
             
             if modo_part and not df_filtrado_p.empty:
-                busca_edit_part = st.text_input("🔎 Digite Nome, CPF ou Placa para achar o cliente rápido:", key="busca_ed_prt")
-                df_edit_part = df_filtrado_p.copy()
+                opcoes_dict_p = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])}" for _, r in df_filtrado_p.iterrows()}
+                part_target = st.selectbox("🔎 Clique e digite para achar o cliente (Nome ou CPF):", options=list(opcoes_dict_p.keys()), format_func=lambda x: opcoes_dict_p[x])
                 
-                if busca_edit_part:
-                    df_edit_part = df_edit_part[
-                        df_edit_part['nome'].str.contains(busca_edit_part, case=False, na=False) | 
-                        df_edit_part['pla'].str.contains(busca_edit_part, case=False, na=False) | 
-                        df_edit_part['cpf'].str.contains(busca_edit_part, case=False, na=False) |
-                        df_edit_part['veiculos_lista'].str.lower().str.contains(busca_edit_part.lower(), na=False)
-                    ]
-                
-                if df_edit_part.empty:
-                    st.warning("Nenhum cliente encontrado com esse termo.")
-                else:
-                    sel_part = st.selectbox("Selecione o seu cliente:", [f"{str(r['id'])} - {str(r['nome'])}" for _, r in df_edit_part.iterrows()])
-                    part_target = sel_part.split(" - ")[0].strip()
-                    df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
-                    if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
+                df_busca_part = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target]
+                if not df_busca_part.empty: dados_part_ant = df_busca_part.iloc[0]
             
             if not modo_part or dados_part_ant is not None:
                 k_part = str(part_target) if part_target else "new"
@@ -1156,7 +1101,7 @@ else:
                             df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome, p_cpf, p_tel, p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.success("✅ Registro atualizado com sucesso!")
-                        st.session_state.aba_cliente_part = "Visualizar"
+                        st.session_state.acao_cli_part = "Visualizar"
                         time.sleep(1)
                         st.rerun()
 
@@ -1166,7 +1111,7 @@ else:
                         df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.error("🗑️ Cliente excluído permanentemente!")
-                        st.session_state.aba_cliente_part = "Visualizar"
+                        st.session_state.acao_cli_part = "Visualizar"
                         time.sleep(1)
                         st.rerun()
 
