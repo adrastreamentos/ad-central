@@ -649,8 +649,10 @@ if st.session_state.perfil == "Admin":
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
         
         busca_cli = st.text_input("🔍 Buscar Cliente na Lista (Nome, Placa ou CPF):", key="busca_cli_tab")
-        if "acao_cli_admin" not in st.session_state: st.session_state.acao_cli_admin = "Listar"
-        opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_cli_admin")
+        
+        if "aba_cliente_admin" not in st.session_state: st.session_state.aba_cliente_admin = "Listar"
+        opcao = st.radio("Ação Clientes:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_cliente_admin == "Listar" else 1)
+        st.session_state.aba_cliente_admin = opcao
         
         if opcao == "Listar":
             if df_clientes.empty: st.info("Nenhum cliente cadastrado.")
@@ -723,7 +725,6 @@ if st.session_state.perfil == "Admin":
                     df_busca_c = df_clientes[df_clientes['id'].astype(str) == c_target]
                     if not df_busca_c.empty: dados_ant = df_busca_c.iloc[0]
             
-            # Só exibe o formulário se não for o modo edição, ou se for edição e tiver achado o cliente
             if not modo or dados_ant is not None:
                 k_cli = str(c_target) if c_target else "new"
                 
@@ -793,7 +794,7 @@ if st.session_state.perfil == "Admin":
                             df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','emp_name','status','veiculos_lista']] = [nome, cpf, tel, end_in, cid_in.upper(), cep_in, plano_km, vei_prin, pla_prin, est, emp.upper(), status, frota_json_str]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.success("✅ Cliente e Frota salvos com sucesso!")
-                        st.session_state.acao_cli_admin = "Listar"
+                        st.session_state.aba_cliente_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
                 
@@ -803,7 +804,7 @@ if st.session_state.perfil == "Admin":
                         df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.error("🗑️ Cliente excluído permanentemente!")
-                        st.session_state.acao_cli_admin = "Listar"
+                        st.session_state.aba_cliente_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -813,8 +814,9 @@ if st.session_state.perfil == "Admin":
         
         busca_emp = st.text_input("🔍 Buscar Empresa na Lista (Nome ou CNPJ):", key="busca_emp_tab")
         
-        if "acao_emp_admin" not in st.session_state: st.session_state.acao_emp_admin = "Listar"
-        opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_emp_admin")
+        if "aba_empresa_admin" not in st.session_state: st.session_state.aba_empresa_admin = "Listar"
+        opcao_e = st.radio("Ação Empresas:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_empresa_admin == "Listar" else 1)
+        st.session_state.aba_empresa_admin = opcao_e
         
         if opcao_e == "Listar":
             if df_empresas.empty: 
@@ -889,7 +891,7 @@ if st.session_state.perfil == "Admin":
                             
                         salvar_dados(df_empresas, FILE_EMPRESAS)
                         st.success("✅ Empresa salva com sucesso!")
-                        st.session_state.acao_emp_admin = "Listar"
+                        st.session_state.aba_empresa_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -901,7 +903,7 @@ if st.session_state.perfil == "Admin":
                         df_empresas = df_empresas.drop(columns=['cnpj_limpo_check'])
                         salvar_dados(df_empresas, FILE_EMPRESAS)
                         st.error("🗑️ Empresa excluída permanentemente!")
-                        st.session_state.acao_emp_admin = "Listar"
+                        st.session_state.aba_empresa_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -932,8 +934,9 @@ if st.session_state.perfil == "Admin":
         
         busca_pres = st.text_input("🔍 Buscar Prestador na Lista (Nome, Tipo ou Cidade):", key="busca_pres_tab")
         
-        if "acao_pre_admin" not in st.session_state: st.session_state.acao_pre_admin = "Listar"
-        opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, key="acao_pre_admin")
+        if "aba_prestador_admin" not in st.session_state: st.session_state.aba_prestador_admin = "Listar"
+        opcao_p = st.radio("Ação Prestadores:", ["Listar", "Incluir / Editar"], horizontal=True, index=0 if st.session_state.aba_prestador_admin == "Listar" else 1)
+        st.session_state.aba_prestador_admin = opcao_p
         
         if opcao_p == "Listar":
             if df_prestadores.empty: 
@@ -1015,7 +1018,7 @@ if st.session_state.perfil == "Admin":
                             df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','cpf','tipo','telefone','endereco','cidade','cep','est','status']] = [n_prest, cpf_p, t_prest, tel_p, end_p_in, cid_p_in.upper(), cep_p_in, est_p, stat_p]
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
                         st.success("✅ Prestador salvo com sucesso!")
-                        st.session_state.acao_pre_admin = "Listar"
+                        st.session_state.aba_prestador_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -1025,7 +1028,7 @@ if st.session_state.perfil == "Admin":
                         df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target]
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
                         st.error("🗑️ Prestador excluído permanentemente!")
-                        st.session_state.acao_pre_admin = "Listar"
+                        st.session_state.aba_prestador_admin = "Listar"
                         time.sleep(1)
                         st.rerun()
 
@@ -1036,8 +1039,9 @@ else:
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         
-        if "acao_cli_part" not in st.session_state: st.session_state.acao_cli_part = "Visualizar"
-        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Editar Cliente"], horizontal=True, key="acao_cli_part")
+        if "aba_cliente_part" not in st.session_state: st.session_state.aba_cliente_part = "Visualizar"
+        op_part = st.radio("Ação Parceiro:", ["Visualizar", "Incluir / Editar Cliente"], horizontal=True, index=0 if st.session_state.aba_cliente_part == "Visualizar" else 1)
+        st.session_state.aba_cliente_part = op_part
         
         if op_part == "Visualizar":
             if df_filtrado_p.empty: st.info("Nenhum cliente cadastrado por sua empresa.")
@@ -1152,7 +1156,7 @@ else:
                             df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome, p_cpf, p_tel, p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.success("✅ Registro atualizado com sucesso!")
-                        st.session_state.acao_cli_part = "Visualizar"
+                        st.session_state.aba_cliente_part = "Visualizar"
                         time.sleep(1)
                         st.rerun()
 
@@ -1162,7 +1166,7 @@ else:
                         df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target]
                         salvar_dados(df_clientes, FILE_CLIENTES)
                         st.error("🗑️ Cliente excluído permanentemente!")
-                        st.session_state.acao_cli_part = "Visualizar"
+                        st.session_state.aba_cliente_part = "Visualizar"
                         time.sleep(1)
                         st.rerun()
 
