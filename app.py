@@ -429,7 +429,7 @@ if st.session_state.perfil == "Admin":
             if nome_avulso and placa_alvo: pronto_para_prosseguir = True
             else: st.warning("⚠️ Nome do Cliente e Placa são obrigatórios para liberar o atendimento avulso.")
 
-        # Fluxo comum de fechamento da OS (Homologação de Guincho por Proximidade)
+        # Fluxo comum de fechamento da OS
         if pronto_para_prosseguir:
             st.write("---")
             st.subheader("🛠️ Detalhes da Assistência e Acionamento")
@@ -609,8 +609,16 @@ if st.session_state.perfil == "Admin":
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                             
                             st.markdown("---")
+                            
+                            # CÓDIGO DA FICHA DO CLIENTE E BOTÃO DE FECHAR
+                            key_sel_admin = f"sel_det_{emp}"
+                            if key_sel_admin not in st.session_state: st.session_state[key_sel_admin] = ""
+                            
                             cli_opcoes = [""] + df_emp_filtrada['nome'].tolist()
-                            cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, key=f"sel_det_{emp}")
+                            idx_sel_admin = cli_opcoes.index(st.session_state[key_sel_admin]) if st.session_state[key_sel_admin] in cli_opcoes else 0
+                            
+                            cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, index=idx_sel_admin, key=f"sel_sb_{emp}")
+                            st.session_state[key_sel_admin] = cli_sel
                             
                             if cli_sel != "":
                                 cli_data = df_emp_filtrada[df_emp_filtrada['nome'] == cli_sel].iloc[0]
@@ -640,6 +648,11 @@ if st.session_state.perfil == "Admin":
                                         st.info("Nenhum acionamento registrado para este cliente.")
                                     else:
                                         st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
+                                
+                                # BOTÃO DE FECHAR FICHA
+                                if st.button("❌ Fechar Ficha do Cliente", key=f"btn_close_{emp}"):
+                                    st.session_state[key_sel_admin] = ""
+                                    st.rerun()
 
         elif opcao_cli == "Incluir Novo":
             if "cli_inc_nome" not in st.session_state: st.session_state.cli_inc_nome = ""
@@ -1040,8 +1053,14 @@ else:
                 st.dataframe(df_view_cli_part[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                 
                 st.markdown("---")
+                
+                # CÓDIGO DA FICHA DO CLIENTE (PARCEIRO) E BOTÃO DE FECHAR
+                if "sel_det_part" not in st.session_state: st.session_state.sel_det_part = ""
                 cli_opcoes_part = [""] + df_view_cli_part['nome'].tolist()
-                cli_sel_part = st.selectbox("🔍 Selecione um cliente para ver a Ficha Completa:", cli_opcoes_part, key="sel_det_part")
+                idx_sel_part = cli_opcoes_part.index(st.session_state.sel_det_part) if st.session_state.sel_det_part in cli_opcoes_part else 0
+                
+                cli_sel_part = st.selectbox("🔍 Selecione um cliente para ver a Ficha Completa:", cli_opcoes_part, index=idx_sel_part, key="sb_det_part")
+                st.session_state.sel_det_part = cli_sel_part
                 
                 if cli_sel_part != "":
                     cli_data_p = df_view_cli_part[df_view_cli_part['nome'] == cli_sel_part].iloc[0]
@@ -1071,6 +1090,11 @@ else:
                             st.info("Nenhum acionamento registrado para este cliente.")
                         else:
                             st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
+                            
+                    # BOTÃO DE FECHAR FICHA
+                    if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
+                        st.session_state.sel_det_part = ""
+                        st.rerun()
         
         elif op_part == "Incluir Novo":
             if "part_inc_nome" not in st.session_state: st.session_state.part_inc_nome = ""
