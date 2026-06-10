@@ -610,7 +610,7 @@ if st.session_state.perfil == "Admin":
                             
                             st.markdown("---")
                             
-                            # CÓDIGO DA FICHA DO CLIENTE E BOTÃO DE FECHAR ATUALIZADO E PLACAR VISUAL
+                            # CÓDIGO DA FICHA DO CLIENTE COM CORREÇÃO DE LIMPEZA E PLACAR VISUAL
                             key_sel_admin = f"sel_det_{emp}"
                             widget_key_admin = f"sel_sb_{emp}"
                             if key_sel_admin not in st.session_state: st.session_state[key_sel_admin] = ""
@@ -677,10 +677,11 @@ if st.session_state.perfil == "Admin":
                                     else:
                                         st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                                 
-                                # BOTÃO DE FECHAR FICHA CORRIGIDO
+                                # BOTÃO DE FECHAR FICHA COM LIMPEZA CORRETA DO COMPONENTE
                                 if st.button("❌ Fechar Ficha do Cliente", key=f"btn_close_{emp}"):
-                                    st.session_state[widget_key_admin] = "" # Limpa a caixa de seleção nativa
                                     st.session_state[key_sel_admin] = ""
+                                    if widget_key_admin in st.session_state:
+                                        del st.session_state[widget_key_admin]
                                     st.rerun()
 
         elif opcao_cli == "Incluir Novo":
@@ -1083,7 +1084,7 @@ else:
                 
                 st.markdown("---")
                 
-                # CÓDIGO DA FICHA DO CLIENTE (PARCEIRO) E BOTÃO DE FECHAR
+                # CÓDIGO DA FICHA DO CLIENTE (PARCEIRO) COM LIMPEZA E PLACAR VISUAL
                 if "sel_det_part" not in st.session_state: st.session_state.sel_det_part = ""
                 widget_key_part = "sb_det_part_wid"
                 
@@ -1149,10 +1150,11 @@ else:
                         else:
                             st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                             
-                    # BOTÃO DE FECHAR FICHA CORRIGIDO
+                    # BOTÃO DE FECHAR FICHA COM LIMPEZA CORRETA
                     if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
-                        st.session_state[widget_key_part] = "" # Limpa a caixa de seleção nativa
                         st.session_state.sel_det_part = ""
+                        if widget_key_part in st.session_state:
+                            del st.session_state[widget_key_part]
                         st.rerun()
         
         elif op_part == "Incluir Novo":
