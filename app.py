@@ -396,7 +396,6 @@ if st.session_state.perfil == "Admin":
                                 c1, c2, c3, c4, c5 = st.columns(5)
                                 c1.metric("Guinchos", f"{total_g} / 2"); c2.metric("Pane Seca", f"{total_ps} / 1"); c3.metric("Elétrica", f"{total_pe} / 1"); c4.metric("Chaveiro", f"{total_c} / 1"); c5.metric("Borracheiro", f"{total_b} / 1")
                                 
-                                # VERIFICAÇÃO DE INADIMPLÊNCIA / CLIENTE INATIVO
                                 status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
                                 if status_cliente_os == 'Inativo':
                                     st.write("---")
@@ -429,7 +428,6 @@ if st.session_state.perfil == "Admin":
             if nome_avulso and placa_alvo: pronto_para_prosseguir = True
             else: st.warning("⚠️ Nome do Cliente e Placa são obrigatórios para liberar o atendimento avulso.")
 
-        # Fluxo comum de fechamento da OS
         if pronto_para_prosseguir:
             st.write("---")
             st.subheader("🛠️ Detalhes da Assistência e Acionamento")
@@ -607,35 +605,27 @@ if st.session_state.perfil == "Admin":
                         with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=expandir_pastas):
                             df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
                             
-                            # --- CALCULO DA TAXA DE ACIONAMENTO DO MÊS ---
-                            mes_atual_taxa = datetime.now().month
-                            ano_atual_taxa = datetime.now().year
-                            base_clientes_taxa = len(df_emp_filtrada)
-                            
+                            # CÁLCULO MÊS A MÊS PARA ADMIN
+                            mes_a = datetime.now().month
+                            ano_a = datetime.now().year
                             total_os_mes_emp = 0
                             if not df_os.empty:
                                 df_os_temp = df_os.copy()
                                 df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
-                                os_mes_atual = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_emp) & (df_os_temp['data_hora'].dt.month == mes_atual_taxa) & (df_os_temp['data_hora'].dt.year == ano_atual_taxa)]
+                                os_mes_atual = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_emp) & (df_os_temp['data_hora'].dt.month == mes_a) & (df_os_temp['data_hora'].dt.year == ano_a)]
                                 total_os_mes_emp = len(os_mes_atual)
                             
-                            taxa = (total_os_mes_emp / base_clientes_taxa * 100) if base_clientes_taxa > 0 else 0
-                            
-                            st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa} clientes/veículos, a taxa de acionamento neste mês é de {taxa:.1f}%.**")
-                            st.write("---")
-                            # ---------------------------------------------
+                            taxa = (total_os_mes_emp / len(df_emp_filtrada) * 100) if len(df_emp_filtrada) > 0 else 0
+                            st.markdown(f"📊 **De acordo com a base de {len(df_emp_filtrada)} clientes/veículos, a taxa de acionamento neste mês é de {taxa:.1f}%.**")
                             
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                             
                             st.markdown("---")
-                            
                             key_sel_admin = f"sel_det_{emp}"
                             widget_key_admin = f"sel_sb_{emp}"
                             if key_sel_admin not in st.session_state: st.session_state[key_sel_admin] = ""
-                            
                             cli_opcoes = [""] + df_emp_filtrada['nome'].tolist()
                             idx_sel_admin = cli_opcoes.index(st.session_state[key_sel_admin]) if st.session_state[key_sel_admin] in cli_opcoes else 0
-                            
                             cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, index=idx_sel_admin, key=widget_key_admin)
                             st.session_state[key_sel_admin] = cli_sel
                             
@@ -643,23 +633,14 @@ if st.session_state.perfil == "Admin":
                                 cli_data = df_emp_filtrada[df_emp_filtrada['nome'] == cli_sel].iloc[0]
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
-                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}")
-                                c1.write(f"**Telefone:** {cli_data['tel']}")
-                                c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
-                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
-                                
-                                status_color = "🟢 Ativo" if cli_data['status'] == 'Ativo' else "🔴 Inativo"
-                                c2.write(f"**Status:** {status_color}")
-                                
+                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
                                 st.write("**🚗 Frota Cadastrada:**")
                                 try:
                                     frota = json.loads(cli_data['veiculos_lista'])
                                     st.table(pd.DataFrame(frota))
-                                except:
-                                    st.write(f"{cli_data.get('vei', '')} - Placa: {cli_data.get('pla', '')}")
-                                
+                                except: st.write(f"{cli_data.get('vei', '')} - Placa: {cli_data.get('pla', '')}")
                                 st.write("---")
-                                
                                 st.write(f"**📊 Saldo de Acionamentos no Ano ({datetime.now().year}) - Geral do Cliente:**")
                                 ano_atual = datetime.now().year
                                 total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
@@ -674,30 +655,18 @@ if st.session_state.perfil == "Admin":
                                         elif "elét" in serv or "elet" in serv: total_pe += 1
                                         elif "chaveiro" in serv: total_c += 1
                                         elif "borrach" in serv or "borrac" in serv: total_b += 1
-                                
                                 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-                                col_m1.metric("Guinchos", f"{total_g} / 2")
-                                col_m2.metric("Pane Seca", f"{total_ps} / 1")
-                                col_m3.metric("Elétrica", f"{total_pe} / 1")
-                                col_m4.metric("Chaveiro", f"{total_c} / 1")
-                                col_m5.metric("Borracheiro", f"{total_b} / 1")
-                                
+                                col_m1.metric("Guinchos", f"{total_g} / 2"); col_m2.metric("Pane Seca", f"{total_ps} / 1"); col_m3.metric("Elétrica", f"{total_pe} / 1"); col_m4.metric("Chaveiro", f"{total_c} / 1"); col_m5.metric("Borracheiro", f"{total_b} / 1")
                                 st.write("---")
-                                    
                                 st.write("**🚨 Histórico Completo de Atendimentos:**")
-                                if df_os.empty:
-                                    st.info("Nenhum acionamento registrado no banco de dados.")
+                                if df_os.empty: st.info("Nenhum acionamento.")
                                 else:
                                     os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data['id']).strip()]
-                                    if os_cli.empty:
-                                        st.info("Nenhum acionamento registrado para este cliente.")
-                                    else:
-                                        st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
-                                
+                                    if os_cli.empty: st.info("Nenhum acionamento.")
+                                    else: st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                                 if st.button("❌ Fechar Ficha do Cliente", key=f"btn_close_{emp}"):
                                     st.session_state[key_sel_admin] = ""
-                                    if widget_key_admin in st.session_state:
-                                        del st.session_state[widget_key_admin]
+                                    if widget_key_admin in st.session_state: del st.session_state[widget_key_admin]
                                     st.rerun()
 
         elif opcao_cli == "Incluir Novo":
@@ -1066,6 +1035,21 @@ else:
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         
+        # --- CALCULO DA TAXA DE ACIONAMENTO DO MÊS (VISÃO PARCEIRO) ---
+        mes_atual_taxa_p = datetime.now().month
+        ano_atual_taxa_p = datetime.now().year
+        base_clientes_taxa_p = len(df_filtrado_p)
+        total_os_mes_p = 0
+        if not df_os.empty:
+            df_os_temp_p = df_os.copy()
+            df_os_temp_p['data_hora'] = pd.to_datetime(df_os_temp_p['data_hora'], errors='coerce')
+            os_mes_atual_p = df_os_temp_p[(df_os_temp_p['empresa'].str.upper() == st.session_state.empresa_vinculada.upper()) & (df_os_temp_p['data_hora'].dt.month == mes_atual_taxa_p) & (df_os_temp_p['data_hora'].dt.year == ano_atual_taxa_p)]
+            total_os_mes_p = len(os_mes_atual_p)
+        taxa_p = (total_os_mes_p / base_clientes_taxa_p * 100) if base_clientes_taxa_p > 0 else 0
+        st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa_p} clientes/veículos, a taxa de acionamento neste mês é de {taxa_p:.1f}%.**")
+        st.write("---")
+        # --------------------------------------------------------------
+        
         if "aba_part" not in st.session_state: st.session_state.aba_part = "Visualizar"
         opcoes_radio_part = ["Visualizar", "Incluir Novo", "Editar Cliente", "Excluir Cliente"]
         idx_radio_part = opcoes_radio_part.index(st.session_state.aba_part) if st.session_state.aba_part in opcoes_radio_part else 0
@@ -1096,25 +1080,6 @@ else:
                     return " | ".join(res)
                 
                 df_view_cli_part['Histórico'] = df_view_cli_part['id'].apply(formatar_historico_p)
-                
-                # --- CALCULO DA TAXA DE ACIONAMENTO DO MÊS (VISÃO PARCEIRO) ---
-                mes_atual_taxa_p = datetime.now().month
-                ano_atual_taxa_p = datetime.now().year
-                base_clientes_taxa_p = len(df_view_cli_part)
-                
-                total_os_mes_p = 0
-                if not df_os.empty:
-                    df_os_temp_p = df_os.copy()
-                    df_os_temp_p['data_hora'] = pd.to_datetime(df_os_temp_p['data_hora'], errors='coerce')
-                    os_mes_atual_p = df_os_temp_p[(df_os_temp_p['empresa'].str.upper() == st.session_state.empresa_vinculada.upper()) & (df_os_temp_p['data_hora'].dt.month == mes_atual_taxa_p) & (df_os_temp_p['data_hora'].dt.year == ano_atual_taxa_p)]
-                    total_os_mes_p = len(os_mes_atual_p)
-                
-                taxa_p = (total_os_mes_p / base_clientes_taxa_p * 100) if base_clientes_taxa_p > 0 else 0
-                
-                st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa_p} clientes/veículos, a taxa de acionamento neste mês é de {taxa_p:.1f}%.**")
-                st.write("---")
-                # --------------------------------------------------------------
-                
                 st.dataframe(df_view_cli_part[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                 
                 st.markdown("---")
@@ -1136,7 +1101,6 @@ else:
                     c1.write(f"**Telefone:** {cli_data_p['tel']}")
                     c1.write(f"**Plano Contratado:** {cli_data_p.get('plano_km', 'N/D')}")
                     c2.write(f"**Endereço:** {cli_data_p.get('endereco', 'N/D')} - {cli_data_p.get('cidade', 'N/D')}/{cli_data_p.get('est', 'N/D')}")
-                    
                     status_color_p = "🟢 Ativo" if cli_data_p['status'] == 'Ativo' else "🔴 Inativo"
                     c2.write(f"**Status:** {status_color_p}")
                     
@@ -1148,7 +1112,6 @@ else:
                         st.write(f"{cli_data_p.get('vei', '')} - Placa: {cli_data_p.get('pla', '')}")
                         
                     st.write("---")
-                    
                     st.write(f"**📊 Saldo de Acionamentos no Ano ({datetime.now().year}) - Geral do Cliente:**")
                     ano_atual = datetime.now().year
                     total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
@@ -1165,28 +1128,19 @@ else:
                             elif "borrach" in serv or "borrac" in serv: total_b += 1
                     
                     col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-                    col_m1.metric("Guinchos", f"{total_g} / 2")
-                    col_m2.metric("Pane Seca", f"{total_ps} / 1")
-                    col_m3.metric("Elétrica", f"{total_pe} / 1")
-                    col_m4.metric("Chaveiro", f"{total_c} / 1")
-                    col_m5.metric("Borracheiro", f"{total_b} / 1")
-                    
+                    col_m1.metric("Guinchos", f"{total_g} / 2"); col_m2.metric("Pane Seca", f"{total_ps} / 1"); col_m3.metric("Elétrica", f"{total_pe} / 1"); col_m4.metric("Chaveiro", f"{total_c} / 1"); col_m5.metric("Borracheiro", f"{total_b} / 1")
                     st.write("---")
                         
                     st.write("**🚨 Histórico Completo de Atendimentos:**")
-                    if df_os.empty:
-                        st.info("Nenhum acionamento registrado no banco de dados.")
+                    if df_os.empty: st.info("Nenhum acionamento.")
                     else:
                         os_cli_p = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data_p['id']).strip()]
-                        if os_cli_p.empty:
-                            st.info("Nenhum acionamento registrado para este cliente.")
-                        else:
-                            st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
+                        if os_cli_p.empty: st.info("Nenhum acionamento.")
+                        else: st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                             
                     if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
                         st.session_state.sel_det_part = ""
-                        if widget_key_part in st.session_state:
-                            del st.session_state[widget_key_part]
+                        if widget_key_part in st.session_state: del st.session_state[widget_key_part]
                         st.rerun()
         
         elif op_part == "Incluir Novo":
