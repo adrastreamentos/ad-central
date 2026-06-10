@@ -283,7 +283,7 @@ with col_logout:
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
-    # === NOVA OS ===
+    # === NOVA OS (FLUXO CONTRATADO VS PARTICULARES + TRAVA DE INADIMPLÊNCIA) ===
     with menu[0]:
         st.subheader("🚀 Abertura de Chamado / Nova OS")
         
@@ -365,7 +365,6 @@ if st.session_state.perfil == "Admin":
                                 cliente_nome_os = str(cliente_dados['nome'])
                                 empresa_os = str(cliente_dados['emp_name'])
                                 valor_cobrado_os = "0,00"
-                                pronto_para_prosseguir = True
 
                                 st.info(f"📍 Cliente: **{empresa_os.upper()}** | UF do Veículo: **{uf_cliente}**")
                                 st.markdown(f'<div class="info-box">🛣️ PLANO KM CONTRATADO: {plano_km_os}</div>', unsafe_allow_html=True)
@@ -396,6 +395,20 @@ if st.session_state.perfil == "Admin":
                                 st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual}) - Placa: {placa_alvo}")
                                 c1, c2, c3, c4, c5 = st.columns(5)
                                 c1.metric("Guinchos", f"{total_g} / 2"); c2.metric("Pane Seca", f"{total_ps} / 1"); c3.metric("Elétrica", f"{total_pe} / 1"); c4.metric("Chaveiro", f"{total_c} / 1"); c5.metric("Borraceiro", f"{total_b} / 1")
+                                
+                                # VERIFICAÇÃO DE INADIMPLÊNCIA / CLIENTE INATIVO
+                                status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
+                                if status_cliente_os == 'Inativo':
+                                    st.write("---")
+                                    st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento. O atendimento padrão está bloqueado.</span></div>', unsafe_allow_html=True)
+                                    liberar_excecao = st.checkbox("⚠️ Ciente do status: Liberar Atendimento por Exceção (Autorização manual)")
+                                    if liberar_excecao:
+                                        pronto_para_prosseguir = True
+                                    else:
+                                        pronto_para_prosseguir = False
+                                        st.warning("👆 Marque a caixa acima se desejar abrir uma OS para este cliente inativo.")
+                                else:
+                                    pronto_para_prosseguir = True
         
         else:
             st.info("📝 Digite as informações do atendimento avulso particular abaixo:")
