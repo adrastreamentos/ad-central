@@ -390,11 +390,11 @@ if st.session_state.perfil == "Admin":
                                         elif "pane seca" in serv: total_ps += 1
                                         elif "pane el" in serv or "eletrica" in serv: total_pe += 1
                                         elif "chaveiro" in serv: total_c += 1
-                                        elif "borraceiro" in serv: total_b += 1
+                                        elif "borrach" in serv or "borrac" in serv: total_b += 1
                                 
                                 st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual}) - Placa: {placa_alvo}")
                                 c1, c2, c3, c4, c5 = st.columns(5)
-                                c1.metric("Guinchos", f"{total_g} / 2"); c2.metric("Pane Seca", f"{total_ps} / 1"); c3.metric("Elétrica", f"{total_pe} / 1"); c4.metric("Chaveiro", f"{total_c} / 1"); c5.metric("Borraceiro", f"{total_b} / 1")
+                                c1.metric("Guinchos", f"{total_g} / 2"); c2.metric("Pane Seca", f"{total_ps} / 1"); c3.metric("Elétrica", f"{total_pe} / 1"); c4.metric("Chaveiro", f"{total_c} / 1"); c5.metric("Borracheiro", f"{total_b} / 1")
                                 
                                 # VERIFICAÇÃO DE INADIMPLÊNCIA / CLIENTE INATIVO
                                 status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
@@ -610,14 +610,15 @@ if st.session_state.perfil == "Admin":
                             
                             st.markdown("---")
                             
-                            # CÓDIGO DA FICHA DO CLIENTE E BOTÃO DE FECHAR
+                            # CÓDIGO DA FICHA DO CLIENTE E BOTÃO DE FECHAR ATUALIZADO E PLACAR VISUAL
                             key_sel_admin = f"sel_det_{emp}"
+                            widget_key_admin = f"sel_sb_{emp}"
                             if key_sel_admin not in st.session_state: st.session_state[key_sel_admin] = ""
                             
                             cli_opcoes = [""] + df_emp_filtrada['nome'].tolist()
                             idx_sel_admin = cli_opcoes.index(st.session_state[key_sel_admin]) if st.session_state[key_sel_admin] in cli_opcoes else 0
                             
-                            cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, index=idx_sel_admin, key=f"sel_sb_{emp}")
+                            cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, index=idx_sel_admin, key=widget_key_admin)
                             st.session_state[key_sel_admin] = cli_sel
                             
                             if cli_sel != "":
@@ -638,6 +639,33 @@ if st.session_state.perfil == "Admin":
                                     st.table(pd.DataFrame(frota))
                                 except:
                                     st.write(f"{cli_data.get('vei', '')} - Placa: {cli_data.get('pla', '')}")
+                                
+                                st.write("---")
+                                
+                                # PLACAR VISUAL DE ACIONAMENTOS
+                                st.write(f"**📊 Saldo de Acionamentos no Ano ({datetime.now().year}) - Geral do Cliente:**")
+                                ano_atual = datetime.now().year
+                                total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
+                                if not df_os.empty:
+                                    df_os_copy = df_os.copy()
+                                    df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
+                                    os_cliente_ano = df_os_copy[(df_os_copy['cliente_id'].astype(str).str.strip() == str(cli_data['id']).strip()) & (df_os_copy['data_hora'].dt.year == ano_atual)]
+                                    for _, o in os_cliente_ano.iterrows():
+                                        serv = str(o['tipo_servico']).lower()
+                                        if "guincho" in serv: total_g += 1
+                                        elif "seca" in serv: total_ps += 1
+                                        elif "elét" in serv or "elet" in serv: total_pe += 1
+                                        elif "chaveiro" in serv: total_c += 1
+                                        elif "borrach" in serv or "borrac" in serv: total_b += 1
+                                
+                                col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+                                col_m1.metric("Guinchos", f"{total_g} / 2")
+                                col_m2.metric("Pane Seca", f"{total_ps} / 1")
+                                col_m3.metric("Elétrica", f"{total_pe} / 1")
+                                col_m4.metric("Chaveiro", f"{total_c} / 1")
+                                col_m5.metric("Borracheiro", f"{total_b} / 1")
+                                
+                                st.write("---")
                                     
                                 st.write("**🚨 Histórico Completo de Atendimentos:**")
                                 if df_os.empty:
@@ -649,8 +677,9 @@ if st.session_state.perfil == "Admin":
                                     else:
                                         st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                                 
-                                # BOTÃO DE FECHAR FICHA
+                                # BOTÃO DE FECHAR FICHA CORRIGIDO
                                 if st.button("❌ Fechar Ficha do Cliente", key=f"btn_close_{emp}"):
+                                    st.session_state[widget_key_admin] = "" # Limpa a caixa de seleção nativa
                                     st.session_state[key_sel_admin] = ""
                                     st.rerun()
 
@@ -1056,10 +1085,12 @@ else:
                 
                 # CÓDIGO DA FICHA DO CLIENTE (PARCEIRO) E BOTÃO DE FECHAR
                 if "sel_det_part" not in st.session_state: st.session_state.sel_det_part = ""
+                widget_key_part = "sb_det_part_wid"
+                
                 cli_opcoes_part = [""] + df_view_cli_part['nome'].tolist()
                 idx_sel_part = cli_opcoes_part.index(st.session_state.sel_det_part) if st.session_state.sel_det_part in cli_opcoes_part else 0
                 
-                cli_sel_part = st.selectbox("🔍 Selecione um cliente para ver a Ficha Completa:", cli_opcoes_part, index=idx_sel_part, key="sb_det_part")
+                cli_sel_part = st.selectbox("🔍 Selecione um cliente para ver a Ficha Completa:", cli_opcoes_part, index=idx_sel_part, key=widget_key_part)
                 st.session_state.sel_det_part = cli_sel_part
                 
                 if cli_sel_part != "":
@@ -1081,6 +1112,33 @@ else:
                     except:
                         st.write(f"{cli_data_p.get('vei', '')} - Placa: {cli_data_p.get('pla', '')}")
                         
+                    st.write("---")
+                    
+                    # PLACAR VISUAL DE ACIONAMENTOS (PARCEIRO)
+                    st.write(f"**📊 Saldo de Acionamentos no Ano ({datetime.now().year}) - Geral do Cliente:**")
+                    ano_atual = datetime.now().year
+                    total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
+                    if not df_os.empty:
+                        df_os_copy = df_os.copy()
+                        df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
+                        os_cliente_ano = df_os_copy[(df_os_copy['cliente_id'].astype(str).str.strip() == str(cli_data_p['id']).strip()) & (df_os_copy['data_hora'].dt.year == ano_atual)]
+                        for _, o in os_cliente_ano.iterrows():
+                            serv = str(o['tipo_servico']).lower()
+                            if "guincho" in serv: total_g += 1
+                            elif "seca" in serv: total_ps += 1
+                            elif "elét" in serv or "elet" in serv: total_pe += 1
+                            elif "chaveiro" in serv: total_c += 1
+                            elif "borrach" in serv or "borrac" in serv: total_b += 1
+                    
+                    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+                    col_m1.metric("Guinchos", f"{total_g} / 2")
+                    col_m2.metric("Pane Seca", f"{total_ps} / 1")
+                    col_m3.metric("Elétrica", f"{total_pe} / 1")
+                    col_m4.metric("Chaveiro", f"{total_c} / 1")
+                    col_m5.metric("Borracheiro", f"{total_b} / 1")
+                    
+                    st.write("---")
+                        
                     st.write("**🚨 Histórico Completo de Atendimentos:**")
                     if df_os.empty:
                         st.info("Nenhum acionamento registrado no banco de dados.")
@@ -1091,8 +1149,9 @@ else:
                         else:
                             st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                             
-                    # BOTÃO DE FECHAR FICHA
+                    # BOTÃO DE FECHAR FICHA CORRIGIDO
                     if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
+                        st.session_state[widget_key_part] = "" # Limpa a caixa de seleção nativa
                         st.session_state.sel_det_part = ""
                         st.rerun()
         
