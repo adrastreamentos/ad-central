@@ -283,7 +283,7 @@ with col_logout:
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
-    # === NOVA OS (FLUXO CONTRATADO VS particulares avulsos) ===
+    # === NOVA OS ===
     with menu[0]:
         st.subheader("🚀 Abertura de Chamado / Nova OS")
         
@@ -347,7 +347,7 @@ if st.session_state.perfil == "Admin":
                                     frota_json = json.loads(cliente_dados['veiculos_lista'])
                                     for v in frota_json:
                                         if v.get('Placa'): lista_frota_opcoes.append(f"{v.get('Modelo/Ano', 'Veículo')} - Placa: {v.get('Placa')}")
-                                    except: pass
+                                except: pass  # AQUI ESTAVA O ERRO DE INDENTAÇÃO CORRIGIDO
                             
                             if not lista_frota_opcoes:
                                 if pd.notna(cliente_dados.get('pla')) and str(cliente_dados['pla']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei', 'Veículo')} - Placa: {cliente_dados['pla']}")
@@ -932,7 +932,7 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','cpf','tipo','telefone','endereco','cidade','cep','est','status']] = [n_prest_in.upper(), cpf_p, t_prest, apenas_numeros_letras(tel_p_raw), end_p_in, cid_p_in.upper(), cep_p_in, est_p, stat_p]
                             salvar_dados(df_prestadores, FILE_PRESTADORES)
-                            st.success("✅ Prestador updated com sucesso!")
+                            st.success("✅ Prestador atualizado com sucesso!")
                             st.session_state.aba_pre = "Listar"
                             time.sleep(1); st.rerun()
 
