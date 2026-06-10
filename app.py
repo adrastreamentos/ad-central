@@ -503,7 +503,7 @@ if st.session_state.perfil == "Admin":
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
 
-    # === CLIENTES (COM BOTÕES SEPARADOS) ===
+    # === CLIENTES (COM BOTÕES SEPARADOS E RESET AUTOMÁTICO) ===
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
         
@@ -554,14 +554,27 @@ if st.session_state.perfil == "Admin":
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
         
         elif opcao_cli == "Incluir Novo":
+            if "cli_inc_nome" not in st.session_state: st.session_state.cli_inc_nome = ""
+            if "cli_inc_cpf" not in st.session_state: st.session_state.cli_inc_cpf = ""
+            if "cli_inc_tel" not in st.session_state: st.session_state.cli_inc_tel = ""
+            if "cli_inc_end" not in st.session_state: st.session_state.cli_inc_end = ""
+            if "cli_inc_cid" not in st.session_state: st.session_state.cli_inc_cid = ""
+            if "cli_inc_cep" not in st.session_state: st.session_state.cli_inc_cep = ""
+
             st.info("✏️ Preencha os dados abaixo para cadastrar um novo cliente.")
             c1, c2 = st.columns(2)
-            nome_in = c1.text_input("Nome Completo:")
-            cpf_raw = c2.text_input("CPF/CNPJ:")
-            tel_raw = c1.text_input("Telefone de Contato:")
-            end_in = c2.text_input("Endereço Completo:")
-            cid_in = c1.text_input("Cidade:")
-            cep_in = c2.text_input("CEP:")
+            nome_in = c1.text_input("Nome Completo:", value=st.session_state.cli_inc_nome)
+            st.session_state.cli_inc_nome = nome_in
+            cpf_raw = c2.text_input("CPF/CNPJ:", value=st.session_state.cli_inc_cpf)
+            st.session_state.cli_inc_cpf = cpf_raw
+            tel_raw = c1.text_input("Telefone de Contato:", value=st.session_state.cli_inc_tel)
+            st.session_state.cli_inc_tel = tel_raw
+            end_in = c2.text_input("Endereço Completo:", value=st.session_state.cli_inc_end)
+            st.session_state.cli_inc_end = end_in
+            cid_in = c1.text_input("Cidade:", value=st.session_state.cli_inc_cid)
+            st.session_state.cli_inc_cid = cid_in
+            cep_in = c2.text_input("CEP:", value=st.session_state.cli_inc_cep)
+            st.session_state.cli_inc_cep = cep_in
             
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa - Adicione quantos quiser)**")
@@ -592,6 +605,9 @@ if st.session_state.perfil == "Admin":
                     df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Cliente cadastrado com sucesso!")
+                    # Limpeza de campos da sessão
+                    for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]:
+                        st.session_state[k] = ""
                     st.session_state.aba_cli = "Listar"
                     time.sleep(1); st.rerun()
                     
@@ -683,12 +699,23 @@ if st.session_state.perfil == "Admin":
                 st.dataframe(df_view_emp.style.map(colorir_status, subset=['status']), use_container_width=True)
         
         elif opcao_emp == "Incluir Nova":
+            if "emp_inc_nome" not in st.session_state: st.session_state.emp_inc_nome = ""
+            if "emp_inc_cnpj" not in st.session_state: st.session_state.emp_inc_cnpj = ""
+            if "emp_inc_resp" not in st.session_state: st.session_state.emp_inc_resp = ""
+            if "emp_inc_tel" not in st.session_state: st.session_state.emp_inc_tel = ""
+            if "emp_inc_mail" not in st.session_state: st.session_state.emp_inc_mail = ""
+            
             c1, c2 = st.columns(2)
-            n_emp_in = c1.text_input("Nome da Empresa:")
-            cnpj_raw = c2.text_input("CNPJ da Empresa:")
-            resp_in = c1.text_input("Nome do Responsável:")
-            tel_e_raw = c2.text_input("Telefone da Central 24h:")
-            mail_in = c1.text_input("E-mail corporativo:")
+            n_emp_in = c1.text_input("Nome da Empresa:", value=st.session_state.emp_inc_nome)
+            st.session_state.emp_inc_nome = n_emp_in
+            cnpj_raw = c2.text_input("CNPJ da Empresa:", value=st.session_state.emp_inc_cnpj)
+            st.session_state.emp_inc_cnpj = cnpj_raw
+            resp_in = c1.text_input("Nome do Responsável:", value=st.session_state.emp_inc_resp)
+            st.session_state.emp_inc_resp = resp_in
+            tel_e_raw = c2.text_input("Telefone da Central 24h:", value=st.session_state.emp_inc_tel)
+            st.session_state.emp_inc_tel = tel_e_raw
+            mail_in = c1.text_input("E-mail corporativo:", value=st.session_state.emp_inc_mail)
+            st.session_state.emp_inc_mail = mail_in
             est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
             stat_e = c1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0)
             
@@ -700,6 +727,7 @@ if st.session_state.perfil == "Admin":
                     df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
                     salvar_dados(df_empresas, FILE_EMPRESAS)
                     st.success("✅ Empresa cadastrada com sucesso!")
+                    for k in ["emp_inc_nome", "emp_inc_cnpj", "emp_inc_resp", "emp_inc_tel", "emp_inc_mail"]: st.session_state[k] = ""
                     st.session_state.aba_emp = "Listar"
                     time.sleep(1); st.rerun()
 
@@ -776,18 +804,46 @@ if st.session_state.perfil == "Admin":
             if df_prestadores.empty: st.info("Nenhum prestador cadastrado.")
             else: 
                 df_view_pres = df_prestadores.copy()
-                if busca_pres_lista: df_view_pres = df_view_pres[df_view_pres['nome'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['tipo'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['cidade'].str.contains(busca_pres_lista, case=False, na=False)]
-                st.dataframe(df_view_pres[['nome','cpf','tipo','telefone','cidade','est','status','homologado']], use_container_width=True)
+                expandir_pastas_pre = False
+                if busca_pres_lista: 
+                    expandir_pastas_pre = True
+                    df_view_pres = df_view_pres[df_view_pres['nome'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['tipo'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['cidade'].str.contains(busca_pres_lista, case=False, na=False)]
+                
+                estados_na_lista = df_view_pres['est'].dropna().unique()
+                if len(estados_na_lista) == 0:
+                    st.warning("Nenhum prestador encontrado com esse termo.")
+                else:
+                    for est_sigla in sorted(estados_na_lista):
+                        nome_est = str(est_sigla).upper() if str(est_sigla).strip() != "" else "SEM ESTADO VINCULADO"
+                        with st.expander(f"📁 Prestadores do Estado: {nome_est}", expanded=expandir_pastas_pre):
+                            df_est_filtrada = df_view_pres[df_view_pres['est'] == est_sigla]
+                            st.dataframe(df_est_filtrada[['nome','cpf','tipo','telefone','cidade','status','homologado']].style.map(colorir_status, subset=['status']), use_container_width=True)
         
         elif opcao_pre == "Incluir Novo":
+            if "pre_inc_nome" not in st.session_state: st.session_state.pre_inc_nome = ""
+            if "pre_inc_cpf" not in st.session_state: st.session_state.pre_inc_cpf = ""
+            if "pre_inc_tel" not in st.session_state: st.session_state.pre_inc_tel = ""
+            if "pre_inc_end" not in st.session_state: st.session_state.pre_inc_end = ""
+            if "pre_inc_cid" not in st.session_state: st.session_state.pre_inc_cid = ""
+            if "pre_inc_cep" not in st.session_state: st.session_state.pre_inc_cep = ""
+            
             c1, c2 = st.columns(2)
-            n_prest_in = c1.text_input("Nome do Guincho/Prestador:")
-            cpf_p_raw = c2.text_input("CPF/CNPJ do Prestador:")
+            n_prest_in = c1.text_input("Nome do Guincho/Prestador:", value=st.session_state.pre_inc_nome)
+            st.session_state.pre_inc_nome = n_prest_in
+            cpf_p_raw = c2.text_input("CPF/CNPJ do Prestador:", value=st.session_state.pre_inc_cpf)
+            st.session_state.pre_inc_cpf = cpf_p_raw
+            
             t_prest_lista = c1.multiselect("Tipos de Serviço Prestado:", options=OPCOES_SERVICOS, default=["Guincho"])
-            tel_p_raw = c2.text_input("Telefone de Contato (Com DDD):")
-            end_p_in = c1.text_input("Endereço / Base:")
-            cid_p_in = c2.text_input("Cidade Base:")
-            cep_p_in = c1.text_input("CEP:")
+            tel_p_raw = c2.text_input("Telefone de Contato (Com DDD):", value=st.session_state.pre_inc_tel)
+            st.session_state.pre_inc_tel = tel_p_raw
+            
+            end_p_in = c1.text_input("Endereço / Base:", value=st.session_state.pre_inc_end)
+            st.session_state.pre_inc_end = end_p_in
+            cid_p_in = c2.text_input("Cidade Base:", value=st.session_state.pre_inc_cid)
+            st.session_state.pre_inc_cid = cid_p_in
+            cep_p_in = c1.text_input("CEP:", value=st.session_state.pre_inc_cep)
+            st.session_state.pre_inc_cep = cep_p_in
+            
             est_p = c2.selectbox("Estado (UF) de Atuação:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
             stat_p = c1.selectbox("Status do Guincho:", ["Ativo", "Inativo"], index=0)
             
@@ -802,6 +858,7 @@ if st.session_state.perfil == "Admin":
                     df_prestadores = pd.concat([df_prestadores, novo_p], ignore_index=True)
                     salvar_dados(df_prestadores, FILE_PRESTADORES)
                     st.success("✅ Prestador cadastrado com sucesso!")
+                    for k in ["pre_inc_nome", "pre_inc_cpf", "pre_inc_tel", "pre_inc_end", "pre_inc_cid", "pre_inc_cep"]: st.session_state[k] = ""
                     st.session_state.aba_pre = "Listar"
                     time.sleep(1); st.rerun()
 
@@ -892,13 +949,26 @@ else:
                 st.dataframe(df_view_cli_part[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
         
         elif op_part == "Incluir Novo":
+            if "part_inc_nome" not in st.session_state: st.session_state.part_inc_nome = ""
+            if "part_inc_cpf" not in st.session_state: st.session_state.part_inc_cpf = ""
+            if "part_inc_tel" not in st.session_state: st.session_state.part_inc_tel = ""
+            if "part_inc_end" not in st.session_state: st.session_state.part_inc_end = ""
+            if "part_inc_cid" not in st.session_state: st.session_state.part_inc_cid = ""
+            if "part_inc_cep" not in st.session_state: st.session_state.part_inc_cep = ""
+            
             c1, c2 = st.columns(2)
-            p_nome_in = c1.text_input("Nome Completo:")
-            p_cpf_raw = c2.text_input("CPF:")
-            p_tel_raw = c1.text_input("Telefone:")
-            p_end_in = c2.text_input("Endereço Completo:")
-            p_cid_in = c1.text_input("Cidade:")
-            p_cep_in = c2.text_input("CEP:")
+            p_nome_in = c1.text_input("Nome Completo:", value=st.session_state.part_inc_nome)
+            st.session_state.part_inc_nome = p_nome_in
+            p_cpf_raw = c2.text_input("CPF:", value=st.session_state.part_inc_cpf)
+            st.session_state.part_inc_cpf = p_cpf_raw
+            p_tel_raw = c1.text_input("Telefone:", value=st.session_state.part_inc_tel)
+            st.session_state.part_inc_tel = p_tel_raw
+            p_end_in = c2.text_input("Endereço Completo:", value=st.session_state.part_inc_end)
+            st.session_state.part_inc_end = p_end_in
+            p_cid_in = c1.text_input("Cidade:", value=st.session_state.part_inc_cid)
+            st.session_state.part_inc_cid = p_cid_in
+            p_cep_in = c2.text_input("CEP:", value=st.session_state.part_inc_cep)
+            st.session_state.part_inc_cep = p_cep_in
             
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa)**")
@@ -911,7 +981,6 @@ else:
             p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0)
             
             if st.button("Salvar Novo Registro"):
-                p_nome = p_nome_in.upper()
                 p_cpf = apenas_numeros_letras(p_cpf_raw)
                 frota_limpa_p = frota_editada_p.dropna(how='all')
                 frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
@@ -919,13 +988,14 @@ else:
                 vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                 pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
                 
-                if not p_nome or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
+                if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                 else:
                     prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                    novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome, 'cpf': p_cpf, 'tel': apenas_numeros_letras(p_tel_raw), 'endereco': p_end_in, 'cidade': p_cid_in.upper(), 'cep': p_cep_in, 'plano_km': p_plano_km, 'vei': vei_prin_p, 'pla': pla_prin_p, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat, 'veiculos_lista': frota_json_str_p}])
+                    novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome_in.upper(), 'cpf': p_cpf, 'tel': apenas_numeros_letras(p_tel_raw), 'endereco': p_end_in, 'cidade': p_cid_in.upper(), 'cep': p_cep_in, 'plano_km': p_plano_km, 'vei': vei_prin_p, 'pla': pla_prin_p, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat, 'veiculos_lista': frota_json_str_p}])
                     df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
                     salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Registro atualizado com sucesso!")
+                    st.success("✅ Registro salvo com sucesso!")
+                    for k in ["part_inc_nome", "part_inc_cpf", "part_inc_tel", "part_inc_end", "part_inc_cid", "part_inc_cep"]: st.session_state[k] = ""
                     st.session_state.aba_part = "Visualizar"
                     time.sleep(1); st.rerun()
 
@@ -934,7 +1004,6 @@ else:
             else:
                 opcoes_dict_p = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])}" for _, r in df_filtrado_p.iterrows()}
                 part_target = st.selectbox("🔎 Selecione o cliente para Editar:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x])
-                
                 if part_target != "":
                     dados_part_ant = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target].iloc[0]
                     c1, c2 = st.columns(2)
@@ -966,7 +1035,6 @@ else:
                     p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_part_ant['status'])))
                     
                     if st.button("Salvar Alterações"):
-                        p_nome = p_nome_in.upper()
                         p_cpf = apenas_numeros_letras(p_cpf_raw)
                         frota_limpa_p = frota_editada_p.dropna(how='all')
                         frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
@@ -974,9 +1042,9 @@ else:
                         vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                         pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
                         
-                        if not p_nome or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
+                        if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                         else:
-                            df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome, p_cpf, apenas_numeros_letras(p_tel_raw), p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
+                            df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome_in.upper(), p_cpf, apenas_numeros_letras(p_tel_raw), p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
                             salvar_dados(df_clientes, FILE_CLIENTES)
                             st.success("✅ Registro atualizado com sucesso!")
                             st.session_state.aba_part = "Visualizar"
