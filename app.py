@@ -606,11 +606,29 @@ if st.session_state.perfil == "Admin":
                         nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
                         with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=expandir_pastas):
                             df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
+                            
+                            # --- CALCULO DA TAXA DE ACIONAMENTO DO MÊS ---
+                            mes_atual_taxa = datetime.now().month
+                            ano_atual_taxa = datetime.now().year
+                            base_clientes_taxa = len(df_emp_filtrada)
+                            
+                            total_os_mes_emp = 0
+                            if not df_os.empty:
+                                df_os_temp = df_os.copy()
+                                df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
+                                os_mes_atual = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_emp) & (df_os_temp['data_hora'].dt.month == mes_atual_taxa) & (df_os_temp['data_hora'].dt.year == ano_atual_taxa)]
+                                total_os_mes_emp = len(os_mes_atual)
+                            
+                            taxa = (total_os_mes_emp / base_clientes_taxa * 100) if base_clientes_taxa > 0 else 0
+                            
+                            st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa} clientes/veículos, a taxa de acionamento neste mês é de {taxa:.1f}%.**")
+                            st.write("---")
+                            # ---------------------------------------------
+                            
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                             
                             st.markdown("---")
                             
-                            # CÓDIGO DA FICHA DO CLIENTE COM CORREÇÃO DE LIMPEZA E PLACAR VISUAL
                             key_sel_admin = f"sel_det_{emp}"
                             widget_key_admin = f"sel_sb_{emp}"
                             if key_sel_admin not in st.session_state: st.session_state[key_sel_admin] = ""
@@ -642,7 +660,6 @@ if st.session_state.perfil == "Admin":
                                 
                                 st.write("---")
                                 
-                                # PLACAR VISUAL DE ACIONAMENTOS
                                 st.write(f"**📊 Saldo de Acionamentos no Ano ({datetime.now().year}) - Geral do Cliente:**")
                                 ano_atual = datetime.now().year
                                 total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
@@ -677,7 +694,6 @@ if st.session_state.perfil == "Admin":
                                     else:
                                         st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                                 
-                                # BOTÃO DE FECHAR FICHA COM LIMPEZA CORRETA DO COMPONENTE
                                 if st.button("❌ Fechar Ficha do Cliente", key=f"btn_close_{emp}"):
                                     st.session_state[key_sel_admin] = ""
                                     if widget_key_admin in st.session_state:
@@ -1080,11 +1096,29 @@ else:
                     return " | ".join(res)
                 
                 df_view_cli_part['Histórico'] = df_view_cli_part['id'].apply(formatar_historico_p)
+                
+                # --- CALCULO DA TAXA DE ACIONAMENTO DO MÊS (VISÃO PARCEIRO) ---
+                mes_atual_taxa_p = datetime.now().month
+                ano_atual_taxa_p = datetime.now().year
+                base_clientes_taxa_p = len(df_view_cli_part)
+                
+                total_os_mes_p = 0
+                if not df_os.empty:
+                    df_os_temp_p = df_os.copy()
+                    df_os_temp_p['data_hora'] = pd.to_datetime(df_os_temp_p['data_hora'], errors='coerce')
+                    os_mes_atual_p = df_os_temp_p[(df_os_temp_p['empresa'].str.upper() == st.session_state.empresa_vinculada.upper()) & (df_os_temp_p['data_hora'].dt.month == mes_atual_taxa_p) & (df_os_temp_p['data_hora'].dt.year == ano_atual_taxa_p)]
+                    total_os_mes_p = len(os_mes_atual_p)
+                
+                taxa_p = (total_os_mes_p / base_clientes_taxa_p * 100) if base_clientes_taxa_p > 0 else 0
+                
+                st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa_p} clientes/veículos, a taxa de acionamento neste mês é de {taxa_p:.1f}%.**")
+                st.write("---")
+                # --------------------------------------------------------------
+                
                 st.dataframe(df_view_cli_part[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                 
                 st.markdown("---")
                 
-                # CÓDIGO DA FICHA DO CLIENTE (PARCEIRO) COM LIMPEZA E PLACAR VISUAL
                 if "sel_det_part" not in st.session_state: st.session_state.sel_det_part = ""
                 widget_key_part = "sb_det_part_wid"
                 
@@ -1115,7 +1149,6 @@ else:
                         
                     st.write("---")
                     
-                    # PLACAR VISUAL DE ACIONAMENTOS (PARCEIRO)
                     st.write(f"**📊 Saldo de Acionamentos no Ano ({datetime.now().year}) - Geral do Cliente:**")
                     ano_atual = datetime.now().year
                     total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
@@ -1150,7 +1183,6 @@ else:
                         else:
                             st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                             
-                    # BOTÃO DE FECHAR FICHA COM LIMPEZA CORRETA
                     if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
                         st.session_state.sel_det_part = ""
                         if widget_key_part in st.session_state:
