@@ -135,7 +135,7 @@ if st.query_params.get("portal") == "prestador":
                         novo_p = pd.DataFrame([{'id': str(prox_id), 'nome': novo_nome.upper(), 'cpf': cpf_limpo, 'tipo': tipo_final_str, 'telefone': tel_limpo, 'endereco': novo_end, 'cidade': novo_cid.upper(), 'cep': novo_cep, 'est': novo_est, 'status': 'Ativo', 'homologado': 'Pendente', 'senha': nova_senha, 'frota': '[]'}])
                         df_p_portal = pd.concat([df_p_portal, novo_p], ignore_index=True)
                         salvar_dados(df_p_portal, FILE_PRESTADORES)
-                        st.success("Cadastro enviado com sucesso! Aguarde aprovação.")
+                        st.success("✅ Cadastro enviado com sucesso! Aguarde nossa mensagem no WhatsApp confirmando sua aprovação para poder acessar o painel.")
     
     if st.session_state.logado_prestador:
         p_dados_atual = df_p_portal[df_p_portal['id'] == str(st.session_state.id_prestador_logado)].iloc[0]
@@ -347,7 +347,7 @@ if st.session_state.perfil == "Admin":
                                     frota_json = json.loads(cliente_dados['veiculos_lista'])
                                     for v in frota_json:
                                         if v.get('Placa'): lista_frota_opcoes.append(f"{v.get('Modelo/Ano', 'Veículo')} - Placa: {v.get('Placa')}")
-                                except: pass  # AQUI ESTAVA O ERRO DE INDENTAÇÃO CORRIGIDO
+                                except: pass 
                             
                             if not lista_frota_opcoes:
                                 if pd.notna(cliente_dados.get('pla')) and str(cliente_dados['pla']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei', 'Veículo')} - Placa: {cliente_dados['pla']}")
@@ -824,8 +824,14 @@ if st.session_state.perfil == "Admin":
             for idx, p in pendentes.iterrows():
                 with st.expander(f"Solicitação de: {p['nome']} - {p['est']}"):
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Cidade:** {p.get('cidade','N/D')}")
+                    
+                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo utilizando o seu CPF/CNPJ e a senha que você criou.\n\nSeja bem-vindo à nossa rede 24h!")
+                    link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
+                    
+                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 1º Clique aqui para Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
+                    
                     col_h1, col_h2 = st.columns(2)
-                    if col_h1.button("✅ Aprovar Cadastro", key=f"apr_{p['id']}"):
+                    if col_h1.button("✅ 2º Confirmar Aprovação no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
                         salvar_dados(df_prestadores, FILE_PRESTADORES)
                         st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
@@ -932,7 +938,7 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','cpf','tipo','telefone','endereco','cidade','cep','est','status']] = [n_prest_in.upper(), cpf_p, t_prest, apenas_numeros_letras(tel_p_raw), end_p_in, cid_p_in.upper(), cep_p_in, est_p, stat_p]
                             salvar_dados(df_prestadores, FILE_PRESTADORES)
-                            st.success("✅ Prestador atualizado com sucesso!")
+                            st.success("✅ Prestador updated com sucesso!")
                             st.session_state.aba_pre = "Listar"
                             time.sleep(1); st.rerun()
 
