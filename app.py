@@ -174,6 +174,7 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
         empresa_os = str(row['empresa']).upper()
         df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == str(row['cliente_id'])]
         tel_cliente, veiculo_cliente, placa_cliente, estado_cliente, plano_km_pdf = row.get('tel', ''), "", str(row.get('placa', '')).upper(), "RN", str(row.get('plano_km', 'N/D'))
+        valor_cobrado_pdf = str(row.get('valor_cobrado', '0,00'))
         if not df_c_alvo.empty:
             if not tel_cliente: tel_cliente = df_c_alvo.iloc[0].get('tel', '')
             veiculo_cliente = str(df_c_alvo.iloc[0].get('vei', '')).upper()
@@ -192,6 +193,7 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
                 <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">1. DETALHES DO CLIENTE E VÍNCULO</h3>
                 <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['cliente_nome']).upper()} | Tel: {tel_cliente}</p>
                 <p style="margin: 3px 0; font-size: 13px;">Empresa: {empresa_os} | Franquia: <strong>{plano_km_pdf}</strong></p>
+                <p style="margin: 3px 0; font-size: 13px;">Valor do Serviço Particular: <strong>R$ {valor_cobrado_pdf}</strong></p>
                 <p style="margin: 3px 0; font-size: 13px;">Veículo: {veiculo_cliente} | Placa: {placa_cliente} | UF: {estado_cliente}</p>
             </div>
             <div style="margin-bottom: 20px;">
@@ -216,7 +218,7 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista']
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','cidade','cep','est','status','homologado','senha','frota']
-col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km']
+col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
 
 if not os.path.exists(FILE_CLIENTES): pd.DataFrame(columns=col_cli).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS): pd.DataFrame(columns=col_emp).to_csv(FILE_EMPRESAS, index=False)
@@ -267,10 +269,6 @@ if not st.session_state.logado:
                 else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# Cabeçalho Interno
-st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">⚡ Operação Atendimento – AD Rastreamento Veicular</div>', unsafe_allow_html=True)
-
 col_user, col_logout = st.columns([5, 1])
 with col_user: st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
 with col_logout:
@@ -285,150 +283,196 @@ with col_logout:
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
-    # === NOVA OS (LIMPEZA GARANTIDA) ===
+    # === NOVA OS (FLUXO CONTRATADO VS particulares avulsos) ===
     with menu[0]:
-        if df_clientes.empty: st.warning("Nenhum cliente cadastrado no sistema.")
-        else:
-            st.subheader("🔍 Localizar Cliente e Veículo")
-            
-            if "os_busca_val" not in st.session_state: st.session_state.os_busca_val = ""
-            if "os_cli_val" not in st.session_state: st.session_state.os_cli_val = ""
-            if "os_loc_val" not in st.session_state: st.session_state.os_loc_val = ""
-            if "os_dest_val" not in st.session_state: st.session_state.os_dest_val = ""
-            if "os_obs_val" not in st.session_state: st.session_state.os_obs_val = ""
+        st.subheader("🚀 Abertura de Chamado / Nova OS")
+        
+        tipo_atendimento = st.radio("Tipo de Atendimento:", ["Cliente Cadastrado", "Atendimento Avulso (Particular)"], horizontal=True)
+        st.write("---")
+        
+        if "os_busca_val" not in st.session_state: st.session_state.os_busca_val = ""
+        if "os_cli_val" not in st.session_state: st.session_state.os_cli_val = ""
+        if "os_loc_val" not in st.session_state: st.session_state.os_loc_val = ""
+        if "os_dest_val" not in st.session_state: st.session_state.os_dest_val = ""
+        if "os_obs_val" not in st.session_state: st.session_state.os_obs_val = ""
 
-            busca = st.text_input("Digite o Nome, Placa ou CPF do cliente para buscar:", value=st.session_state.os_busca_val)
-            st.session_state.os_busca_val = busca
-            
-            if not busca:
-                st.info("👆 Digite o Nome, Placa ou CPF do cliente acima para iniciar o atendimento.")
+        pronto_para_prosseguir = False
+        cliente_id_os = ""
+        cliente_nome_os = ""
+        placa_alvo = ""
+        veiculo_desc_alvo = ""
+        empresa_os = ""
+        plano_km_os = ""
+        uf_cliente = "RN"
+        cidade_cliente = ""
+        valor_cobrado_os = "0,00"
+
+        if tipo_atendimento == "Cliente Cadastrado":
+            if df_clientes.empty:
+                st.warning("Nenhum cliente cadastrado no sistema para busca.")
             else:
-                df_clientes_busca = df_clientes.copy()
-                df_clientes_busca['cpf_limpo'] = df_clientes_busca['cpf'].apply(apenas_numeros_letras)
-                busca_limpa = apenas_numeros_letras(busca)
+                busca = st.text_input("Digite o Nome, Placa ou CPF do cliente para buscar:", value=st.session_state.os_busca_val)
+                st.session_state.os_busca_val = busca
                 
-                df_filtrado_cli = df_clientes_busca[
-                    df_clientes_busca['nome'].str.lower().str.contains(busca.lower(), na=False) |
-                    df_clientes_busca['pla'].str.lower().str.contains(busca.lower(), na=False) |
-                    df_clientes_busca['cpf_limpo'].str.contains(busca_limpa, na=False) |
-                    df_clientes_busca['veiculos_lista'].str.lower().str.contains(busca.lower(), na=False)
-                ]
-                
-                if df_filtrado_cli.empty:
-                    st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
+                if not busca:
+                    st.info("👆 Digite o Nome, Placa ou CPF do cliente acima para iniciar o atendimento.")
                 else:
-                    opcoes_cli_os = {"": "Selecione um cliente..."}
-                    for _, r in df_filtrado_cli.iterrows():
-                        opcoes_cli_os[str(r['id'])] = f"{str(r['nome']).upper()} | Empresa: {str(r['emp_name']).upper()}"
+                    df_clientes_busca = df_clientes.copy()
+                    df_clientes_busca['cpf_limpo'] = df_clientes_busca['cpf'].apply(apenas_numeros_letras)
+                    busca_limpa = apenas_numeros_letras(busca)
                     
-                    idx_cli_os = list(opcoes_cli_os.keys()).index(st.session_state.os_cli_val) if st.session_state.os_cli_val in opcoes_cli_os else 0
-                    c_target_os = st.selectbox("Selecione o Cliente:", options=list(opcoes_cli_os.keys()), format_func=lambda x: opcoes_cli_os[x], index=idx_cli_os)
-                    st.session_state.os_cli_val = c_target_os
+                    df_filtrado_cli = df_clientes_busca[
+                        df_clientes_busca['nome'].str.lower().str.contains(busca.lower(), na=False) |
+                        df_clientes_busca['pla'].str.lower().str.contains(busca.lower(), na=False) |
+                        df_clientes_busca['cpf_limpo'].str.contains(busca_limpa, na=False) |
+                        df_clientes_busca['veiculos_lista'].str.lower().str.contains(busca.lower(), na=False)
+                    ]
                     
-                    if c_target_os != "":
-                        cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_target_os].iloc[0]
-                        lista_frota_opcoes = []
-                        if pd.notna(cliente_dados.get('veiculos_lista')) and cliente_dados['veiculos_lista']:
-                            try:
-                                frota_json = json.loads(cliente_dados['veiculos_lista'])
-                                for v in frota_json:
-                                    if v.get('Placa'): lista_frota_opcoes.append(f"{v.get('Modelo/Ano', 'Veículo')} - Placa: {v.get('Placa')}")
-                            except: pass
+                    if df_filtrado_cli.empty:
+                        st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
+                    else:
+                        opcoes_cli_os = {"": "Selecione um cliente..."}
+                        for _, r in df_filtrado_cli.iterrows():
+                            opcoes_cli_os[str(r['id'])] = f"{str(r['nome']).upper()} | Empresa: {str(r['emp_name']).upper()}"
                         
-                        if not lista_frota_opcoes:
-                            if pd.notna(cliente_dados.get('pla')) and str(cliente_dados['pla']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei', 'Veículo')} - Placa: {cliente_dados['pla']}")
-                            if pd.notna(cliente_dados.get('pla_2')) and str(cliente_dados['pla_2']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei_2', 'Veículo')} - Placa: {cliente_dados['pla_2']}")
+                        idx_cli_os = list(opcoes_cli_os.keys()).index(st.session_state.os_cli_val) if st.session_state.os_cli_val in opcoes_cli_os else 0
+                        c_target_os = st.selectbox("Selecione o Cliente:", options=list(opcoes_cli_os.keys()), format_func=lambda x: opcoes_cli_os[x], index=idx_cli_os)
+                        st.session_state.os_cli_val = c_target_os
                         
-                        if not lista_frota_opcoes: st.error("Este cliente não possui veículos cadastrados com placa válida.")
-                        else:
-                            veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
-                            placa_alvo = veiculo_sel_os.split("Placa: ")[1].strip().upper()
-                            veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
-                            uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
-                            plano_km_cliente = str(cliente_dados.get('plano_km', 'N/D'))
-                            cidade_cliente = str(cliente_dados.get('cidade', '')).strip().upper()
+                        if c_target_os != "":
+                            cliente_dados = df_clientes[df_clientes['id'].astype(str) == c_target_os].iloc[0]
+                            lista_frota_opcoes = []
+                            if pd.notna(cliente_dados.get('veiculos_lista')) and cliente_dados['veiculos_lista']:
+                                try:
+                                    frota_json = json.loads(cliente_dados['veiculos_lista'])
+                                    for v in frota_json:
+                                        if v.get('Placa'): lista_frota_opcoes.append(f"{v.get('Modelo/Ano', 'Veículo')} - Placa: {v.get('Placa')}")
+                                    except: pass
                             
-                            st.info(f"📍 Cliente: **{str(cliente_dados['emp_name']).upper()}** | UF do Veículo: **{uf_cliente}**")
-                            st.markdown(f'<div class="info-box">🛣️ PLANO KM CONTRATADO: {plano_km_cliente}</div>', unsafe_allow_html=True)
+                            if not lista_frota_opcoes:
+                                if pd.notna(cliente_dados.get('pla')) and str(cliente_dados['pla']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei', 'Veículo')} - Placa: {cliente_dados['pla']}")
+                                if pd.notna(cliente_dados.get('pla_2')) and str(cliente_dados['pla_2']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei_2', 'Veículo')} - Placa: {cliente_dados['pla_2']}")
                             
-                            if not df_os.empty and 'placa' in df_os.columns:
-                                df_os_copy = df_os.copy()
-                                df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
-                                os_hist = df_os_copy[df_os_copy['placa'].astype(str).str.upper() == placa_alvo]
-                                if not os_hist.empty:
-                                    ultima_data = os_hist['data_hora'].max()
-                                    if pd.notna(ultima_data):
-                                        dias_passados = (datetime.now() - ultima_data).days
-                                        if dias_passados < 60: st.markdown(f'<div class="alert-box alert-danger">⚠️ ATENÇÃO: Último acionamento da placa {placa_alvo} foi há {dias_passados} dias (Data: {ultima_data.strftime("%d/%m/%Y")}). Cliente sujeito à restrição contratual dos 60 dias.</div>', unsafe_allow_html=True)
-                                        else: st.markdown(f'<div class="alert-box alert-success">✅ VIGÊNCIA LIBERADA: Último uso há {dias_passados} dias (Mais de 60 dias).</div>', unsafe_allow_html=True)
-
-                            ano_atual = datetime.now().year
-                            total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
-                            if not df_os.empty and 'placa' in df_os.columns:
-                                os_cliente_ano = df_os_copy[(df_os_copy['placa'].astype(str).str.upper() == placa_alvo) & (df_os_copy['data_hora'].dt.year == ano_atual)]
-                                for _, o in os_cliente_ano.iterrows():
-                                    serv = str(o['tipo_servico']).lower()
-                                    if "guincho" in serv: total_g += 1
-                                    elif "pane seca" in serv: total_ps += 1
-                                    elif "pane el" in serv or "eletrica" in serv: total_pe += 1
-                                    elif "chaveiro" in serv: total_c += 1
-                                    elif "borraceiro" in serv: total_b += 1
-                            
-                            st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual}) - Placa: {placa_alvo}")
-                            c1, c2, c3, c4, c5 = st.columns(5)
-                            c1.metric("Guinchos", f"{total_g} / 2"); c2.metric("Pane Seca", f"{total_ps} / 1"); c3.metric("Elétrica", f"{total_pe} / 1"); c4.metric("Chaveiro", f"{total_c} / 1"); c5.metric("Borraceiro", f"{total_b} / 1")
-                            st.write("---")
-                            
-                            tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borraceiro", "Chaveiro"])
-                            motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
-                            
-                            lista_p_ops = ["Outro (Digitar Manualmente)"]
-                            if not df_prestadores.empty:
-                                df_prest_filtrados = df_prestadores[(df_prestadores['est'].str.strip().str.upper() == uf_cliente) & (df_prestadores['status'] == 'Ativo') & (df_prestadores['homologado'] == 'Aprovado')].copy()
-                                if not df_prest_filtrados.empty:
-                                    df_prest_filtrados['prioridade'] = df_prest_filtrados['cidade'].apply(lambda x: 0 if str(x).strip().upper() == cidade_cliente and cidade_cliente != "" else 1)
-                                    df_prest_filtrados = df_prest_filtrados.sort_values(by=['prioridade', 'nome'])
-                                    for _, r in df_prest_filtrados.iterrows():
-                                        marcador = "📍 [MAIS PRÓXIMO] " if r['prioridade'] == 0 else ""
-                                        lista_p_ops.append(f"{marcador}{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
-                                else:
-                                    df_aprovados = df_prestadores[df_prestadores['homologado'] == 'Aprovado']
-                                    for _, r in df_aprovados.iterrows(): lista_p_ops.append(f"{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
-                            
-                            prestador_sel = st.selectbox("Prestadores homologados (Ordenados por proximidade):", lista_p_ops)
-                            if prestador_sel == "Outro (Digitar Manualmente)":
-                                prestador_final = st.text_input("Nome do Prestador Manual:")
-                                tel_prestador_final = apenas_numeros_letras(st.text_input("Telefone do Prestador Manual (DDD + Número):"))
+                            if not lista_frota_opcoes: st.error("Este cliente não possui veículos cadastrados com placa válida.")
                             else:
-                                prestador_limpo = prestador_sel.replace("📍 [MAIS PRÓXIMO] ", "")
-                                prestador_final = prestador_limpo.split(" - Tel:")[0]
-                                tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
-                            
-                            localizacao = st.text_input("Endereço de Origem (Localização atual):", value=st.session_state.os_loc_val)
-                            st.session_state.os_loc_val = localizacao
-                            destino = st.text_input("Endereço de Destino:", value=st.session_state.os_dest_val)
-                            st.session_state.os_dest_val = destino
-                            obs = st.text_area("Observações:", value=st.session_state.os_obs_val)
-                            st.session_state.os_obs_val = obs
-                            
-                            if st.button("🚀 Iniciar Atendimento / Gerar OS"):
-                                if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
-                                else:
-                                    nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
-                                    nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(c_target_os), 'cliente_nome': str(cliente_dados['nome']), 'placa': placa_alvo, 'veiculo_desc': veiculo_desc_alvo, 'empresa': str(cliente_dados['emp_name']), 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_cliente}])
-                                    df_os = pd.concat([df_os, nova_os], ignore_index=True)
-                                    salvar_dados(df_os, FILE_OS)
-                                    st.success(f"✅ Chamado Nº {nova_id} Aberto! Vá para 'Relatórios' -> 'OS em Andamento' para notificar o prestador.")
-                                    # RESET COMPLETO DA TELA NOVA OS
-                                    st.session_state.os_busca_val = ""
-                                    st.session_state.os_cli_val = ""
-                                    st.session_state.os_loc_val = ""
-                                    st.session_state.os_dest_val = ""
-                                    st.session_state.os_obs_val = ""
-                                    time.sleep(1.5)
-                                    st.rerun()
+                                veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
+                                placa_alvo = veiculo_sel_os.split("Placa: ")[1].strip().upper()
+                                veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
+                                uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
+                                plano_km_os = str(cliente_dados.get('plano_km', 'N/D'))
+                                cidade_cliente = str(cliente_dados.get('cidade', '')).strip().upper()
+                                cliente_id_os = str(c_target_os)
+                                cliente_nome_os = str(cliente_dados['nome'])
+                                empresa_os = str(cliente_dados['emp_name'])
+                                valor_cobrado_os = "0,00"
+                                pronto_para_prosseguir = True
 
-    # === RELATÓRIOS E LIMPEZA DE OS FANTASMA ===
+                                st.info(f"📍 Cliente: **{empresa_os.upper()}** | UF do Veículo: **{uf_cliente}**")
+                                st.markdown(f'<div class="info-box">🛣️ PLANO KM CONTRATADO: {plano_km_os}</div>', unsafe_allow_html=True)
+
+                                if not df_os.empty and 'placa' in df_os.columns:
+                                    df_os_copy = df_os.copy()
+                                    df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
+                                    os_hist = df_os_copy[df_os_copy['placa'].astype(str).str.upper() == placa_alvo]
+                                    if not os_hist.empty:
+                                        ultima_data = os_hist['data_hora'].max()
+                                        if pd.notna(ultima_data):
+                                            dias_passados = (datetime.now() - ultima_data).days
+                                            if dias_passados < 60: st.markdown(f'<div class="alert-box alert-danger">⚠️ ATENÇÃO: Último acionamento da placa {placa_alvo} foi há {dias_passados} dias (Data: {ultima_data.strftime("%d/%m/%Y")}). Cliente sujeito à restrição contratual dos 60 dias.</div>', unsafe_allow_html=True)
+                                            else: st.markdown(f'<div class="alert-box alert-success">✅ VIGÊNCIA LIBERADA: Último uso há {dias_passados} dias (Mais de 60 dias).</div>', unsafe_allow_html=True)
+
+                                ano_atual = datetime.now().year
+                                total_g, total_ps, total_pe, total_b, total_c = 0, 0, 0, 0, 0
+                                if not df_os.empty and 'placa' in df_os.columns:
+                                    os_cliente_ano = df_os_copy[(df_os_copy['placa'].astype(str).str.upper() == placa_alvo) & (df_os_copy['data_hora'].dt.year == ano_atual)]
+                                    for _, o in os_cliente_ano.iterrows():
+                                        serv = str(o['tipo_servico']).lower()
+                                        if "guincho" in serv: total_g += 1
+                                        elif "pane seca" in serv: total_ps += 1
+                                        elif "pane el" in serv or "eletrica" in serv: total_pe += 1
+                                        elif "chaveiro" in serv: total_c += 1
+                                        elif "borraceiro" in serv: total_b += 1
+                                
+                                st.markdown(f"#### 📊 Saldo de Acionamentos no Ano ({ano_atual}) - Placa: {placa_alvo}")
+                                c1, c2, c3, c4, c5 = st.columns(5)
+                                c1.metric("Guinchos", f"{total_g} / 2"); c2.metric("Pane Seca", f"{total_ps} / 1"); c3.metric("Elétrica", f"{total_pe} / 1"); c4.metric("Chaveiro", f"{total_c} / 1"); c5.metric("Borraceiro", f"{total_b} / 1")
+        
+        else:
+            st.info("📝 Digite as informações do atendimento avulso particular abaixo:")
+            col_av1, col_av2 = st.columns(2)
+            nome_avulso = col_av1.text_input("Nome Completo do Cliente:")
+            tel_avulso = col_av2.text_input("Telefone de Contato:")
+            veiculo_avulso = col_av1.text_input("Veículo (Modelo/Ano/Cor):")
+            placa_avulso = col_av2.text_input("Placa do Veículo:")
+            uf_cliente = col_av1.selectbox("Estado (UF) do Atendimento:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
+            cidade_cliente = col_av2.text_input("Cidade do Atendimento:")
+            valor_cobrado_os = col_av1.text_input("Valor Cobrado do Particular (R$):", value="0,00")
+            
+            cliente_id_os = "AVULSO"
+            cliente_nome_os = nome_avulso
+            placa_alvo = placa_avulso.upper().strip()
+            veiculo_desc_alvo = veiculo_avulso
+            empresa_os = "CLIENTE PARTICULAR (AVULSO)"
+            plano_km_os = "Particular"
+            
+            if nome_avulso and placa_alvo: pronto_para_prosseguir = True
+            else: st.warning("⚠️ Nome do Cliente e Placa são obrigatórios para liberar o atendimento avulso.")
+
+        # Fluxo comum de fechamento da OS (Homologação de Guincho por Proximidade)
+        if pronto_para_prosseguir:
+            st.write("---")
+            st.subheader("🛠️ Detalhes da Assistência e Acionamento")
+            tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"])
+            motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
+            
+            lista_p_ops = ["Outro (Digitar Manualmente)"]
+            if not df_prestadores.empty:
+                df_prest_filtrados = df_prestadores[(df_prestadores['est'].str.strip().str.upper() == uf_cliente.upper()) & (df_prestadores['status'] == 'Ativo') & (df_prestadores['homologado'] == 'Aprovado')].copy()
+                if not df_prest_filtrados.empty:
+                    cidade_busca = cidade_cliente.strip().upper()
+                    df_prest_filtrados['prioridade'] = df_prest_filtrados['cidade'].apply(lambda x: 0 if str(x).strip().upper() == cidade_busca and cidade_busca != "" else 1)
+                    df_prest_filtrados = df_prest_filtrados.sort_values(by=['prioridade', 'nome'])
+                    for _, r in df_prest_filtrados.iterrows():
+                        marcador = "📍 [MAIS PRÓXIMO] " if r['prioridade'] == 0 else ""
+                        lista_p_ops.append(f"{marcador}{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
+                else:
+                    df_aprovados = df_prestadores[df_prestadores['homologado'] == 'Aprovado']
+                    for _, r in df_aprovados.iterrows(): lista_p_ops.append(f"{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
+            
+            prestador_sel = st.selectbox("Prestadores homologados (Ordenados por proximidade):", lista_p_ops)
+            if prestador_sel == "Outro (Digitar Manualmente)":
+                prestador_final = st.text_input("Nome do Prestador Manual:")
+                tel_prestador_final = apenas_numeros_letras(st.text_input("Telefone do Prestador Manual (DDD + Número):"))
+            else:
+                prestador_limpo = prestador_sel.replace("📍 [MAIS PRÓXIMO] ", "")
+                prestador_final = prestador_limpo.split(" - Tel:")[0]
+                tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
+            
+            localizacao = st.text_input("Endereço de Origem (Localização atual):", value=st.session_state.os_loc_val)
+            st.session_state.os_loc_val = localizacao
+            destino = st.text_input("Endereço de Destino:", value=st.session_state.os_dest_val)
+            st.session_state.os_dest_val = destino
+            obs = st.text_area("Observações:", value=st.session_state.os_obs_val)
+            st.session_state.os_obs_val = obs
+            
+            if st.button("🚀 Iniciar Atendimento / Gerar OS"):
+                if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
+                else:
+                    nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
+                    nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
+                    df_os = pd.concat([df_os, nova_os], ignore_index=True)
+                    salvar_dados(df_os, FILE_OS)
+                    st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
+                    
+                    st.session_state.os_busca_val = ""
+                    st.session_state.os_cli_val = ""
+                    st.session_state.os_loc_val = ""
+                    st.session_state.os_dest_val = ""
+                    st.session_state.os_obs_val = ""
+                    time.sleep(1.5)
+                    st.rerun()
+
+    # === RELATÓRIOS E HISTÓRICO ===
     with menu[1]:
         st.subheader("📊 Gestão de Chamados e Relatórios")
         st.write("---")
@@ -461,7 +505,7 @@ if st.session_state.perfil == "Admin":
                     df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
                     tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
                     
-                    texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}")
+                    texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}")
                     link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
@@ -503,7 +547,7 @@ if st.session_state.perfil == "Admin":
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
 
-    # === CLIENTES (COM BOTÕES SEPARADOS E RESET AUTOMÁTICO) ===
+    # === CLIENTES ===
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
         
@@ -605,9 +649,7 @@ if st.session_state.perfil == "Admin":
                     df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
                     salvar_dados(df_clientes, FILE_CLIENTES)
                     st.success("✅ Cliente cadastrado com sucesso!")
-                    # Limpeza de campos da sessão
-                    for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]:
-                        st.session_state[k] = ""
+                    for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]: st.session_state[k] = ""
                     st.session_state.aba_cli = "Listar"
                     time.sleep(1); st.rerun()
                     
@@ -810,8 +852,7 @@ if st.session_state.perfil == "Admin":
                     df_view_pres = df_view_pres[df_view_pres['nome'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['tipo'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['cidade'].str.contains(busca_pres_lista, case=False, na=False)]
                 
                 estados_na_lista = df_view_pres['est'].dropna().unique()
-                if len(estados_na_lista) == 0:
-                    st.warning("Nenhum prestador encontrado com esse termo.")
+                if len(estados_na_lista) == 0: st.warning("Nenhum prestador encontrado com esse termo.")
                 else:
                     for est_sigla in sorted(estados_na_lista):
                         nome_est = str(est_sigla).upper() if str(est_sigla).strip() != "" else "SEM ESTADO VINCULADO"
@@ -891,7 +932,7 @@ if st.session_state.perfil == "Admin":
                         else:
                             df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','cpf','tipo','telefone','endereco','cidade','cep','est','status']] = [n_prest_in.upper(), cpf_p, t_prest, apenas_numeros_letras(tel_p_raw), end_p_in, cid_p_in.upper(), cep_p_in, est_p, stat_p]
                             salvar_dados(df_prestadores, FILE_PRESTADORES)
-                            st.success("✅ Prestador atualizado com sucesso!")
+                            st.success("✅ Prestador updated com sucesso!")
                             st.session_state.aba_pre = "Listar"
                             time.sleep(1); st.rerun()
 
@@ -1004,6 +1045,7 @@ else:
             else:
                 opcoes_dict_p = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])}" for _, r in df_filtrado_p.iterrows()}
                 part_target = st.selectbox("🔎 Selecione o cliente para Editar:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x])
+                
                 if part_target != "":
                     dados_part_ant = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target].iloc[0]
                     c1, c2 = st.columns(2)
