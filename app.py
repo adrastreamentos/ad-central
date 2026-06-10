@@ -283,7 +283,7 @@ with col_logout:
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
     
-    # === NOVA OS (FLUXO CONTRATADO VS PARTICULARES + TRAVA DE INADIMPLÊNCIA) ===
+    # === NOVA OS ===
     with menu[0]:
         st.subheader("🚀 Abertura de Chamado / Nova OS")
         
@@ -402,13 +402,11 @@ if st.session_state.perfil == "Admin":
                                     st.write("---")
                                     st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento. O atendimento padrão está bloqueado.</span></div>', unsafe_allow_html=True)
                                     liberar_excecao = st.checkbox("⚠️ Ciente do status: Liberar Atendimento por Exceção (Autorização manual)")
-                                    if liberar_excecao:
-                                        pronto_para_prosseguir = True
+                                    if liberar_excecao: pronto_para_prosseguir = True
                                     else:
                                         pronto_para_prosseguir = False
                                         st.warning("👆 Marque a caixa acima se desejar abrir uma OS para este cliente inativo.")
-                                else:
-                                    pronto_para_prosseguir = True
+                                else: pronto_para_prosseguir = True
         
         else:
             st.info("📝 Digite as informações do atendimento avulso particular abaixo:")
@@ -609,7 +607,40 @@ if st.session_state.perfil == "Admin":
                         with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=expandir_pastas):
                             df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
-        
+                            
+                            st.markdown("---")
+                            cli_opcoes = [""] + df_emp_filtrada['nome'].tolist()
+                            cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, key=f"sel_det_{emp}")
+                            
+                            if cli_sel != "":
+                                cli_data = df_emp_filtrada[df_emp_filtrada['nome'] == cli_sel].iloc[0]
+                                st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
+                                c1, c2 = st.columns(2)
+                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}")
+                                c1.write(f"**Telefone:** {cli_data['tel']}")
+                                c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
+                                
+                                status_color = "🟢 Ativo" if cli_data['status'] == 'Ativo' else "🔴 Inativo"
+                                c2.write(f"**Status:** {status_color}")
+                                
+                                st.write("**🚗 Frota Cadastrada:**")
+                                try:
+                                    frota = json.loads(cli_data['veiculos_lista'])
+                                    st.table(pd.DataFrame(frota))
+                                except:
+                                    st.write(f"{cli_data.get('vei', '')} - Placa: {cli_data.get('pla', '')}")
+                                    
+                                st.write("**🚨 Histórico Completo de Atendimentos:**")
+                                if df_os.empty:
+                                    st.info("Nenhum acionamento registrado no banco de dados.")
+                                else:
+                                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data['id']).strip()]
+                                    if os_cli.empty:
+                                        st.info("Nenhum acionamento registrado para este cliente.")
+                                    else:
+                                        st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
+
         elif opcao_cli == "Incluir Novo":
             if "cli_inc_nome" not in st.session_state: st.session_state.cli_inc_nome = ""
             if "cli_inc_cpf" not in st.session_state: st.session_state.cli_inc_cpf = ""
@@ -1007,6 +1038,39 @@ else:
                 
                 df_view_cli_part['Histórico'] = df_view_cli_part['id'].apply(formatar_historico_p)
                 st.dataframe(df_view_cli_part[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
+                
+                st.markdown("---")
+                cli_opcoes_part = [""] + df_view_cli_part['nome'].tolist()
+                cli_sel_part = st.selectbox("🔍 Selecione um cliente para ver a Ficha Completa:", cli_opcoes_part, key="sel_det_part")
+                
+                if cli_sel_part != "":
+                    cli_data_p = df_view_cli_part[df_view_cli_part['nome'] == cli_sel_part].iloc[0]
+                    st.markdown(f"### 📋 Ficha do Cliente: {cli_data_p['nome']}")
+                    c1, c2 = st.columns(2)
+                    c1.write(f"**CPF:** {cli_data_p['cpf']}")
+                    c1.write(f"**Telefone:** {cli_data_p['tel']}")
+                    c1.write(f"**Plano Contratado:** {cli_data_p.get('plano_km', 'N/D')}")
+                    c2.write(f"**Endereço:** {cli_data_p.get('endereco', 'N/D')} - {cli_data_p.get('cidade', 'N/D')}/{cli_data_p.get('est', 'N/D')}")
+                    
+                    status_color_p = "🟢 Ativo" if cli_data_p['status'] == 'Ativo' else "🔴 Inativo"
+                    c2.write(f"**Status:** {status_color_p}")
+                    
+                    st.write("**🚗 Frota Cadastrada:**")
+                    try:
+                        frota_p = json.loads(cli_data_p['veiculos_lista'])
+                        st.table(pd.DataFrame(frota_p))
+                    except:
+                        st.write(f"{cli_data_p.get('vei', '')} - Placa: {cli_data_p.get('pla', '')}")
+                        
+                    st.write("**🚨 Histórico Completo de Atendimentos:**")
+                    if df_os.empty:
+                        st.info("Nenhum acionamento registrado no banco de dados.")
+                    else:
+                        os_cli_p = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data_p['id']).strip()]
+                        if os_cli_p.empty:
+                            st.info("Nenhum acionamento registrado para este cliente.")
+                        else:
+                            st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
         
         elif op_part == "Incluir Novo":
             if "part_inc_nome" not in st.session_state: st.session_state.part_inc_nome = ""
