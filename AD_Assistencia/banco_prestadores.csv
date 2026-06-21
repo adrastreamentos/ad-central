@@ -15,3 +15,4 @@ id,nome,cpf,tipo,telefone,endereco,cidade,cep,est,status,homologado,senha,frota
 14,JP VETERANO REBOQUE,123456789,Guincho,83998531331,JOÃO PESSOA,JOÃO PESSOA,5948000,PB,Ativo,Aprovado,admin,[]
 15,SANTOS REBOQUE,123456789,Guincho,84999207924,NATAL,NATAL,5929000,RN,Ativo,Aprovado,admin,[]
 16,BETO REBOQUE,123456789,Guincho,84988867220,NATAL,NATAL,5928000,RN,Ativo,Aprovado,admin,[]
+17,JR REBOQUE,123456789,Guincho,84991858436,NATAL,NATAL,5929000,RN,Ativo,Aprovado,admin,[]
