@@ -1,3 +1,4 @@
 id,nome,cpf,tipo,telefone,endereco,cidade,cep,est,status,homologado,senha,frota
 1,JOY REBOQUE,46174144000165,Guincho,84994695236,NATAL,NATAL,59590000,RN,Ativo,Aprovado,admin,[]
 2,GERA REBOQUE,123456789,Guincho,83986303222,JOÃO PESSOA,CAMPINA GRANDE,59290000,PB,Ativo,Aprovado,admin,[]
+3,ZN REBOQUE (QUERIDINHO),123456789,Guincho,84991922112,NATAL,NATAL,5929000,RN,Ativo,Aprovado,admin,[]
