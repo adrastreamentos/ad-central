@@ -98,6 +98,43 @@ def carregar_dados(caminho, colunas_obrigatorias):
         return pd.DataFrame(columns=colunas_obrigatorias)
 
 # ===================================================================================
+# IMPORTAÇÃO EM LOTE - MÓDULO EXCLUSIVO
+# ===================================================================================
+def importar_clientes_csv(uploaded_file, empresa_vinculada, df_clientes_atual):
+    try:
+        df_novo = pd.read_csv(uploaded_file, dtype=str)
+        df_novo.columns = df_novo.columns.str.strip().str.lower()
+        
+        colunas_padrao = ['id', 'nome', 'cpf', 'tel', 'endereco', 'cidade', 'cep', 'plano_km', 'est', 'emp_name', 'status', 'vei', 'pla', 'vei_2', 'pla_2', 'veiculos_lista']
+        
+        for col in colunas_padrao:
+            if col not in df_novo.columns:
+                df_novo[col] = ""
+                
+        for col in df_novo.columns:
+            df_novo[col] = df_novo[col].fillna("").astype(str).str.strip()
+            df_novo[col] = df_novo[col].str.replace(r'\.0$', '', regex=True)
+            
+        df_novo['emp_name'] = empresa_vinculada
+        df_novo['status'] = df_novo['status'].replace("", "Ativo")
+        
+        prox_id = int(df_clientes_atual['id'].astype(float).max() + 1) if not df_clientes_atual.empty else 1
+        
+        for idx, row in df_novo.iterrows():
+            if not row['id']:
+                df_novo.at[idx, 'id'] = str(prox_id)
+                prox_id += 1
+                
+        df_final = pd.concat([df_clientes_atual, df_novo], ignore_index=True)
+        sucesso, erro = salvar_dados(df_final, FILE_CLIENTES)
+        
+        if sucesso:
+            return True, f"Sucesso! {len(df_novo)} clientes importados e vinculados à empresa {empresa_vinculada}."
+        return False, f"Erro ao salvar na nuvem: {erro}"
+    except Exception as e:
+        return False, f"Erro na leitura do arquivo: {str(e)}"
+
+# ===================================================================================
 # PORTA LATERAL DO PRESTADOR
 # ===================================================================================
 if st.query_params.get("portal") == "prestador":
@@ -594,7 +631,7 @@ if st.session_state.perfil == "Admin":
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
         
         if "aba_cli" not in st.session_state: st.session_state.aba_cli = "Listar"
-        opcoes_radio = ["Listar", "Incluir Novo", "Editar", "Excluir"]
+        opcoes_radio = ["Listar", "Incluir Novo", "Importação em Lote", "Editar", "Excluir"]
         idx_radio = opcoes_radio.index(st.session_state.aba_cli) if st.session_state.aba_cli in opcoes_radio else 0
         opcao_cli = st.radio("Ação Clientes:", opcoes_radio, horizontal=True, index=idx_radio)
         st.session_state.aba_cli = opcao_cli
@@ -760,6 +797,27 @@ if st.session_state.perfil == "Admin":
                     else:
                         st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
                         gerar_botao_whatsapp({"Ação": "Admin Cadastrando Cliente", "Nome": nome, "CPF": cpf, "Empresa": emp})
+                        
+        elif opcao_cli == "Importação em Lote":
+            st.info("📥 Faça o upload da planilha padrão em formato .csv para importar múltiplos veículos de uma vez. O sistema fará a vinculação automática de todos eles à empresa que você escolher.")
+            
+            lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
+            empresa_selecionada = st.selectbox("Selecione a Empresa Vinculada para esta importação:", options=lista_empresas_disponiveis)
+            
+            arquivo_csv_upload = st.file_uploader("Selecione o arquivo CSV da frota do parceiro", type=["csv"])
+            
+            if arquivo_csv_upload is not None:
+                if st.button("Iniciar Importação e Salvar no GitHub"):
+                    with st.spinner(f"Processando frota para a empresa {empresa_selecionada}..."):
+                        sucesso, mensagem = importar_clientes_csv(arquivo_csv_upload, empresa_selecionada, df_clientes)
+                        if sucesso:
+                            st.success(mensagem)
+                            st.balloons()
+                            time.sleep(2)
+                            st.session_state.aba_cli = "Listar"
+                            st.rerun()
+                        else:
+                            st.error(mensagem)
                     
         elif opcao_cli == "Editar":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
