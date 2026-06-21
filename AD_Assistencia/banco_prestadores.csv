@@ -27,3 +27,4 @@ id,nome,cpf,tipo,telefone,endereco,cidade,cep,est,status,homologado,senha,frota
 26,REBOQUE,123456789,Guincho,1193487,SÃO PAULO,SUZANO,48995000,SP,Ativo,Aprovado,admin,[]
 27,V&F REBOQUE,123456789,Guincho,85987888080,CEARÁ,SÃO GONÇALO,5986000,CE,Ativo,Aprovado,admin,[]
 28,REBOQUE CARLOS,123456789,Guincho,85997517510,CEARÁ,SÃO GONÇALO,5987000,CE,Ativo,Aprovado,admin,[]
+29,AUTO SOCORRO BRUTOS,123456789,Guincho,37999129077,BELO HORIZONTE,PITANGUI,4895000,MG,Ativo,Aprovado,admin,[]
