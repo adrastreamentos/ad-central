@@ -13,3 +13,4 @@ id,nome,cpf,tipo,telefone,endereco,cidade,cep,est,status,homologado,senha,frota
 12,ED REBOQUE(MOTO),123456789,Guincho,83988495504,JOÃO PESSOA,JOÃO PESSOA,5948000,PB,Ativo,Aprovado,admin,[]
 13,DIAS REBOQUE,123456789,Guincho,81991128886,RECIFE,RECIFE,5958000,PE,Ativo,Aprovado,admin,[]
 14,JP VETERANO REBOQUE,123456789,Guincho,83998531331,JOÃO PESSOA,JOÃO PESSOA,5948000,PB,Ativo,Aprovado,admin,[]
+15,SANTOS REBOQUE,123456789,Guincho,84999207924,NATAL,NATAL,5929000,RN,Ativo,Aprovado,admin,[]
