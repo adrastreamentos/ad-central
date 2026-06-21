@@ -48,23 +48,41 @@ def obter_hora_brasilia():
 def apenas_numeros_letras(texto):
     return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
+# ===================================================================================
+# NOVO SISTEMA DE SEGURANÇA E BACKUP DE NUVEM
+# ===================================================================================
 def salvar_no_github(caminho_local):
     token = st.secrets.get("GITHUB_TOKEN", None)
     repo = "adrastreamentos/ad-central"
-    if not token: return
+    if not token: return False, "Token ausente"
     url = f"https://api.github.com/repos/{repo}/contents/{caminho_local.replace(os.sep, '/')}"
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-    res = requests.get(url, headers=headers)
-    sha = res.json().get("sha", None) if res.status_code == 200 else None
-    with open(caminho_local, "rb") as f:
-        content = base64.b64encode(f.read()).decode("utf-8")
-    data = {"message": f"🔥 Auto-salvamento: {caminho_local}", "content": content, "branch": "main"}
-    if sha: data["sha"] = sha
-    requests.put(url, headers=headers, json=data)
+    try:
+        res = requests.get(url, headers=headers)
+        sha = res.json().get("sha", None) if res.status_code == 200 else None
+        with open(caminho_local, "rb") as f:
+            content = base64.b64encode(f.read()).decode("utf-8")
+        data = {"message": f"🔥 Auto-salvamento: {caminho_local}", "content": content, "branch": "main"}
+        if sha: data["sha"] = sha
+        res_put = requests.put(url, headers=headers, json=data)
+        if res_put.status_code in [200, 201]: 
+            return True, "Sucesso"
+        return False, f"GitHub recusou o salvamento. (Erro {res_put.status_code})"
+    except Exception as e:
+        return False, f"Falha de conexão: {str(e)}"
 
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
-    salvar_no_github(caminho)
+    sucesso, erro = salvar_no_github(caminho)
+    return sucesso, erro
+
+def gerar_botao_whatsapp(dados_dict):
+    texto = "🚨 *ERRO DE SINCRONIZAÇÃO - LANÇAMENTO MANUAL* 🚨\nOlá, Central AD!\nTentei salvar dados na plataforma, mas o sistema relatou falha na nuvem. Seguem os dados preenchidos para não perdermos o registro:\n\n"
+    for k, v in dados_dict.items():
+        texto += f"*{k}:* {v}\n"
+    texto += "\nPor favor, confirmem o recebimento."
+    link = f"https://api.whatsapp.com/send?phone=5584999305771&text={urllib.parse.quote(texto)}"
+    st.markdown(f'<a href="{link}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px;">📲 Informar Falha e Enviar Dados via WhatsApp (Central AD)</button></a>', unsafe_allow_html=True)
 
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
@@ -133,9 +151,13 @@ if st.query_params.get("portal") == "prestador":
                     else:
                         prox_id = int(df_p_portal['id'].astype(float).max() + 1) if not df_p_portal.empty else 1
                         novo_p = pd.DataFrame([{'id': str(prox_id), 'nome': novo_nome.upper(), 'cpf': cpf_limpo, 'tipo': tipo_final_str, 'telefone': tel_limpo, 'endereco': novo_end, 'cidade': novo_cid.upper(), 'cep': novo_cep, 'est': novo_est, 'status': 'Ativo', 'homologado': 'Pendente', 'senha': nova_senha, 'frota': '[]'}])
-                        df_p_portal = pd.concat([df_p_portal, novo_p], ignore_index=True)
-                        salvar_dados(df_p_portal, FILE_PRESTADORES)
-                        st.success("✅ Cadastro enviado com sucesso! Aguarde nossa mensagem no WhatsApp confirmando sua aprovação para poder acessar o painel.")
+                        df_p_portal_temp = pd.concat([df_p_portal, novo_p], ignore_index=True)
+                        sucesso, erro = salvar_dados(df_p_portal_temp, FILE_PRESTADORES)
+                        if sucesso:
+                            st.success("✅ Cadastro enviado com sucesso! Aguarde nossa mensagem no WhatsApp.")
+                        else:
+                            st.error("⚠️ ALERTA: Falha na nuvem da Central AD.")
+                            gerar_botao_whatsapp({"Ação": "Novo Cadastro de Prestador", "Nome": novo_nome, "CPF/CNPJ": cpf_limpo, "Telefone": novo_tel, "Cidade": novo_cid, "Serviços": tipo_final_str})
     
     if st.session_state.logado_prestador:
         p_dados_atual = df_p_portal[df_p_portal['id'] == str(st.session_state.id_prestador_logado)].iloc[0]
@@ -159,10 +181,13 @@ if st.query_params.get("portal") == "prestador":
             
             if st.form_submit_button("Salvar Minhas Informações"):
                 df_p_portal.loc[df_p_portal['id'] == str(st.session_state.id_prestador_logado), ['tipo','telefone','endereco','cidade','cep','est']] = [", ".join(e_tipos_lista), apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est]
-                salvar_dados(df_p_portal, FILE_PRESTADORES)
-                st.success("Dados atualizados com sucesso!")
-                time.sleep(1.5)
-                st.rerun()
+                sucesso, erro = salvar_dados(df_p_portal, FILE_PRESTADORES)
+                if sucesso:
+                    st.success("Dados atualizados com sucesso!")
+                    time.sleep(1.5); st.rerun()
+                else:
+                    st.error("⚠️ Falha ao salvar alterações na nuvem.")
+                    gerar_botao_whatsapp({"Ação": "Atualização de Prestador", "Nome": p_dados_atual['nome'], "Novos Serviços": ", ".join(e_tipos_lista), "Novo Telefone": e_tel})
     st.stop()
 
 # ===================================================================================
@@ -281,7 +306,7 @@ with col_logout:
 # TELA ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
-    menu = st.tabs(["📋 Nova OS", "📊 Relatórios & Baixa PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores"])
+    menu = st.tabs(["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "💾 Segurança & Backup"])
     
     # === NOVA OS ===
     with menu[0]:
@@ -469,17 +494,19 @@ if st.session_state.perfil == "Admin":
                 else:
                     nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
                     nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
-                    df_os = pd.concat([df_os, nova_os], ignore_index=True)
-                    salvar_dados(df_os, FILE_OS)
-                    st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
-                    
-                    st.session_state.os_busca_val = ""
-                    st.session_state.os_cli_val = ""
-                    st.session_state.os_loc_val = ""
-                    st.session_state.os_dest_val = ""
-                    st.session_state.os_obs_val = ""
-                    time.sleep(1.5)
-                    st.rerun()
+                    df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
+                    sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
+                    if sucesso:
+                        st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
+                        st.session_state.os_busca_val = ""
+                        st.session_state.os_cli_val = ""
+                        st.session_state.os_loc_val = ""
+                        st.session_state.os_dest_val = ""
+                        st.session_state.os_obs_val = ""
+                        time.sleep(1.5)
+                        st.rerun()
+                    else:
+                        st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
 
     # === RELATÓRIOS E HISTÓRICO ===
     with menu[1]:
@@ -489,9 +516,12 @@ if st.session_state.perfil == "Admin":
             st.warning("Use este botão apenas na fase de implementação para apagar as OS fantasmas de testes anteriores.")
             if st.button("Zerar Histórico de Ordens de Serviço"):
                 df_os_vazio = pd.DataFrame(columns=df_os.columns)
-                salvar_dados(df_os_vazio, FILE_OS)
-                st.success("Banco de OS zerado! O histórico dos clientes está limpo e pronto para uso real.")
-                time.sleep(2); st.rerun()
+                sucesso, erro = salvar_dados(df_os_vazio, FILE_OS)
+                if sucesso:
+                    st.success("Banco de OS zerado! O histórico dos clientes está limpo e pronto para uso real.")
+                    time.sleep(2); st.rerun()
+                else:
+                    st.error(f"Erro na nuvem: {erro}")
         st.write("---")
         
         if df_os.empty: st.info("Nenhuma OS registrada no sistema.")
@@ -521,9 +551,12 @@ if st.session_state.perfil == "Admin":
                     with col_btn2:
                         if st.button("🔒 Finalizar Atendimento"):
                             df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
-                            salvar_dados(df_os, FILE_OS)
-                            st.success(f"🎉 Chamado Nº {os_id_alvo} Finalizado! Ele foi movido para o Histórico (PDF).")
-                            time.sleep(1.5); st.rerun()
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
+                            if sucesso:
+                                st.success(f"🎉 Chamado Nº {os_id_alvo} Finalizado! Ele foi movido para o Histórico (PDF).")
+                                time.sleep(1.5); st.rerun()
+                            else:
+                                st.error(f"Erro na nuvem: {erro}")
 
             elif visao_relatorio == "✅ Histórico e Gerar PDF (Finalizadas)":
                 st.markdown("### 📄 Localizar OS Finalizada (Por Placa ou Nome)")
@@ -605,7 +638,6 @@ if st.session_state.perfil == "Admin":
                         with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=expandir_pastas):
                             df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
                             
-                            # CÁLCULO MÊS A MÊS PARA ADMIN
                             mes_a = datetime.now().month
                             ano_a = datetime.now().year
                             total_os_mes_emp = 0
@@ -718,12 +750,16 @@ if st.session_state.perfil == "Admin":
                 else:
                     prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
                     novo = pd.DataFrame([{'id': str(prox), 'nome': nome, 'cpf': cpf, 'tel': tel, 'endereco': end_in, 'cidade': cid_in.upper(), 'cep': cep_in, 'plano_km': plano_km, 'vei': vei_prin, 'pla': pla_prin, 'est': est, 'emp_name': emp.upper(), 'status': status, 'veiculos_lista': frota_json_str}])
-                    df_clientes = pd.concat([df_clientes, novo], ignore_index=True)
-                    salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Cliente cadastrado com sucesso!")
-                    for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]: st.session_state[k] = ""
-                    st.session_state.aba_cli = "Listar"
-                    time.sleep(1); st.rerun()
+                    df_clientes_temp = pd.concat([df_clientes, novo], ignore_index=True)
+                    sucesso, erro = salvar_dados(df_clientes_temp, FILE_CLIENTES)
+                    if sucesso:
+                        st.success("✅ Cliente cadastrado com sucesso!")
+                        for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]: st.session_state[k] = ""
+                        st.session_state.aba_cli = "Listar"
+                        time.sleep(1); st.rerun()
+                    else:
+                        st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
+                        gerar_botao_whatsapp({"Ação": "Admin Cadastrando Cliente", "Nome": nome, "CPF": cpf, "Empresa": emp})
                     
         elif opcao_cli == "Editar":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
@@ -775,10 +811,14 @@ if st.session_state.perfil == "Admin":
                         if not nome or not pla_prin: st.error("Nome e ao menos 1 Placa de Veículo são obrigatórios.")
                         else:
                             df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','emp_name','status','veiculos_lista']] = [nome, cpf, tel, end_in, cid_in.upper(), cep_in, plano_km, vei_prin, pla_prin, est, emp.upper(), status, frota_json_str]
-                            salvar_dados(df_clientes, FILE_CLIENTES)
-                            st.success("✅ Alterações salvas com sucesso!")
-                            st.session_state.aba_cli = "Listar"
-                            time.sleep(1); st.rerun()
+                            sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                            if sucesso:
+                                st.success("✅ Alterações salvas com sucesso!")
+                                st.session_state.aba_cli = "Listar"
+                                time.sleep(1); st.rerun()
+                            else:
+                                st.error(f"⚠️ Erro ao salvar edição na nuvem: {erro}")
+                                gerar_botao_whatsapp({"Ação": "Admin Editando Cliente", "Nome": nome})
 
         elif opcao_cli == "Excluir":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
@@ -789,12 +829,14 @@ if st.session_state.perfil == "Admin":
                     st.error(f"⚠️ Atenção: Você está prestes a excluir permanentemente o cliente **{opcoes_cli[c_target_del]}**.")
                     if st.button("❌ Confirmar Exclusão"):
                         df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target_del]
-                        salvar_dados(df_clientes, FILE_CLIENTES)
-                        st.success("🗑️ Cliente excluído permanentemente!")
-                        st.session_state.aba_cli = "Listar"
-                        time.sleep(1); st.rerun()
+                        sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                        if sucesso:
+                            st.success("🗑️ Cliente excluído permanentemente!")
+                            st.session_state.aba_cli = "Listar"
+                            time.sleep(1); st.rerun()
+                        else: st.error(f"Falha na nuvem: {erro}")
 
-    # ==================== ABA: EMPRESAS ====================
+    # === EMPRESAS ===
     with menu[3]:
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
         
@@ -838,12 +880,16 @@ if st.session_state.perfil == "Admin":
                 if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
                 else:
                     novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e}])
-                    df_empresas = pd.concat([df_empresas, novo_e], ignore_index=True)
-                    salvar_dados(df_empresas, FILE_EMPRESAS)
-                    st.success("✅ Empresa cadastrada com sucesso!")
-                    for k in ["emp_inc_nome", "emp_inc_cnpj", "emp_inc_resp", "emp_inc_tel", "emp_inc_mail"]: st.session_state[k] = ""
-                    st.session_state.aba_emp = "Listar"
-                    time.sleep(1); st.rerun()
+                    df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
+                    sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
+                    if sucesso:
+                        st.success("✅ Empresa cadastrada com sucesso!")
+                        for k in ["emp_inc_nome", "emp_inc_cnpj", "emp_inc_resp", "emp_inc_tel", "emp_inc_mail"]: st.session_state[k] = ""
+                        st.session_state.aba_emp = "Listar"
+                        time.sleep(1); st.rerun()
+                    else:
+                        st.error(f"Erro na nuvem: {erro}")
+                        gerar_botao_whatsapp({"Ação": "Admin Cadastrando Empresa", "Nome": n_emp_in, "CNPJ": cnpj})
 
         elif opcao_emp == "Editar":
             if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
@@ -867,10 +913,12 @@ if st.session_state.perfil == "Admin":
                         if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
                         else:
                             df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e]
-                            salvar_dados(df_empresas, FILE_EMPRESAS)
-                            st.success("✅ Empresa atualizada com sucesso!")
-                            st.session_state.aba_emp = "Listar"
-                            time.sleep(1); st.rerun()
+                            sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
+                            if sucesso:
+                                st.success("✅ Empresa atualizada com sucesso!")
+                                st.session_state.aba_emp = "Listar"
+                                time.sleep(1); st.rerun()
+                            else: st.error(f"Erro na nuvem: {erro}")
 
         elif opcao_emp == "Excluir":
             if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
@@ -881,12 +929,14 @@ if st.session_state.perfil == "Admin":
                     st.error(f"⚠️ Atenção: Você está prestes a excluir a empresa **{opcoes_emp[e_target_del]}**.")
                     if st.button("❌ Confirmar Exclusão"):
                         df_empresas = df_empresas[df_empresas['cnpj'] != e_target_del]
-                        salvar_dados(df_empresas, FILE_EMPRESAS)
-                        st.success("🗑️ Empresa excluída permanentemente!")
-                        st.session_state.aba_emp = "Listar"
-                        time.sleep(1); st.rerun()
+                        sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
+                        if sucesso:
+                            st.success("🗑️ Empresa excluída permanentemente!")
+                            st.session_state.aba_emp = "Listar"
+                            time.sleep(1); st.rerun()
+                        else: st.error(f"Falha na nuvem: {erro}")
 
-    # ==================== ABA: PRESTADORES ====================
+    # === PRESTADORES ===
     with menu[4]:
         st.subheader("🔧 Gerenciamento de Prestadores (Guinchos e Endereço)")
         
@@ -905,12 +955,14 @@ if st.session_state.perfil == "Admin":
                     col_h1, col_h2 = st.columns(2)
                     if col_h1.button("✅ 2º Confirmar Aprovação no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
-                        salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
+                        sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
+                        if sucesso: st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
+                        else: st.error(f"Falha na nuvem: {erro}")
                     if col_h2.button("❌ Reprovar/Arquivar", key=f"rep_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Reprovado'
-                        salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        st.info("Cadastro movido para os arquivos de reprovados."); time.sleep(1); st.rerun()
+                        sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
+                        if sucesso: st.info("Movido para reprovados."); time.sleep(1); st.rerun()
+                        else: st.error(f"Falha na nuvem: {erro}")
             st.write("---")
         
         if "aba_pre" not in st.session_state: st.session_state.aba_pre = "Listar"
@@ -930,7 +982,7 @@ if st.session_state.perfil == "Admin":
                     df_view_pres = df_view_pres[df_view_pres['nome'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['tipo'].str.contains(busca_pres_lista, case=False, na=False) | df_view_pres['cidade'].str.contains(busca_pres_lista, case=False, na=False)]
                 
                 estados_na_lista = df_view_pres['est'].dropna().unique()
-                if len(estados_na_lista) == 0: st.warning("Nenhum prestador encontrado com esse termo.")
+                if len(estados_na_lista) == 0: st.warning("Nenhum prestador encontrado.")
                 else:
                     for est_sigla in sorted(estados_na_lista):
                         nome_est = str(est_sigla).upper() if str(est_sigla).strip() != "" else "SEM ESTADO VINCULADO"
@@ -974,12 +1026,16 @@ if st.session_state.perfil == "Admin":
                 else:
                     prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
                     novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest_in.upper(), 'cpf': cpf_p, 'tipo': t_prest, 'telefone': apenas_numeros_letras(tel_p_raw), 'endereco': end_p_in, 'cidade': cid_p_in.upper(), 'cep': cep_p_in, 'est': est_p, 'status': stat_p, 'homologado': 'Aprovado', 'senha': 'admin', 'frota': '[]'}])
-                    df_prestadores = pd.concat([df_prestadores, novo_p], ignore_index=True)
-                    salvar_dados(df_prestadores, FILE_PRESTADORES)
-                    st.success("✅ Prestador cadastrado com sucesso!")
-                    for k in ["pre_inc_nome", "pre_inc_cpf", "pre_inc_tel", "pre_inc_end", "pre_inc_cid", "pre_inc_cep"]: st.session_state[k] = ""
-                    st.session_state.aba_pre = "Listar"
-                    time.sleep(1); st.rerun()
+                    df_prestadores_temp = pd.concat([df_prestadores, novo_p], ignore_index=True)
+                    sucesso, erro = salvar_dados(df_prestadores_temp, FILE_PRESTADORES)
+                    if sucesso:
+                        st.success("✅ Prestador cadastrado com sucesso!")
+                        for k in ["pre_inc_nome", "pre_inc_cpf", "pre_inc_tel", "pre_inc_end", "pre_inc_cid", "pre_inc_cep"]: st.session_state[k] = ""
+                        st.session_state.aba_pre = "Listar"
+                        time.sleep(1); st.rerun()
+                    else:
+                        st.error(f"Erro na nuvem: {erro}")
+                        gerar_botao_whatsapp({"Ação": "Admin Cadastrando Prestador", "Nome": n_prest_in, "Serviços": t_prest})
 
         elif opcao_pre == "Editar":
             if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
@@ -1009,10 +1065,12 @@ if st.session_state.perfil == "Admin":
                         elif not t_prest_lista: st.error("Selecione ao menos um tipo de serviço prestado.")
                         else:
                             df_prestadores.loc[df_prestadores['id'].astype(str) == p_target, ['nome','cpf','tipo','telefone','endereco','cidade','cep','est','status']] = [n_prest_in.upper(), cpf_p, t_prest, apenas_numeros_letras(tel_p_raw), end_p_in, cid_p_in.upper(), cep_p_in, est_p, stat_p]
-                            salvar_dados(df_prestadores, FILE_PRESTADORES)
-                            st.success("✅ Prestador updated com sucesso!")
-                            st.session_state.aba_pre = "Listar"
-                            time.sleep(1); st.rerun()
+                            sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
+                            if sucesso:
+                                st.success("✅ Prestador updated com sucesso!")
+                                st.session_state.aba_pre = "Listar"
+                                time.sleep(1); st.rerun()
+                            else: st.error(f"Erro na nuvem: {erro}")
 
         elif opcao_pre == "Excluir":
             if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
@@ -1023,10 +1081,46 @@ if st.session_state.perfil == "Admin":
                     st.error(f"⚠️ Atenção: Você está prestes a excluir o prestador **{opcoes_pre[p_target_del]}**.")
                     if st.button("❌ Confirmar Exclusão"):
                         df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target_del]
-                        salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        st.success("🗑️ Prestador excluído permanentemente!")
-                        st.session_state.aba_pre = "Listar"
-                        time.sleep(1); st.rerun()
+                        sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
+                        if sucesso:
+                            st.success("🗑️ Prestador excluído permanentemente!")
+                            st.session_state.aba_pre = "Listar"
+                            time.sleep(1); st.rerun()
+                        else: st.error(f"Falha na nuvem: {erro}")
+
+    # === ABA 6: SEGURANÇA E BACKUP DE EMERGÊNCIA (NOVO) ===
+    with menu[5]:
+        st.subheader("💾 Backup e Restauração de Emergência")
+        st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
+        c_b1, c_b2 = st.columns(2)
+        
+        with c_b1:
+            st.markdown("### 📥 1. Baixar Backups Locais")
+            if os.path.exists(FILE_CLIENTES):
+                with open(FILE_CLIENTES, "rb") as f: st.download_button("Baixar Clientes (.csv)", f, file_name="banco_clientes.csv", use_container_width=True)
+            if os.path.exists(FILE_EMPRESAS):
+                with open(FILE_EMPRESAS, "rb") as f: st.download_button("Baixar Empresas (.csv)", f, file_name="banco_empresas.csv", use_container_width=True)
+            if os.path.exists(FILE_PRESTADORES):
+                with open(FILE_PRESTADORES, "rb") as f: st.download_button("Baixar Prestadores (.csv)", f, file_name="banco_prestadores.csv", use_container_width=True)
+            if os.path.exists(FILE_OS):
+                with open(FILE_OS, "rb") as f: st.download_button("Baixar Atendimentos / OS (.csv)", f, file_name="banco_os.csv", use_container_width=True)
+                
+        with c_b2:
+            st.markdown("### 📤 2. Restaurar Sistema")
+            uploaded_file = st.file_uploader("Arraste o arquivo de backup aqui para restaurar", type=['csv'])
+            if uploaded_file is not None:
+                if st.button(f"🚀 Restaurar dados de: {uploaded_file.name}"):
+                    caminho_salvar = os.path.join(FOLDER, uploaded_file.name)
+                    with open(caminho_salvar, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    sucesso, erro = salvar_no_github(caminho_salvar)
+                    if sucesso:
+                        st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
+
 
 # --- INTERFACE DE PARCEIROS RESTRITA ---
 else:
@@ -1187,12 +1281,24 @@ else:
                 else:
                     prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
                     novo_reg = pd.DataFrame([{'id': str(prox_id), 'nome': p_nome_in.upper(), 'cpf': p_cpf, 'tel': apenas_numeros_letras(p_tel_raw), 'endereco': p_end_in, 'cidade': p_cid_in.upper(), 'cep': p_cep_in, 'plano_km': p_plano_km, 'vei': vei_prin_p, 'pla': pla_prin_p, 'est': p_est, 'emp_name': st.session_state.empresa_vinculada.upper(), 'status': p_stat, 'veiculos_lista': frota_json_str_p}])
-                    df_clientes = pd.concat([df_clientes, novo_reg], ignore_index=True)
-                    salvar_dados(df_clientes, FILE_CLIENTES)
-                    st.success("✅ Registro salvo com sucesso!")
-                    for k in ["part_inc_nome", "part_inc_cpf", "part_inc_tel", "part_inc_end", "part_inc_cid", "part_inc_cep"]: st.session_state[k] = ""
-                    st.session_state.aba_part = "Visualizar"
-                    time.sleep(1); st.rerun()
+                    df_clientes_temp = pd.concat([df_clientes, novo_reg], ignore_index=True)
+                    
+                    sucesso, erro = salvar_dados(df_clientes_temp, FILE_CLIENTES)
+                    if sucesso:
+                        st.success("✅ Registro salvo com sucesso!")
+                        for k in ["part_inc_nome", "part_inc_cpf", "part_inc_tel", "part_inc_end", "part_inc_cid", "part_inc_cep"]: st.session_state[k] = ""
+                        st.session_state.aba_part = "Visualizar"
+                        time.sleep(1); st.rerun()
+                    else:
+                        st.error("⚠️ Atenção: Instabilidade na Conexão com a Nuvem. Ocorreu um erro ao sincronizar este cadastro com a base de dados da Central AD. Para não perder as informações preenchidas, clique no botão abaixo e envie os dados diretamente para o nosso WhatsApp de emergência.")
+                        gerar_botao_whatsapp({
+                            "Ação": "Novo Cadastro", 
+                            "Parceiro": st.session_state.empresa_vinculada.upper(),
+                            "Cliente": p_nome_in.upper(), 
+                            "CPF": p_cpf, 
+                            "Placa": pla_prin_p,
+                            "Erro": erro
+                        })
 
         elif op_part == "Editar Cliente":
             if df_filtrado_p.empty: st.warning("Nenhum cliente cadastrado para editar.")
@@ -1241,10 +1347,19 @@ else:
                         if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                         else:
                             df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome_in.upper(), p_cpf, apenas_numeros_letras(p_tel_raw), p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
-                            salvar_dados(df_clientes, FILE_CLIENTES)
-                            st.success("✅ Registro atualizado com sucesso!")
-                            st.session_state.aba_part = "Visualizar"
-                            time.sleep(1); st.rerun()
+                            sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                            if sucesso:
+                                st.success("✅ Registro atualizado com sucesso!")
+                                st.session_state.aba_part = "Visualizar"
+                                time.sleep(1); st.rerun()
+                            else:
+                                st.error("⚠️ Atenção: Falha de comunicação com a nuvem da Central AD.")
+                                gerar_botao_whatsapp({
+                                    "Ação": "Edição de Cadastro",
+                                    "Parceiro": st.session_state.empresa_vinculada.upper(),
+                                    "Cliente": p_nome_in.upper(),
+                                    "Placa Principal": pla_prin_p
+                                })
 
         elif op_part == "Excluir Cliente":
             if df_filtrado_p.empty: st.warning("Nenhum cliente cadastrado.")
@@ -1255,10 +1370,12 @@ else:
                     st.error(f"⚠️ Atenção: Você está prestes a excluir permanentemente o cliente **{opcoes_dict_p[part_target_del]}**.")
                     if st.button("❌ Confirmar Exclusão"):
                         df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
-                        salvar_dados(df_clientes, FILE_CLIENTES)
-                        st.success("🗑️ Cliente excluído permanentemente!")
-                        st.session_state.aba_part = "Visualizar"
-                        time.sleep(1); st.rerun()
+                        sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                        if sucesso:
+                            st.success("🗑️ Cliente excluído permanentemente!")
+                            st.session_state.aba_part = "Visualizar"
+                            time.sleep(1); st.rerun()
+                        else: st.error(f"Erro na nuvem: {erro}")
 
     with menu_parceiro[1]:
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
