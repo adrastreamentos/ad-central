@@ -98,7 +98,7 @@ def carregar_dados(caminho, colunas_obrigatorias):
         return pd.DataFrame(columns=colunas_obrigatorias)
 
 # ===================================================================================
-# IMPORTAÇÃO EM LOTE - MÓDULO EXCLUSIVO
+# IMPORTAÇÃO EM LOTE COM AGRUPAMENTO INTELIGENTE DE FROTA
 # ===================================================================================
 def importar_clientes_csv(uploaded_file, empresa_vinculada, df_clientes_atual):
     try:
@@ -115,24 +115,74 @@ def importar_clientes_csv(uploaded_file, empresa_vinculada, df_clientes_atual):
             df_novo[col] = df_novo[col].fillna("").astype(str).str.strip()
             df_novo[col] = df_novo[col].str.replace(r'\.0$', '', regex=True)
             
-        df_novo['emp_name'] = empresa_vinculada
-        df_novo['status'] = df_novo['status'].replace("", "Ativo")
+        # Normalização inicial de texto e placas
+        df_novo['nome'] = df_novo['nome'].str.upper()
+        df_novo['pla'] = df_novo['pla'].str.upper().str.replace("-", "").str.replace(" ", "")
+        df_novo['pla_2'] = df_novo['pla_2'].str.upper().str.replace("-", "").str.replace(" ", "")
+        
+        # Cria uma chave invisível para agrupamento (Usa o CPF limpo. Se não houver, usa o Nome limpo)
+        df_novo['chave_grupo'] = df_novo['cpf'].apply(lambda x: "".join(filter(str.isalnum, str(x))) if x else "")
+        df_novo['chave_grupo'] = df_novo.apply(lambda r: r['chave_grupo'] if r['chave_grupo'] else "".join(filter(str.isalnum, str(r['nome']))), axis=1)
         
         prox_id = int(df_clientes_atual['id'].astype(float).max() + 1) if not df_clientes_atual.empty else 1
+        clientes_unificados = []
         
-        for idx, row in df_novo.iterrows():
-            if not row['id']:
-                df_novo.at[idx, 'id'] = str(prox_id)
-                prox_id += 1
+        # Executa a mágica de compactação por cliente
+        for chave, g in df_novo.groupby('chave_grupo'):
+            if g.empty: continue
+            primeira_linha = g.iloc[0].copy()
+            
+            # Reúne todos os veículos encontrados nas linhas repetidas do cliente
+            lista_veiculos = []
+            for _, r in g.iterrows():
+                if r['pla']:
+                    lista_veiculos.append({"Modelo/Ano": r['vei'].upper(), "Placa": r['pla']})
+                if r['pla_2']:
+                    lista_veiculos.append({"Modelo/Ano": r['vei_2'].upper(), "Placa": r['pla_2']})
+            
+            # Remove eventuais duplicatas de placa dentro da mesma frota
+            veiculos_unicos = []
+            placas_vistas = set()
+            for v in lista_veiculos:
+                if v['Placa'] not in placas_vistas:
+                    veiculos_unicos.append(v)
+                    placas_vistas.add(v['Placa'])
+            
+            primeira_linha['emp_name'] = empresa_vinculada
+            primeira_linha['status'] = primeira_linha['status'] if primeira_linha['status'] else "Ativo"
+            
+            if veiculos_unicos:
+                primeira_linha['vei'] = veiculos_unicos[0]['Modelo/Ano']
+                primeira_linha['pla'] = veiculos_unicos[0]['Placa']
+                primeira_linha['veiculos_lista'] = json.dumps(veiculos_unicos)
+                if len(veiculos_unicos) > 1:
+                    primeira_linha['vei_2'] = veiculos_unicos[1]['Modelo/Ano']
+                    primeira_linha['pla_2'] = veiculos_unicos[1]['Placa']
+                else:
+                    primeira_linha['vei_2'] = ""
+                    primeira_linha['pla_2'] = ""
+            else:
+                primeira_linha['veiculos_lista'] = "[]"
                 
-        df_final = pd.concat([df_clientes_atual, df_novo], ignore_index=True)
-        sucesso, erro = salvar_dados(df_final, FILE_CLIENTES)
+            primeira_linha['id'] = str(prox_id)
+            prox_id += 1
+            
+            del primeira_linha['chave_grupo']
+            clientes_unificados.append(primeira_linha.to_dict())
+            
+        df_novos_agrupados = pd.DataFrame(clientes_unificados)
+        if df_novos_agrupados.empty:
+            return False, "Nenhum dado de veículo ou cliente válido foi identificado."
+            
+        df_final = pd.concat([df_clientes_atual, df_novos_agrupados], ignore_index=True)
+        df_final = df_final[colunas_padrao]
         
+        sucesso, erro = salvar_dados(df_final, FILE_CLIENTES)
         if sucesso:
-            return True, f"Sucesso! {len(df_novo)} clientes importados e vinculados à empresa {empresa_vinculada}."
-        return False, f"Erro ao salvar na nuvem: {erro}"
+            return True, f"Sucesso! {len(df_novos_agrupados)} cliente(s) frotista(s) unificado(s) (totalizando {len(df_novo)} veículos) foram inseridos no sistema com sucesso!"
+        return False, f"Erro ao gravar na nuvem: {erro}"
     except Exception as e:
-        return False, f"Erro na leitura do arquivo: {str(e)}"
+        return False, f"Erro no processamento lógico dos frotistas: {str(e)}"
 
 # ===================================================================================
 # PORTA LATERAL DO PRESTADOR
@@ -220,7 +270,7 @@ if st.query_params.get("portal") == "prestador":
                 df_p_portal.loc[df_p_portal['id'] == str(st.session_state.id_prestador_logado), ['tipo','telefone','endereco','cidade','cep','est']] = [", ".join(e_tipos_lista), apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est]
                 sucesso, erro = salvar_dados(df_p_portal, FILE_PRESTADORES)
                 if sucesso:
-                    st.success("Dados atualizados com sucesso!")
+                    st.success("Dados updated com sucesso!")
                     time.sleep(1.5); st.rerun()
                 else:
                     st.error("⚠️ Falha ao salvar alterações na nuvem.")
@@ -533,7 +583,7 @@ if st.session_state.perfil == "Admin":
                     nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
                     df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
                     sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
-                    if sucesso:
+                    ifsucesso:
                         st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
                         st.session_state.os_busca_val = ""
                         st.session_state.os_cli_val = ""
