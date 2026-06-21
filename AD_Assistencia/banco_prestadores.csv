@@ -6,3 +6,4 @@ id,nome,cpf,tipo,telefone,endereco,cidade,cep,est,status,homologado,senha,frota
 5,RR REBOQUE,123456789,Guincho,84988614500,NATAL,NATAL,5959000,RN,Ativo,Aprovado,admin,[]
 6,RICARDO REBOQUE,123456789,Guincho,84987345868,NATAL,NATAL,5959000,RN,Ativo,Aprovado,admin,[]
 7,REBOQUE NATAL (LÉO REBOQUE),123456789,Guincho,84987030071,NATAL,NATAL,5929000,RN,Ativo,Aprovado,admin,[]
+8,ALVES REBOQUE,123456789,Guincho,83999726364,JOÃO PESSOA,JOÃO PESSOA,5948000,PB,Ativo,Aprovado,admin,[]
