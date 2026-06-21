@@ -16,3 +16,4 @@ id,nome,cpf,tipo,telefone,endereco,cidade,cep,est,status,homologado,senha,frota
 15,SANTOS REBOQUE,123456789,Guincho,84999207924,NATAL,NATAL,5929000,RN,Ativo,Aprovado,admin,[]
 16,BETO REBOQUE,123456789,Guincho,84988867220,NATAL,NATAL,5928000,RN,Ativo,Aprovado,admin,[]
 17,JR REBOQUE,123456789,Guincho,84991858436,NATAL,NATAL,5929000,RN,Ativo,Aprovado,admin,[]
+18,TRANSOTTO REBOQUE,123456789,Guincho,83993071671,JOÃO PESSOA,CAMPINA GRANDE,5912000,PB,Ativo,Aprovado,admin,[]
