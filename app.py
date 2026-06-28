@@ -28,7 +28,13 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Títulos principais da AD Rastreamento */
+    /* Scrollbar customizada para identidade visual */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f8f9fa; }
+    ::-webkit-scrollbar-thumb { background: #d1c4e9; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #7B2CBF; }
+
+    /* Títulos principais */
     .main-title { 
         font-size: 38px; 
         font-weight: 900; 
@@ -1256,7 +1262,7 @@ if st.session_state.perfil == "Admin":
                             gerar_botao_whatsapp({"Ação": "Admin Cadastrando Prestador", "Nome": n_prest_in, "Serviços": t_prest})
 
         elif opcao_pre == "Editar":
-            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target = st.selectbox("🔎 Selecione o Prestador para Editar:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
@@ -1693,7 +1699,17 @@ else:
             st.write("---")
             
             col_pb1, col_pb2, col_pb3 = st.columns(3)
-            p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
+            
+            # --- CORREÇÃO: BUSCAR O ESTADO DA EMPRESA PARCEIRA ---
+            uf_padrao_parceiro = "RN"
+            if not df_empresas.empty:
+                emp_dados = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
+                if not emp_dados.empty:
+                    uf_padrao_parceiro = str(emp_dados.iloc[0].get('est', 'RN')).upper()
+            idx_uf_parceiro = ESTADOS_BR.index(uf_padrao_parceiro) if uf_padrao_parceiro in ESTADOS_BR else ESTADOS_BR.index("RN")
+            # -----------------------------------------------------
+
+            p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_uf_parceiro)
             p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=0)
             p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0)
             
