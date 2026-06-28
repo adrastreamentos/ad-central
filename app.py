@@ -497,7 +497,7 @@ if st.session_state.perfil == "Admin":
                 else:
                     with st.spinner("Registrando OS e sincronizando com a nuvem..."):
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
-                        nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_brasilia(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
+                        nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
                         df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
                         sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
                         if sucesso:
@@ -612,6 +612,29 @@ if st.session_state.perfil == "Admin":
                 if cli_escolhido: df_os_filtrada = df_os_filtrada[df_os_filtrada['cliente_nome'].str.contains(cli_escolhido, case=False, na=False) | df_os_filtrada['placa'].str.contains(cli_escolhido, case=False, na=False)]
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
+
+                # ========================================================
+                # CÁLCULO DE FATURAMENTO ESCALONADO (SE ATIVADO NA EMPRESA)
+                # ========================================================
+                if emp_escolhida != "TODAS" and not df_empresas.empty:
+                    dados_emp = df_empresas[df_empresas['nome'].str.upper() == emp_escolhida]
+                    if not dados_emp.empty and str(dados_emp.iloc[0].get('modo_faturamento', '')).strip() == 'Performance (Escalonado)':
+                        st.write("---")
+                        with st.expander(f"💰 RELATÓRIO DE FATURAMENTO: {emp_escolhida}", expanded=True):
+                            mes_a = datetime.now().month
+                            ano_a = datetime.now().year
+                            
+                            fatura_calc, total_v, total_os, taxa, faixa = calcular_fatura_parceiro(emp_escolhida, mes_a, ano_a, df_clientes, df_os_filtrada)
+
+                            st.write(f"**Total de Veículos da Base:** {total_v}")
+                            st.write(f"**Total de Acionamentos (Encerrados):** {total_os}")
+                            st.write(f"**Taxa de Acionamento Calculada:** {taxa:.2f}% -> **(Gatilho Tabela: {faixa})**")
+                            
+                            st.markdown(f"### Valor da Fatura Estimada: R$ {fatura_calc:.2f}")
+                            if total_v > 20:
+                                st.caption(f"*Cálculo: R$ 300,00 (referente aos 20 primeiros veículos) + Valor individual dos {total_v - 20} veículos excedentes baseado no plano e taxa de {faixa}.*")
+                            else:
+                                st.caption("*Cálculo: Valor base mínimo cobrado de R$ 300,00 (referente à base de 1 a 20 veículos).*")
 
     # === CLIENTES ===
     with menu[2]:
@@ -1268,7 +1291,7 @@ if st.session_state.perfil == "Admin":
                     st.session_state.confirmar_limpeza_total = False
                     st.rerun()
 
-    # === ABA 8: GESTÃO FINANCEIRA (NOVA) ===
+    # === ABA 8: GESTÃO FINANCEIRA (NOVA E AUTOMÁTICA) ===
     with menu[7]:
         st.subheader("💰 Gestão Financeira - Controle de Recebimentos")
         st.write("Visão unificada do seu contas a receber. As empresas aparecem automaticamente aqui.")
@@ -1282,13 +1305,11 @@ if st.session_state.perfil == "Admin":
             st.warning("Nenhuma empresa ativa cadastrada para gerar o financeiro.")
         else:
             # 1. ATUALIZAÇÃO AUTOMÁTICA DO ESPELHO
-            # Para o mês selecionado, garantimos que todas as empresas ativas existam no df_financeiro
             alterado = False
             for _, emp_row in empresas_ativas.iterrows():
                 nome_emp = emp_row['nome'].upper()
                 id_unico = f"{nome_emp}_{mes_filtro}"
                 
-                # Se não existir ainda no arquivo financeiro, criamos a linha zerada
                 if not df_financeiro.empty and 'id' in df_financeiro.columns:
                     existe = df_financeiro[df_financeiro['id'] == id_unico]
                 else:
@@ -1310,8 +1331,12 @@ if st.session_state.perfil == "Admin":
                 df_financeiro.to_csv(FILE_FINANCEIRO, index=False)
                 salvar_no_github(FILE_FINANCEIRO)
             
-            # Filtra os registros apenas do mês pesquisado
-            df_fin_mes = df_financeiro[df_financeiro['mes_ano'] == mes_filtro].copy()
+            # FILTRO: Apenas o Mês Pesquisado E APENAS EMPRESAS ATIVAS (Resolve o bug de inativas não sumirem)
+            lista_nomes_ativos = empresas_ativas['nome'].str.upper().tolist()
+            df_fin_mes = df_financeiro[
+                (df_financeiro['mes_ano'] == mes_filtro) & 
+                (df_financeiro['empresa'].str.upper().isin(lista_nomes_ativos))
+            ].copy()
             
             # 2. CÁLCULOS TOTAIS PARA O DASHBOARD
             total_faturado_mes = 0.0
@@ -1326,9 +1351,7 @@ if st.session_state.perfil == "Admin":
                     if modo_fat == 'Performance (Escalonado)':
                         mes_s, ano_s = mes_filtro.split('/')
                         fatura_calc, _, _, _, _ = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os)
-                        # Atualiza no dataframe visível
                         df_fin_mes.at[idx, 'valor_faturado'] = f"{fatura_calc:.2f}"
-                        # Atualiza o real
                         df_financeiro.loc[df_financeiro['id'] == r_fin['id'], 'valor_faturado'] = f"{fatura_calc:.2f}"
                 
                 try: total_faturado_mes += float(str(df_fin_mes.at[idx, 'valor_faturado']).replace(',', '.'))
@@ -1351,7 +1374,6 @@ if st.session_state.perfil == "Admin":
             
             # 4. TABELA DE VISUALIZAÇÃO
             st.markdown("### Lançamentos")
-            # Adiciona a coluna de Diferença para visualização
             df_view_fin = df_fin_mes.copy()
             diferencas = []
             for _, r in df_view_fin.iterrows():
@@ -1392,7 +1414,6 @@ if st.session_state.perfil == "Admin":
                     val_pago_final = c_f2.text_input("Valor Pago pelo Cliente (R$):", value=str(row_edit['valor_pago']))
                     status_final = c_f3.selectbox("Status:", ["Pendente", "Pago", "Atrasado"], index=["Pendente", "Pago", "Atrasado"].index(row_edit['status']))
                     
-                    # Checagem de vermelho se estiver em Performance e o valor pago for menor
                     try:
                         v1 = float(val_fat_final.replace(',','.'))
                         v2 = float(val_pago_final.replace(',','.'))
