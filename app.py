@@ -289,6 +289,40 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
             estado_cliente = str(df_c_alvo.iloc[0].get('est', '')).upper()
             if plano_km_pdf in ['N/D', 'nan']: plano_km_pdf = str(df_c_alvo.iloc[0].get('plano_km', 'N/D'))
             
+        # Vistoria HTML Injector
+        v_path = os.path.join(FOLDER, "vistorias", str(row['id']))
+        vistoria_html = ""
+        if os.path.exists(v_path):
+            vistoria_html += """
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #7B2CBF;">5. VISTORIA DE ENTRADA (FOTOS E ASSINATURA)</h3>
+                <div style="display: table; width: 100%; border-collapse: collapse;">
+                    <div style="display: table-row;">
+            """
+            fotos = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+            col_count = 0
+            for f_name in fotos:
+                img_path = os.path.join(v_path, f"{f_name}.jpg")
+                if os.path.exists(img_path):
+                    with open(img_path, "rb") as img_f:
+                        b64 = base64.b64encode(img_f.read()).decode()
+                    
+                    if col_count > 0 and col_count % 3 == 0:
+                        vistoria_html += '</div><div style="display: table-row;">'
+                    
+                    vistoria_html += f"""
+                        <div style="display: table-cell; text-align: center; padding: 5px; width: 33%;">
+                            <p style="font-size: 11px; margin-bottom: 5px; font-weight: bold;">{f_name.replace('_', ' ')}</p>
+                            <img src="data:image/jpeg;base64,{b64}" style="width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #ccc; border-radius: 4px;" />
+                        </div>
+                    """
+                    col_count += 1
+            vistoria_html += """
+                    </div>
+                </div>
+            </div>
+            """
+
         cards_html += f"""
         <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto 40px auto; padding: 20px; background-color: #fff; page-break-inside: avoid;">
             <div style="text-align: center; margin-bottom: 10px;">
@@ -316,11 +350,13 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
             <div style="margin-bottom: 10px;">
                 <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">4. DESCRIÇÃO</h3>
                 <p style="margin: 3px 0; font-size: 13px; background-color: #fcfcfc; padding: 5px;">{row['obs']}</p>
-            </div><hr style="border: 0; border-top: 1px dashed #ccc; margin-top: 30px;">
+            </div>
+            {vistoria_html}
+            <hr style="border: 0; border-top: 1px dashed #ccc; margin-top: 30px;">
         </div>
         """
     b64 = base64.b64encode(f"<html><head><meta charset='utf-8'></head><body>{cards_html}</body></html>".encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório (PDF)</button></a>'
+    return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório Completo (PDF)</button></a>'
 
 # INICIALIZAÇÃO DE DADOS
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista']
@@ -359,25 +395,42 @@ if not st.session_state.logado:
     st.markdown('<div class="subtitle">⚡ Operação Atendimento</div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        usuario_input = apenas_numeros_letras(st.text_input("Usuário (Empresa):"))
-        senha_input = apenas_numeros_letras(st.text_input("Senha (CNPJ):", type="password"))
+        usuario_input = apenas_numeros_letras(st.text_input("Usuário (Empresa ou Nome Prestador):"))
+        senha_input = apenas_numeros_letras(st.text_input("Senha (CNPJ ou CPF):", type="password"))
         if st.button("Entrar no Sistema", use_container_width=True):
             if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
                 st.session_state.update({"logado": True, "user": "AD Rastreamento Veicular (ADMIN)", "perfil": "Admin"})
                 st.query_params["session"] = "admin_ad"
                 time.sleep(0.5); st.rerun()
             else:
-                if not df_empresas.empty:
-                    df_empresas_login = df_empresas.copy()
-                    df_empresas_login['cnpj_comparar'] = df_empresas_login['cnpj'].apply(apenas_numeros_letras)
-                    df_empresas_login['nome_comparar'] = df_empresas_login['nome'].apply(apenas_numeros_letras)
-                    parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_comparar'] == senha_input) & (df_empresas_login['nome_comparar'] == usuario_input)]
-                    if not parceiro_valid.empty:
-                        st.session_state.update({"logado": True, "user": parceiro_valid.iloc[0]['nome'].upper(), "perfil": "Parceiro", "empresa_vinculada": parceiro_valid.iloc[0]['nome']})
-                        st.query_params["session"] = f"parc_{urllib.parse.quote(parceiro_valid.iloc[0]['nome'])}"
-                        time.sleep(0.5); st.rerun()
-                    else: st.error("Usuário ou senha incorretos.")
-                else: st.error("Usuário ou senha incorretos.")
+                # Login Empresas (Parceiro)
+                df_empresas_login = df_empresas.copy()
+                df_empresas_login['cnpj_comparar'] = df_empresas_login['cnpj'].astype(str).apply(apenas_numeros_letras)
+                df_empresas_login['nome_comparar'] = df_empresas_login['nome'].astype(str).apply(apenas_numeros_letras)
+                parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_comparar'] == senha_input) & (df_empresas_login['nome_comparar'] == usuario_input)]
+                
+                if not parceiro_valid.empty:
+                    st.session_state.update({"logado": True, "user": parceiro_valid.iloc[0]['nome'].upper(), "perfil": "Parceiro", "empresa_vinculada": parceiro_valid.iloc[0]['nome']})
+                    st.query_params["session"] = f"parc_{urllib.parse.quote(parceiro_valid.iloc[0]['nome'])}"
+                    time.sleep(0.5); st.rerun()
+                else:
+                    # Login Prestadores (Guinchos)
+                    df_prestadores_login = df_prestadores.copy()
+                    df_prestadores_login['cpf_comparar'] = df_prestadores_login['cpf'].astype(str).apply(apenas_numeros_letras)
+                    df_prestadores_login['nome_comparar'] = df_prestadores_login['nome'].astype(str).apply(apenas_numeros_letras)
+                    df_prestadores_login['senha_comparar'] = df_prestadores_login.get('senha', 'admin').astype(str)
+                    
+                    prestador_valid = df_prestadores_login[(df_prestadores_login['nome_comparar'] == usuario_input) & ((df_prestadores_login['cpf_comparar'] == senha_input) | (df_prestadores_login['senha_comparar'] == senha_input))]
+                    
+                    if not prestador_valid.empty:
+                        prest_row = prestador_valid.iloc[0]
+                        if str(prest_row.get('homologado', 'Pendente')).strip() != 'Aprovado':
+                            st.error("⚠️ Seu cadastro de prestador ainda não foi aprovado pela Central.")
+                        else:
+                            st.session_state.update({"logado": True, "user": prest_row['nome'].upper(), "perfil": "Prestador", "empresa_vinculada": ""})
+                            time.sleep(0.5); st.rerun()
+                    else:
+                        st.error("Usuário ou senha incorretos.")
     st.stop()
 
 col_user, col_logout = st.columns([5, 1])
@@ -701,12 +754,25 @@ if st.session_state.perfil == "Admin":
                     df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
                     tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
                     
+                    # Verifica Vistoria para Administrador
+                    v_path = os.path.join(FOLDER, "vistorias", str(os_id_alvo))
+                    fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+                    vistoria_completa_admin = True
+                    for f_n in fotos_necessarias:
+                        if not os.path.exists(os.path.join(v_path, f"{f_n}.jpg")):
+                            vistoria_completa_admin = False
+                    
+                    if vistoria_completa_admin:
+                        st.markdown('<div class="alert-box alert-success">📸 Prestador já realizou a Vistoria de Entrada! As fotos e assinatura estão salvas.</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
+                    
                     texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}")
                     link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
                     with col_btn2:
-                        if st.button("🔒 Finalizar Atendimento"):
+                        if st.button("🔒 Finalizar Atendimento Manualmente"):
                             with st.spinner("Encerrando OS e salvando histórico..."):
                                 df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
                                 sucesso, erro = salvar_dados(df_os, FILE_OS)
@@ -1169,7 +1235,7 @@ if st.session_state.perfil == "Admin":
                 with st.expander(f"Solicitação de: {p['nome']} - {p['est']}"):
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Cidade:** {p.get('cidade','N/D')}")
                     
-                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo utilizando o seu CPF/CNPJ e a senha que você criou.\n\nSeja bem-vindo à nossa rede 24h!")
+                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo utilizando o seu Nome e a senha que você criou (ou seu CPF).\n\nSeja bem-vindo à nossa rede 24h!")
                     link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
                     
                     st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 1º Clique aqui para Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
@@ -1262,7 +1328,7 @@ if st.session_state.perfil == "Admin":
                             gerar_botao_whatsapp({"Ação": "Admin Cadastrando Prestador", "Nome": n_prest_in, "Serviços": t_prest})
 
         elif opcao_pre == "Editar":
-            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target = st.selectbox("🔎 Selecione o Prestador para Editar:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
@@ -1559,7 +1625,7 @@ if st.session_state.perfil == "Admin":
                             else: st.error(f"Falha na nuvem: {erro}")
 
 # --- INTERFACE DE PARCEIROS RESTRITA ---
-else:
+elif st.session_state.perfil == "Parceiro":
     menu_parceiro = st.tabs(["👥 Cadastro de Clientes", "📋 Histórico de Chamados"])
     
     with menu_parceiro[0]:
@@ -1844,3 +1910,76 @@ else:
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
         if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
         else: st.dataframe(df_os_parceiro, use_container_width=True)
+
+# --- INTERFACE DE PRESTADOR (GUINCHO) RESTRITA ---
+elif st.session_state.perfil == "Prestador":
+    st.subheader(f"🚛 Meu Painel de Atendimento | Prestador: {st.session_state.user}")
+    st.write("---")
+    
+    # Filtro de OS (Pega apenas as que estão 'EM ATENDIMENTO' e onde o nome do prestador aparece na string)
+    df_os_prest = df_os[df_os['status_os'].str.upper() == 'EM ATENDIMENTO']
+    meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
+    
+    if meus_chamados.empty:
+        st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
+    else:
+        for _, os_row in meus_chamados.iterrows():
+            st.markdown(f"### 🚨 Chamado Nº {os_row['id']}")
+            c1, c2 = st.columns(2)
+            c1.write(f"**Cliente:** {os_row['cliente_nome']}")
+            c1.write(f"**Serviço:** {os_row['tipo_servico']} ({os_row['motivo']})")
+            c1.write(f"**Veículo:** {os_row.get('veiculo_desc', 'N/D')} | **Placa:** {os_row['placa']}")
+            
+            c2.write(f"**Local de Retirada:** {os_row['localizacao']}")
+            c2.write(f"**Destino:** {os_row['destino']}")
+            c2.write(f"**Observações da Central:** {os_row['obs']}")
+            
+            # Controle de Vistoria
+            vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
+            os.makedirs(vistoria_path, exist_ok=True)
+            
+            fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+            vistoria_completa = True
+            for f in fotos_necessarias:
+                if not os.path.exists(os.path.join(vistoria_path, f"{f}.jpg")):
+                    vistoria_completa = False
+            
+            if not vistoria_completa:
+                st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada (Fotos e Assinatura) ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
+                with st.form(f"vistoria_form_{os_row['id']}"):
+                    st.write("📸 **Tire as fotos ou anexe da galeria:**")
+                    col_f1, col_f2 = st.columns(2)
+                    
+                    f_frente = col_f1.file_uploader("1. Foto da Frente", type=['jpg','jpeg','png'])
+                    f_tras = col_f2.file_uploader("2. Foto da Traseira", type=['jpg','jpeg','png'])
+                    f_esq = col_f1.file_uploader("3. Lateral Esquerda", type=['jpg','jpeg','png'])
+                    f_dir = col_f2.file_uploader("4. Lateral Direita", type=['jpg','jpeg','png'])
+                    f_placa = col_f1.file_uploader("5. Foto Focada na Placa", type=['jpg','jpeg','png'])
+                    f_ass = col_f2.file_uploader("6. Foto do Termo Assinado pelo Cliente", type=['jpg','jpeg','png'])
+                    
+                    if st.form_submit_button("Salvar Vistoria de Entrada"):
+                        if all([f_frente, f_tras, f_esq, f_dir, f_placa, f_ass]):
+                            with st.spinner("Enviando vistoria para a Central..."):
+                                for img, name in zip([f_frente, f_tras, f_esq, f_dir, f_placa, f_ass], fotos_necessarias):
+                                    with open(os.path.join(vistoria_path, f"{name}.jpg"), "wb") as f_img:
+                                        f_img.write(img.getbuffer())
+                            st.success("✅ Vistoria registrada e travada com sucesso! Você está autorizado a transportar o veículo.")
+                            time.sleep(1.5)
+                            st.rerun()
+                        else:
+                            st.error("❌ O sistema exige que TODAS as 6 fotos sejam anexadas para liberar o transporte.")
+            else:
+                st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
+                st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
+                
+                if st.button(f"🏁 FINALIZAR OS Nº {os_row['id']} (Cheguei e Descarreguei)"):
+                    with st.spinner("Finalizando atendimento e comunicando a Central..."):
+                        df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'ENCERRADO'
+                        sucesso, erro = salvar_dados(df_os, FILE_OS)
+                        if sucesso:
+                            registrar_atividade(st.session_state.user, "ENCERRAMENTO DE OS (PRESTADOR)", f"Prestador finalizou a OS {os_row['id']} no destino final.")
+                            st.success("🎉 Missão Cumprida! OS Finalizada com sucesso. O relatório e as fotos já estão com a Central AD.")
+                            time.sleep(2)
+                            st.rerun()
+                        else:
+                            st.error(f"Erro ao finalizar na nuvem: {erro}")
