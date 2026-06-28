@@ -1,2 +1,1 @@
 id,data_hora,cliente_id,cliente_nome,placa,empresa,tipo_servico,motivo,prestador,localizacao,destino,obs,status_os,veiculo_desc,plano_km,valor_cobrado
-1,2026-06-28 00:29:09,3,ANA CRISTINA DO NASCIMENTO VIANA,PGQ7113,AD RASTREAMENTO VEICULAR,Guincho,Outros,DAVID ALLAN | Telefone/Zap: 84999814428,"Av. Bacharel Tomaz Landim, 16",BAIRRO NORDESTE,TESTE,ENCERRADO,RENAULT SANDERO AUTHENTIQUE,Sem Limite,"0,00"
