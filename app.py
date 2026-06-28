@@ -238,14 +238,15 @@ if st.query_params.get("portal") == "prestador":
                     if not novo_nome or not cpf_limpo or not nova_senha: st.error("Nome, CPF/CNPJ e Senha são obrigatórios.")
                     elif not novo_tipos_lista: st.error("Selecione ao menos um tipo de serviço prestado.")
                     else:
-                        prox_id = int(df_p_portal['id'].astype(float).max() + 1) if not df_p_portal.empty else 1
-                        novo_p = pd.DataFrame([{'id': str(prox_id), 'nome': novo_nome.upper(), 'cpf': cpf_limpo, 'tipo': tipo_final_str, 'telefone': tel_limpo, 'endereco': novo_end, 'cidade': novo_cid.upper(), 'cep': novo_cep, 'est': novo_est, 'status': 'Ativo', 'homologado': 'Pendente', 'senha': nova_senha, 'frota': '[]'}])
-                        df_p_portal_temp = pd.concat([df_p_portal, novo_p], ignore_index=True)
-                        sucesso, erro = salvar_dados(df_p_portal_temp, FILE_PRESTADORES)
-                        if sucesso: st.success("✅ Cadastro enviado com sucesso! Aguarde nossa mensagem no WhatsApp.")
-                        else:
-                            st.error("⚠️ ALERTA: Falha na nuvem da Central AD.")
-                            gerar_botao_whatsapp({"Ação": "Novo Cadastro de Prestador", "Nome": novo_nome, "CPF/CNPJ": cpf_limpo, "Telefone": novo_tel, "Cidade": novo_cid, "Serviços": tipo_final_str})
+                        with st.spinner("Enviando cadastro..."):
+                            prox_id = int(df_p_portal['id'].astype(float).max() + 1) if not df_p_portal.empty else 1
+                            novo_p = pd.DataFrame([{'id': str(prox_id), 'nome': novo_nome.upper(), 'cpf': cpf_limpo, 'tipo': tipo_final_str, 'telefone': tel_limpo, 'endereco': novo_end, 'cidade': novo_cid.upper(), 'cep': novo_cep, 'est': novo_est, 'status': 'Ativo', 'homologado': 'Pendente', 'senha': nova_senha, 'frota': '[]'}])
+                            df_p_portal_temp = pd.concat([df_p_portal, novo_p], ignore_index=True)
+                            sucesso, erro = salvar_dados(df_p_portal_temp, FILE_PRESTADORES)
+                            if sucesso: st.success("✅ Cadastro enviado com sucesso! Aguarde nossa mensagem no WhatsApp.")
+                            else:
+                                st.error("⚠️ ALERTA: Falha na nuvem da Central AD.")
+                                gerar_botao_whatsapp({"Ação": "Novo Cadastro de Prestador", "Nome": novo_nome, "CPF/CNPJ": cpf_limpo, "Telefone": novo_tel, "Cidade": novo_cid, "Serviços": tipo_final_str})
     
     if st.session_state.logado_prestador:
         p_dados_atual = df_p_portal[df_p_portal['id'] == str(st.session_state.id_prestador_logado)].iloc[0]
@@ -268,14 +269,15 @@ if st.query_params.get("portal") == "prestador":
             e_est = st.selectbox("Estado", ESTADOS_BR, index=idx_est)
             
             if st.form_submit_button("Salvar Minhas Informações"):
-                df_p_portal.loc[df_p_portal['id'] == str(st.session_state.id_prestador_logado), ['tipo','telefone','endereco','cidade','cep','est']] = [", ".join(e_tipos_lista), apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est]
-                sucesso, erro = salvar_dados(df_p_portal, FILE_PRESTADORES)
-                if sucesso:
-                    st.success("Dados atualizados com sucesso!")
-                    time.sleep(1.5); st.rerun()
-                else:
-                    st.error("⚠️ Falha ao salvar alterações na nuvem.")
-                    gerar_botao_whatsapp({"Ação": "Atualização de Prestador", "Nome": p_dados_atual['nome'], "Novos Serviços": ", ".join(e_tipos_lista), "Novo Telefone": e_tel})
+                with st.spinner("Salvando..."):
+                    df_p_portal.loc[df_p_portal['id'] == str(st.session_state.id_prestador_logado), ['tipo','telefone','endereco','cidade','cep','est']] = [", ".join(e_tipos_lista), apenas_numeros_letras(e_tel), e_end, e_cid.upper(), e_cep, e_est]
+                    sucesso, erro = salvar_dados(df_p_portal, FILE_PRESTADORES)
+                    if sucesso:
+                        st.success("Dados atualizados com sucesso!")
+                        time.sleep(1.5); st.rerun()
+                    else:
+                        st.error("⚠️ Falha ao salvar alterações na nuvem.")
+                        gerar_botao_whatsapp({"Ação": "Atualização de Prestador", "Nome": p_dados_atual['nome'], "Novos Serviços": ", ".join(e_tipos_lista), "Novo Telefone": e_tel})
     st.stop()
 
 # ===================================================================================
@@ -329,7 +331,8 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
     return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório (PDF)</button></a>'
 
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista']
-col_emp = ['cnpj','nome','responsavel','telefone','email','est','status']
+# AVISO: Adicionamos modo_faturamento na listagem de empresas
+col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','cidade','cep','est','status','homologado','senha','frota']
 col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
 
@@ -699,6 +702,78 @@ if st.session_state.perfil == "Admin":
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
 
+                # ========================================================
+                # CÁLCULO DE FATURAMENTO ESCALONADO (SE ATIVADO NA EMPRESA)
+                # ========================================================
+                if emp_escolhida != "TODAS" and not df_empresas.empty:
+                    dados_emp = df_empresas[df_empresas['nome'].str.upper() == emp_escolhida]
+                    if not dados_emp.empty and str(dados_emp.iloc[0].get('modo_faturamento', '')).strip() == 'Performance (Escalonado)':
+                        st.write("---")
+                        with st.expander(f"💰 RELATÓRIO DE FATURAMENTO: {emp_escolhida}", expanded=True):
+                            
+                            # Tabela baseada na sua proposta
+                            tb_precos = {
+                                "2%": {"50km": 6.90, "100km": 8.90, "200km": 11.20, "Sem Limite": 11.20},
+                                "3%": {"50km": 9.10, "100km": 13.15, "200km": 17.20, "Sem Limite": 17.20},
+                                "4%": {"50km": 11.80, "100km": 17.20, "200km": 22.60, "Sem Limite": 22.60},
+                                "5%": {"50km": 14.50, "100km": 21.25, "200km": 28.00, "Sem Limite": 28.00},
+                                "6%": {"50km": 17.20, "100km": 25.30, "200km": 33.40, "Sem Limite": 33.40},
+                                "7%": {"50km": 19.90, "100km": 29.35, "200km": 38.80, "Sem Limite": 38.80},
+                                "8%": {"50km": 22.60, "100km": 33.40, "200km": 44.20, "Sem Limite": 44.20},
+                                "9%": {"50km": 25.30, "100km": 37.45, "200km": 49.60, "Sem Limite": 49.60},
+                                "10%": {"50km": 28.00, "100km": 41.50, "200km": 55.00, "Sem Limite": 55.00},
+                            }
+                            
+                            lista_veiculos_emp = []
+                            df_cli_fat = df_clientes[df_clientes['emp_name'].str.upper() == emp_escolhida]
+                            
+                            # Varre frota
+                            for _, r_cli in df_cli_fat.iterrows():
+                                if pd.notna(r_cli.get('veiculos_lista')) and str(r_cli['veiculos_lista']).strip() not in ['', '[]']:
+                                    try:
+                                        frota_json = json.loads(r_cli['veiculos_lista'])
+                                        for v in frota_json:
+                                            if v.get('Placa'): lista_veiculos_emp.append(str(r_cli.get('plano_km', '50km')))
+                                    except:
+                                        if pd.notna(r_cli.get('pla')) and str(r_cli['pla']).strip(): lista_veiculos_emp.append(str(r_cli.get('plano_km', '50km')))
+                                else:
+                                    if pd.notna(r_cli.get('pla')) and str(r_cli['pla']).strip(): lista_veiculos_emp.append(str(r_cli.get('plano_km', '50km')))
+                                    if pd.notna(r_cli.get('pla_2')) and str(r_cli['pla_2']).strip(): lista_veiculos_emp.append(str(r_cli.get('plano_km', '50km')))
+
+                            total_v = len(lista_veiculos_emp)
+                            total_os = len(df_os_filtrada[df_os_filtrada['status_os'] == 'ENCERRADO'])
+                            taxa = (total_os / total_v * 100) if total_v > 0 else 0
+                            
+                            # Identifica Faixa
+                            faixa = "2%"
+                            if taxa >= 26: faixa = "10%"
+                            elif taxa >= 24: faixa = "9%"
+                            elif taxa >= 22: faixa = "8%"
+                            elif taxa >= 20: faixa = "7%"
+                            elif taxa >= 18: faixa = "6%"
+                            elif taxa >= 16: faixa = "5%"
+                            elif taxa >= 14: faixa = "4%"
+                            elif taxa >= 10: faixa = "3%"
+
+                            st.write(f"**Total de Veículos da Base:** {total_v}")
+                            st.write(f"**Total de Acionamentos (Encerrados):** {total_os}")
+                            st.write(f"**Taxa de Acionamento Calculada:** {taxa:.2f}% -> **(Gatilho Tabela: {faixa})**")
+                            
+                            fatura_total = 0.0
+                            if total_v > 0:
+                                fatura_total += 300.00
+                                if total_v > 20:
+                                    excedentes = lista_veiculos_emp[20:]
+                                    for p_km in excedentes:
+                                        plano_limpo = "50km" if "50" in p_km else "100km" if "100" in p_km else "200km" if "200" in p_km else "Sem Limite"
+                                        fatura_total += tb_precos[faixa].get(plano_limpo, tb_precos[faixa]["50km"])
+                            
+                            st.markdown(f"### Valor da Fatura Estimada: R$ {fatura_total:.2f}")
+                            if total_v > 20:
+                                st.caption(f"*Cálculo: R$ 300,00 (referente aos 20 primeiros veículos) + Valor individual dos {total_v - 20} veículos excedentes baseado no plano e taxa de {faixa}.*")
+                            else:
+                                st.caption("*Cálculo: Valor base mínimo cobrado de R$ 300,00 (referente à base de 1 a 20 veículos).*")
+
     # === CLIENTES ===
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
@@ -1019,12 +1094,15 @@ if st.session_state.perfil == "Admin":
             est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
             stat_e = c1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0)
             
+            # NOVO CAMPO: MODO DE FATURAMENTO
+            modo_fat_e = st.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=0, help="O modo Performance habilita o cálculo por faixas de acionamento de frotas com base nos R$ 300,00.")
+            
             if st.button("Salvar Nova Empresa"):
                 cnpj = apenas_numeros_letras(cnpj_raw)
                 if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
                 else:
                     with st.spinner("Salvando empresa..."):
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e}])
+                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e, 'modo_faturamento': modo_fat_e}])
                         df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
                         sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
                         if sucesso:
@@ -1054,12 +1132,16 @@ if st.session_state.perfil == "Admin":
                     est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e)
                     stat_e = c1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_e_ant['status'])))
                     
+                    # EDIÇÃO DO MODO DE FATURAMENTO
+                    idx_modo_fat = ["Tradicional", "Performance (Escalonado)"].index(str(dados_e_ant.get('modo_faturamento', 'Tradicional'))) if str(dados_e_ant.get('modo_faturamento', 'Tradicional')) in ["Tradicional", "Performance (Escalonado)"] else 0
+                    modo_fat_e = st.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=idx_modo_fat, help="O modo Performance habilita o cálculo por faixas de acionamento de frotas com base nos R$ 300,00.")
+                    
                     if st.button("Salvar Alterações"):
                         cnpj = apenas_numeros_letras(cnpj_raw)
                         if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
                         else:
                             with st.spinner("Atualizando dados da empresa..."):
-                                df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e]
+                                df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status', 'modo_faturamento']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e, modo_fat_e]
                                 sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
                                 if sucesso:
                                     registrar_atividade(st.session_state.user, "EDIÇÃO EMPRESA", f"Editou a empresa {n_emp_in.upper()}")
@@ -1290,27 +1372,67 @@ if st.session_state.perfil == "Admin":
                     else:
                         st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
 
-    # === ABA 7: AUDITORIA E LOGS (NOVO) ===
+    # === ABA 7: AUDITORIA E LOGS ===
     with menu[6]:
         st.subheader("🕵️ Painel de Auditoria e Registro de Atividades")
-        st.write("Acompanhe aqui o histórico de alterações críticas, veículos excluídos e edições feitas por parceiros e administradores.")
-        st.write("---")
+        st.write("Acompanhe o histórico de alterações. Selecione o registro e clique em excluir para remover itens específicos.")
         
         if df_logs.empty:
             st.info("Nenhuma atividade registrada ainda.")
         else:
-            df_logs_exibicao = df_logs.copy()
-            df_logs_exibicao = df_logs_exibicao.sort_values(by='data_hora', ascending=False)
+            # Ordenar logs
+            df_logs_exibicao = df_logs.copy().sort_values(by='data_hora', ascending=False)
             
-            busca_log = st.text_input("🔍 Buscar no registro (por usuário ou detalhe):")
+            # Opção de busca
+            busca_log = st.text_input("🔍 Buscar no registro:")
             if busca_log:
                 df_logs_exibicao = df_logs_exibicao[
                     df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) |
                     df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False)
                 ]
-            
-            st.dataframe(df_logs_exibicao, use_container_width=True)
 
+            # Seleção para exclusão seletiva
+            st.write("---")
+            df_logs_exibicao['idx_temp'] = df_logs_exibicao.index
+            opcoes_log = {str(i): f"{r['data_hora']} - {r['usuario']} - {r['acao']}" for i, r in df_logs_exibicao.iterrows()}
+            
+            log_selecionado = st.selectbox("Selecione um registro específico para excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione para excluir..." if x == "" else opcoes_log[x])
+            
+            if log_selecionado != "":
+                if st.button("❌ Excluir este registro selecionado"):
+                    with st.spinner("Removendo registro..."):
+                        df_logs = df_logs.drop(int(log_selecionado))
+                        df_logs.to_csv(FILE_LOGS, index=False)
+                        salvar_no_github(FILE_LOGS)
+                        st.success("Registro removido com sucesso!")
+                        time.sleep(1); st.rerun()
+
+            st.write("---")
+            st.dataframe(df_logs_exibicao.drop(columns=['idx_temp']), use_container_width=True)
+            
+            # Botão de emergência
+            st.write("")
+            st.write("---")
+            if "confirmar_limpeza_total" not in st.session_state: st.session_state.confirmar_limpeza_total = False
+            
+            if not st.session_state.confirmar_limpeza_total:
+                if st.button("🗑️ LIMPAR TODO O HISTÓRICO"):
+                    st.session_state.confirmar_limpeza_total = True
+                    st.rerun()
+            
+            if st.session_state.confirmar_limpeza_total:
+                st.warning("⚠️ Tem certeza? Isso apagará todos os logs irrecuperavelmente.")
+                c1, c2 = st.columns(2)
+                if c1.button("✅ Sim, apagar tudo"):
+                    df_logs_vazio = pd.DataFrame(columns=col_logs)
+                    df_logs_vazio.to_csv(FILE_LOGS, index=False)
+                    salvar_no_github(FILE_LOGS)
+                    df_logs = df_logs_vazio
+                    st.session_state.confirmar_limpeza_total = False
+                    st.rerun()
+                if c2.button("❌ Não"):
+                    st.session_state.confirmar_limpeza_total = False
+                    st.rerun()
 
 # --- INTERFACE DE PARCEIROS RESTRITA ---
 else:
