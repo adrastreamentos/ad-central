@@ -9,32 +9,122 @@ import requests
 import json
 
 # ===================================================================================
-# FUNÇÕES GLOBAIS E ESTILIZAÇÃO
+# FUNÇÕES GLOBAIS E ESTILIZAÇÃO (NOVO VISUAL)
 # ===================================================================================
 def colorir_status(val):
-    return 'color: green; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: red; font-weight: bold;'
+    return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
 
 def formatar_status_financeiro(val):
-    if str(val).strip() == 'Pago': return 'background-color: #C8E6C9; color: #1B5E20; font-weight: bold;'
-    elif str(val).strip() == 'Atrasado': return 'background-color: #FFCDD2; color: #B71C1C; font-weight: bold;'
-    else: return 'background-color: #FFF9C4; color: #F57F17; font-weight: bold;'
+    if str(val).strip() == 'Pago': return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;'
+    elif str(val).strip() == 'Atrasado': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
+    else: return 'background-color: #fff8e1; color: #f57f17; font-weight: bold;'
 
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
     <style>
-    .main-title { font-size: 32px; font-weight: bold; color: #7B2CBF; text-align: center; margin-bottom: 5px; }
-    .subtitle { font-size: 18px; color: #E53935; text-align: center; margin-bottom: 25px; font-weight: 500; }
-    div.stButton > button:first-child { background-color: #7B2CBF; color: white; border: none; border-radius: 4px; padding: 6px 16px; font-weight: bold; }
-    div.stButton > button:first-child:hover { background-color: #9d4edd; color: white; border: none; }
-    .stTabs [data-baseweb="tab"] { font-size: 16px; font-weight: bold; }
-    .alert-box { padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 5px solid; font-weight: bold; }
-    .alert-danger { background-color: #FFCDD2; color: #B71C1C; border-color: #E53935; }
-    .alert-success { background-color: #C8E6C9; color: #1B5E20; border-color: #4CAF50; }
-    .metric-card { background-color: #f8f9fa; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .metric-value { font-size: 28px; font-weight: bold; }
+    /* Ocultar menu e rodapé padrão do Streamlit para dar cara de aplicativo próprio */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* Títulos principais da AD Rastreamento */
+    .main-title { 
+        font-size: 38px; 
+        font-weight: 900; 
+        background: -webkit-linear-gradient(45deg, #7B2CBF, #E53935);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center; 
+        margin-bottom: 5px; 
+        letter-spacing: 1px;
+    }
+    .subtitle { 
+        font-size: 16px; 
+        color: #666; 
+        text-align: center; 
+        margin-bottom: 35px; 
+        font-weight: 600; 
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
+
+    /* Estilização das Abas (Tabs) do Menu */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        padding-bottom: 5px;
+    }
+    .stTabs [data-baseweb="tab"] { 
+        font-size: 15px; 
+        font-weight: 600; 
+        border-radius: 8px 8px 0px 0px;
+        padding: 10px 20px;
+        background-color: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-bottom: none;
+        color: #555;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #7B2CBF;
+        color: white !important;
+        border: 1px solid #7B2CBF;
+    }
+
+    /* Botões padronizados com animação */
+    div.stButton > button:first-child { 
+        background-color: #7B2CBF; 
+        color: white; 
+        border: none; 
+        border-radius: 8px; 
+        padding: 10px 24px; 
+        font-size: 15px;
+        font-weight: 700; 
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(123, 44, 191, 0.2);
+    }
+    div.stButton > button:first-child:hover { 
+        background-color: #E53935; 
+        box-shadow: 0 6px 12px rgba(229, 57, 53, 0.3);
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    /* Caixas de Alerta e Info mais modernas e suaves */
+    .alert-box { padding: 16px; border-radius: 8px; margin: 15px 0; border-left: 6px solid; font-weight: 500; font-size: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .alert-danger { background-color: #ffebee; color: #c62828; border-color: #E53935; }
+    .alert-success { background-color: #e8f5e9; color: #2e7d32; border-color: #4CAF50; }
+    .info-box { background-color: #f3e5f5; color: #4a148c; border-color: #7B2CBF; padding: 16px; border-radius: 8px; margin: 15px 0; border-left: 6px solid; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    
+    /* Estilos dos Cards Financeiros e Métricas */
+    .metric-card { 
+        background-color: #ffffff; 
+        border-radius: 12px; 
+        padding: 25px; 
+        text-align: center; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.06); 
+        margin-bottom: 20px; 
+        border: 1px solid #f0f0f0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12); 
+    }
+    .metric-value { font-size: 32px; font-weight: 800; margin-top: 12px; letter-spacing: -0.5px;}
     .val-pago { color: #2e7d32; }
-    .val-atrasado { color: #c62828; }
+    .val-pendente { color: #f57f17; }
+    .val-atrasado { color: #E53935; }
+
+    /* Estilo elegante para Inputs e Selects */
+    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        padding: 10px;
+    }
+    .stTextInput input:focus, .stSelectbox div[data-baseweb="select"]:focus-within {
+        border-color: #7B2CBF;
+        box-shadow: 0 0 0 1px #7B2CBF;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -147,7 +237,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     
     df_os_temp = df_os_atuais.copy()
     df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
-    # O filtro agora aceita a grafia exata e conta rigorosamente para o mês e status "ENCERRADO"
     os_filtro = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & 
                            (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & 
                            (df_os_temp['data_hora'].dt.month == int(mes)) & 
@@ -1375,7 +1464,10 @@ if st.session_state.perfil == "Admin":
                 
                 if not dados_emp_base.empty:
                     modo_fat = str(dados_emp_base.iloc[0].get('modo_faturamento', '')).strip()
-                    mes_s, ano_s = mes_filtro.split('/')
+                    try:
+                        mes_s, ano_s = mes_filtro.split('/')
+                    except:
+                        mes_s, ano_s = datetime.now().month, datetime.now().year
                     
                     # Calcula sempre para obtermos a Taxa de Acionamento Real
                     fatura_calc, _, _, taxa, _ = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os)
