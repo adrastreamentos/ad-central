@@ -14,3 +14,4 @@ data_hora,usuario,acao,detalhes
 2026-06-28 00:29:10,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 1 para a placa PGQ7113
 2026-06-28 00:29:49,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 1
 2026-06-28 00:30:59,AD Rastreamento Veicular (ADMIN),EXCLUSÃO DE OS,Apagou a OS ID: 1
+2026-06-28 00:48:51,JRS RASTREAMENTO,NOVO CLIENTE PARCEIRO,Cadastrou o cliente TESTE
