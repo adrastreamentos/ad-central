@@ -378,7 +378,7 @@ df_os = carregar_dados(FILE_OS, col_os)
 df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
 
 # ===================================================================================
-# LOGIN
+# LOGIN E CADASTRO INICIAL
 # ===================================================================================
 if "logado" not in st.session_state:
     st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
@@ -393,44 +393,82 @@ if not st.session_state.logado:
 if not st.session_state.logado:
     st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">⚡ Operação Atendimento</div>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        usuario_input = apenas_numeros_letras(st.text_input("Usuário (Empresa ou Nome Prestador):"))
-        senha_input = apenas_numeros_letras(st.text_input("Senha (CNPJ ou CPF):", type="password"))
-        if st.button("Entrar no Sistema", use_container_width=True):
-            if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
-                st.session_state.update({"logado": True, "user": "AD Rastreamento Veicular (ADMIN)", "perfil": "Admin"})
-                st.query_params["session"] = "admin_ad"
-                time.sleep(0.5); st.rerun()
-            else:
-                # Login Empresas (Parceiro)
-                df_empresas_login = df_empresas.copy()
-                df_empresas_login['cnpj_comparar'] = df_empresas_login['cnpj'].astype(str).apply(apenas_numeros_letras)
-                df_empresas_login['nome_comparar'] = df_empresas_login['nome'].astype(str).apply(apenas_numeros_letras)
-                parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_comparar'] == senha_input) & (df_empresas_login['nome_comparar'] == usuario_input)]
-                
-                if not parceiro_valid.empty:
-                    st.session_state.update({"logado": True, "user": parceiro_valid.iloc[0]['nome'].upper(), "perfil": "Parceiro", "empresa_vinculada": parceiro_valid.iloc[0]['nome']})
-                    st.query_params["session"] = f"parc_{urllib.parse.quote(parceiro_valid.iloc[0]['nome'])}"
+    
+    col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
+    
+    with col_meio:
+        tab_login, tab_cadastro = st.tabs(["🔐 Acesso ao Sistema", "🚛 Quero ser Prestador"])
+        
+        with tab_login:
+            usuario_input = apenas_numeros_letras(st.text_input("Usuário (Empresa ou Nome Prestador):"))
+            senha_input = apenas_numeros_letras(st.text_input("Senha (CNPJ ou CPF):", type="password"))
+            if st.button("Entrar no Sistema", use_container_width=True):
+                if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
+                    st.session_state.update({"logado": True, "user": "AD Rastreamento Veicular (ADMIN)", "perfil": "Admin"})
+                    st.query_params["session"] = "admin_ad"
                     time.sleep(0.5); st.rerun()
                 else:
-                    # Login Prestadores (Guinchos)
-                    df_prestadores_login = df_prestadores.copy()
-                    df_prestadores_login['cpf_comparar'] = df_prestadores_login['cpf'].astype(str).apply(apenas_numeros_letras)
-                    df_prestadores_login['nome_comparar'] = df_prestadores_login['nome'].astype(str).apply(apenas_numeros_letras)
-                    df_prestadores_login['senha_comparar'] = df_prestadores_login.get('senha', 'admin').astype(str)
+                    # Login Empresas (Parceiro)
+                    df_empresas_login = df_empresas.copy()
+                    df_empresas_login['cnpj_comparar'] = df_empresas_login['cnpj'].astype(str).apply(apenas_numeros_letras)
+                    df_empresas_login['nome_comparar'] = df_empresas_login['nome'].astype(str).apply(apenas_numeros_letras)
+                    parceiro_valid = df_empresas_login[(df_empresas_login['cnpj_comparar'] == senha_input) & (df_empresas_login['nome_comparar'] == usuario_input)]
                     
-                    prestador_valid = df_prestadores_login[(df_prestadores_login['nome_comparar'] == usuario_input) & ((df_prestadores_login['cpf_comparar'] == senha_input) | (df_prestadores_login['senha_comparar'] == senha_input))]
-                    
-                    if not prestador_valid.empty:
-                        prest_row = prestador_valid.iloc[0]
-                        if str(prest_row.get('homologado', 'Pendente')).strip() != 'Aprovado':
-                            st.error("⚠️ Seu cadastro de prestador ainda não foi aprovado pela Central.")
-                        else:
-                            st.session_state.update({"logado": True, "user": prest_row['nome'].upper(), "perfil": "Prestador", "empresa_vinculada": ""})
-                            time.sleep(0.5); st.rerun()
+                    if not parceiro_valid.empty:
+                        st.session_state.update({"logado": True, "user": parceiro_valid.iloc[0]['nome'].upper(), "perfil": "Parceiro", "empresa_vinculada": parceiro_valid.iloc[0]['nome']})
+                        st.query_params["session"] = f"parc_{urllib.parse.quote(parceiro_valid.iloc[0]['nome'])}"
+                        time.sleep(0.5); st.rerun()
                     else:
-                        st.error("Usuário ou senha incorretos.")
+                        # Login Prestadores (Guinchos)
+                        df_prestadores_login = df_prestadores.copy()
+                        df_prestadores_login['cpf_comparar'] = df_prestadores_login['cpf'].astype(str).apply(apenas_numeros_letras)
+                        df_prestadores_login['nome_comparar'] = df_prestadores_login['nome'].astype(str).apply(apenas_numeros_letras)
+                        df_prestadores_login['senha_comparar'] = df_prestadores_login.get('senha', 'admin').astype(str)
+                        
+                        prestador_valid = df_prestadores_login[(df_prestadores_login['nome_comparar'] == usuario_input) & ((df_prestadores_login['cpf_comparar'] == senha_input) | (df_prestadores_login['senha_comparar'] == senha_input))]
+                        
+                        if not prestador_valid.empty:
+                            prest_row = prestador_valid.iloc[0]
+                            if str(prest_row.get('homologado', 'Pendente')).strip() != 'Aprovado':
+                                st.error("⚠️ Seu cadastro de prestador ainda não foi aprovado pela Central.")
+                            else:
+                                st.session_state.update({"logado": True, "user": prest_row['nome'].upper(), "perfil": "Prestador", "empresa_vinculada": ""})
+                                time.sleep(0.5); st.rerun()
+                        else:
+                            st.error("Usuário ou senha incorretos.")
+                            
+        with tab_cadastro:
+            st.info("Preencha os dados abaixo para enviar sua solicitação. A Central AD avaliará seu perfil e liberará o seu acesso.")
+            with st.form("form_cad_prestador"):
+                c_cad1, c_cad2 = st.columns(2)
+                cad_nome = c_cad1.text_input("Nome Completo / Empresa:")
+                cad_cpf = c_cad2.text_input("CPF ou CNPJ:")
+                cad_tel = c_cad1.text_input("Telefone (WhatsApp) com DDD:")
+                cad_cidade = c_cad2.text_input("Cidade Base:")
+                cad_est = c_cad1.selectbox("Estado (UF):", ESTADOS_BR, index=ESTADOS_BR.index("RN"))
+                cad_tipo = c_cad2.multiselect("Serviços Prestados:", OPCOES_SERVICOS, default=["Guincho"])
+                cad_senha = st.text_input("Crie uma Senha para acessar o app depois de aprovado:", type="password")
+                
+                if st.form_submit_button("Enviar Solicitação de Cadastro", use_container_width=True):
+                    if not cad_nome or not cad_cpf or not cad_senha:
+                        st.error("Nome, CPF/CNPJ e Senha são obrigatórios!")
+                    else:
+                        with st.spinner("Enviando solicitação para a Central..."):
+                            prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
+                            novo_p = pd.DataFrame([{
+                                'id': str(prox_p), 'nome': cad_nome.upper(), 'cpf': apenas_numeros_letras(cad_cpf),
+                                'tipo': ", ".join(cad_tipo), 'telefone': apenas_numeros_letras(cad_tel),
+                                'endereco': '', 'cidade': cad_cidade.upper(), 'cep': '', 'est': cad_est,
+                                'status': 'Ativo', 'homologado': 'Pendente', 'senha': cad_senha, 'frota': '[]'
+                            }])
+                            df_prestadores_temp = pd.concat([df_prestadores, novo_p], ignore_index=True)
+                            sucesso, erro = salvar_dados(df_prestadores_temp, FILE_PRESTADORES)
+                            if sucesso:
+                                st.success("✅ Cadastro enviado com sucesso! Aguarde a liberação do seu painel.")
+                                time.sleep(2)
+                                st.rerun()
+                            else:
+                                st.error("Erro ao salvar cadastro. Tente novamente.")
     st.stop()
 
 col_user, col_logout = st.columns([5, 1])
@@ -1328,7 +1366,7 @@ if st.session_state.perfil == "Admin":
                             gerar_botao_whatsapp({"Ação": "Admin Cadastrando Prestador", "Nome": n_prest_in, "Serviços": t_prest})
 
         elif opcao_pre == "Editar":
-            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target = st.selectbox("🔎 Selecione o Prestador para Editar:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
