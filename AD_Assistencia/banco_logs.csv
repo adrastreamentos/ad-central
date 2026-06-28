@@ -16,3 +16,4 @@ data_hora,usuario,acao,detalhes
 2026-06-28 00:30:59,AD Rastreamento Veicular (ADMIN),EXCLUSÃO DE OS,Apagou a OS ID: 1
 2026-06-28 00:48:51,JRS RASTREAMENTO,NOVO CLIENTE PARCEIRO,Cadastrou o cliente TESTE
 2026-06-28 00:51:21,AD Rastreamento Veicular (ADMIN),EXCLUSÃO CLIENTE,Apagou o cliente ID 78
+2026-06-28 01:26:36,AD Rastreamento Veicular (ADMIN),NOVO CLIENTE,Cadastrou TESTE 01 para a empresa AD RASTREAMENTO VEICULAR
