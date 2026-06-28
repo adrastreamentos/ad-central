@@ -31,13 +31,9 @@ st.markdown("""
     .alert-box { padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 5px solid; font-weight: bold; }
     .alert-danger { background-color: #FFCDD2; color: #B71C1C; border-color: #E53935; }
     .alert-success { background-color: #C8E6C9; color: #1B5E20; border-color: #4CAF50; }
-    .info-box { background-color: #E3F2FD; color: #0D47A1; border-color: #2196F3; padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 5px solid; font-weight: bold; }
-    
-    /* Estilos dos Cards Financeiros */
     .metric-card { background-color: #f8f9fa; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
     .metric-value { font-size: 28px; font-weight: bold; }
     .val-pago { color: #2e7d32; }
-    .val-pendente { color: #f57f17; }
     .val-atrasado { color: #c62828; }
     </style>
 """, unsafe_allow_html=True)
@@ -55,17 +51,12 @@ FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
 FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
 
-def obter_hora_brasilia():
-    return datetime.now(timezone(timedelta(hours=-3)))
-
-def obter_hora_str():
-    return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
-
-def apenas_numeros_letras(texto):
-    return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
+def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
+def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
+def apenas_numeros_letras(texto): return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
 # ===================================================================================
-# SISTEMA DE SEGURANÇA, RETRY AUTOMÁTICO E LOGS
+# SISTEMA DE SEGURANÇA E LOGS
 # ===================================================================================
 def salvar_no_github(caminho_local, tentativas=3):
     token = st.secrets.get("GITHUB_TOKEN", None)
@@ -78,24 +69,18 @@ def salvar_no_github(caminho_local, tentativas=3):
         try:
             res = requests.get(url, headers=headers)
             sha = res.json().get("sha", None) if res.status_code == 200 else None
-            with open(caminho_local, "rb") as f:
-                content = base64.b64encode(f.read()).decode("utf-8")
+            with open(caminho_local, "rb") as f: content = base64.b64encode(f.read()).decode("utf-8")
             data = {"message": f"🔥 Auto-salvamento: {caminho_local}", "content": content, "branch": "main"}
             if sha: data["sha"] = sha
             res_put = requests.put(url, headers=headers, json=data)
-            if res_put.status_code in [200, 201]: 
-                return True, "Sucesso"
-            else:
-                time.sleep(2)
-        except Exception:
-            time.sleep(2)
-            
+            if res_put.status_code in [200, 201]: return True, "Sucesso"
+            else: time.sleep(2)
+        except Exception: time.sleep(2)
     return False, "Falha de conexão após 3 tentativas."
 
 def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
-    sucesso, erro = salvar_no_github(caminho)
-    return sucesso, erro
+    return salvar_no_github(caminho)
 
 def gerar_botao_whatsapp(dados_dict):
     texto = "🚨 *ERRO DE SINCRONIZAÇÃO - LANÇAMENTO MANUAL* 🚨\nOlá, Central AD!\nTentei salvar dados na plataforma, mas o sistema relatou falha na nuvem. Seguem os dados preenchidos:\n\n"
@@ -114,8 +99,7 @@ def carregar_dados(caminho, colunas_obrigatorias):
             df[col] = df[col].fillna("").astype(str).str.strip()
             df[col] = df[col].str.replace(r'\.0$', '', regex=True)
         return df
-    except:
-        return pd.DataFrame(columns=colunas_obrigatorias)
+    except: return pd.DataFrame(columns=colunas_obrigatorias)
 
 col_logs = ['data_hora', 'usuario', 'acao', 'detalhes']
 if not os.path.exists(FILE_LOGS): pd.DataFrame(columns=col_logs).to_csv(FILE_LOGS, index=False)
@@ -129,7 +113,7 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# LÓGICA DE FATURAMENTO AUTOMÁTICO (PERFORMANCE)
+# LÓGICA DE FATURAMENTO E PERFORMANCE (GATILHOS ESCALONADOS)
 # ===================================================================================
 tb_precos = {
     "2%": {"50km": 6.90, "100km": 8.90, "200km": 11.20, "Sem Limite": 11.20},
@@ -163,7 +147,11 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     
     df_os_temp = df_os_atuais.copy()
     df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
-    os_filtro = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'] == 'ENCERRADO') & (df_os_temp['data_hora'].dt.month == int(mes)) & (df_os_temp['data_hora'].dt.year == int(ano))]
+    # O filtro agora aceita a grafia exata e conta rigorosamente para o mês e status "ENCERRADO"
+    os_filtro = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & 
+                           (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & 
+                           (df_os_temp['data_hora'].dt.month == int(mes)) & 
+                           (df_os_temp['data_hora'].dt.year == int(ano))]
     total_os = len(os_filtro)
     
     taxa = (total_os / total_v * 100) if total_v > 0 else 0
@@ -190,7 +178,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     return fatura_total, total_v, total_os, taxa, faixa
 
 # ===================================================================================
-# GERAÇÃO DE RELATÓRIO PDF E CARREGAMENTO GERAL
+# RELATÓRIO PDF HTML
 # ===================================================================================
 def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
     cards_html = ""
@@ -239,6 +227,7 @@ def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="rela
     b64 = base64.b64encode(f"<html><head><meta charset='utf-8'></head><body>{cards_html}</body></html>".encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório (PDF)</button></a>'
 
+# INICIALIZAÇÃO DE DADOS
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista']
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','cidade','cep','est','status','homologado','senha','frota']
@@ -513,19 +502,71 @@ if st.session_state.perfil == "Admin":
                         else:
                             st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
 
-    # === RELATÓRIOS E HISTÓRICO ===
+    # === RELATÓRIOS E HISTÓRICO (COM EDIÇÃO/EXCLUSÃO DE OS) ===
     with menu[1]:
         st.subheader("📊 Gestão de Chamados e Relatórios")
+        
+        st.write("---")
+        st.markdown("### 🛠️ Editar ou Excluir Chamado (OS)")
+        st.info("Caso tenha lançado um acionamento para a placa errada, digite o ID da OS abaixo para corrigir ou cancelar.")
+        
+        os_id_edit = st.text_input("Digite o ID da OS:")
+        if os_id_edit:
+            os_encontrada = df_os[df_os['id'].astype(str) == str(os_id_edit)]
+            if not os_encontrada.empty:
+                row_os = os_encontrada.iloc[0]
+                with st.form("form_edit_os"):
+                    st.write(f"**Empresa:** {row_os.get('empresa','')} | **Cliente:** {row_os.get('cliente_nome','')} | **Data:** {row_os.get('data_hora','')}")
+                    c_os1, c_os2 = st.columns(2)
+                    nova_placa = c_os1.text_input("Placa do Veículo:", value=row_os['placa'])
+                    idx_stat = ["EM ATENDIMENTO", "ENCERRADO", "CANCELADO"].index(row_os['status_os'].upper()) if row_os['status_os'].upper() in ["EM ATENDIMENTO", "ENCERRADO", "CANCELADO"] else 1
+                    novo_status = c_os2.selectbox("Status da OS:", ["EM ATENDIMENTO", "ENCERRADO", "CANCELADO"], index=idx_stat)
+                    
+                    if st.form_submit_button("Salvar Correção da OS"):
+                        with st.spinner("Atualizando OS..."):
+                            df_os.loc[df_os['id'].astype(str) == str(os_id_edit), ['placa', 'status_os']] = [nova_placa.upper(), novo_status]
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "CORREÇÃO DE OS", f"Editou a placa/status da OS ID: {os_id_edit}")
+                                st.success("✅ OS atualizada com sucesso! O cálculo de acionamento foi reajustado.")
+                                time.sleep(1.5); st.rerun()
+                            else: st.error(f"Erro na nuvem: {erro}")
+                
+                st.write("")
+                if "os_del_confirm" not in st.session_state: st.session_state.os_del_confirm = None
+                
+                if st.session_state.os_del_confirm != os_id_edit:
+                    if st.button("🗑️ Excluir esta OS permanentemente"):
+                        st.session_state.os_del_confirm = os_id_edit
+                        st.rerun()
+                
+                if st.session_state.get("os_del_confirm") == os_id_edit:
+                    st.error(f"⚠️ Atenção: Deseja realmente excluir a OS {os_id_edit}? Isso recalculará a taxa de acionamento do parceiro.")
+                    col_s, col_n = st.columns(2)
+                    if col_s.button("✅ Sim, excluir OS"):
+                        with st.spinner("Excluindo..."):
+                            df_os = df_os[df_os['id'].astype(str) != str(os_id_edit)]
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "EXCLUSÃO DE OS", f"Apagou a OS ID: {os_id_edit}")
+                                st.success("🗑️ OS excluída! Taxa de acionamento atualizada.")
+                                st.session_state.os_del_confirm = None
+                                time.sleep(1.5); st.rerun()
+                            else: st.error(f"Erro: {erro}")
+                    if col_n.button("❌ Não, cancelar"):
+                        st.session_state.os_del_confirm = None
+                        st.rerun()
+            else:
+                st.warning("Nenhuma OS encontrada com esse ID.")
+
         st.write("---")
         with st.expander("⚠️ Área de Risco: Limpar Dados de Teste"):
             st.warning("Use este botão apenas na fase de implementação para apagar as OS fantasmas de testes anteriores.")
-            
             if "zerar_os_confirm" not in st.session_state: st.session_state.zerar_os_confirm = False
             if not st.session_state.zerar_os_confirm:
                 if st.button("Zerar Histórico de Ordens de Serviço"):
                     st.session_state.zerar_os_confirm = True
                     st.rerun()
-            
             if st.session_state.zerar_os_confirm:
                 st.error("⚠️ Tem certeza absoluta que deseja APAGAR TODAS as OS?")
                 c1, c2 = st.columns(2)
@@ -538,8 +579,7 @@ if st.session_state.perfil == "Admin":
                             st.success("Banco de OS zerado! O histórico dos clientes está limpo e pronto para uso real.")
                             st.session_state.zerar_os_confirm = False
                             time.sleep(2); st.rerun()
-                        else:
-                            st.error(f"Erro na nuvem: {erro}")
+                        else: st.error(f"Erro na nuvem: {erro}")
                 if c2.button("❌ Não, cancelar"):
                     st.session_state.zerar_os_confirm = False
                     st.rerun()
@@ -551,7 +591,7 @@ if st.session_state.perfil == "Admin":
             visao_relatorio = st.radio("Escolha a Visão:", ["🚨 OS em Andamento (Gerenciar)", "✅ Histórico e Gerar PDF (Finalizadas)", "Tabela Geral"], horizontal=True)
             if visao_relatorio == "🚨 OS em Andamento (Gerenciar)":
                 st.markdown("### 🚨 Chamados Atualmente em Andamento")
-                df_abertas = df_os[df_os['status_os'] == 'EM ATENDIMENTO']
+                df_abertas = df_os[df_os['status_os'].str.upper() == 'EM ATENDIMENTO']
                 if df_abertas.empty: st.success("Nenhum chamado em andamento no momento!")
                 else:
                     lista_abertas = [f"OS Nº: {r['id']} | Placa: {r.get('placa','N/D')} | Cliente: {r['cliente_nome']}" for _, r in df_abertas.iterrows()]
@@ -579,12 +619,11 @@ if st.session_state.perfil == "Admin":
                                     registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
                                     st.success(f"🎉 Chamado Nº {os_id_alvo} Finalizado! Ele foi movido para o Histórico (PDF).")
                                     time.sleep(1.5); st.rerun()
-                                else:
-                                    st.error(f"Erro na nuvem: {erro}")
+                                else: st.error(f"Erro na nuvem: {erro}")
 
             elif visao_relatorio == "✅ Histórico e Gerar PDF (Finalizadas)":
                 st.markdown("### 📄 Localizar OS Finalizada (Por Placa ou Nome)")
-                df_fechadas = df_os[df_os['status_os'] == 'ENCERRADO'].sort_values(by='id', ascending=False)
+                df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
                 if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
                 else:
                     busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para encontrar o relatório:")
@@ -612,29 +651,6 @@ if st.session_state.perfil == "Admin":
                 if cli_escolhido: df_os_filtrada = df_os_filtrada[df_os_filtrada['cliente_nome'].str.contains(cli_escolhido, case=False, na=False) | df_os_filtrada['placa'].str.contains(cli_escolhido, case=False, na=False)]
                 st.write("---")
                 st.dataframe(df_os_filtrada, use_container_width=True)
-
-                # ========================================================
-                # CÁLCULO DE FATURAMENTO ESCALONADO (SE ATIVADO NA EMPRESA)
-                # ========================================================
-                if emp_escolhida != "TODAS" and not df_empresas.empty:
-                    dados_emp = df_empresas[df_empresas['nome'].str.upper() == emp_escolhida]
-                    if not dados_emp.empty and str(dados_emp.iloc[0].get('modo_faturamento', '')).strip() == 'Performance (Escalonado)':
-                        st.write("---")
-                        with st.expander(f"💰 RELATÓRIO DE FATURAMENTO: {emp_escolhida}", expanded=True):
-                            mes_a = datetime.now().month
-                            ano_a = datetime.now().year
-                            
-                            fatura_calc, total_v, total_os, taxa, faixa = calcular_fatura_parceiro(emp_escolhida, mes_a, ano_a, df_clientes, df_os_filtrada)
-
-                            st.write(f"**Total de Veículos da Base:** {total_v}")
-                            st.write(f"**Total de Acionamentos (Encerrados):** {total_os}")
-                            st.write(f"**Taxa de Acionamento Calculada:** {taxa:.2f}% -> **(Gatilho Tabela: {faixa})**")
-                            
-                            st.markdown(f"### Valor da Fatura Estimada: R$ {fatura_calc:.2f}")
-                            if total_v > 20:
-                                st.caption(f"*Cálculo: R$ 300,00 (referente aos 20 primeiros veículos) + Valor individual dos {total_v - 20} veículos excedentes baseado no plano e taxa de {faixa}.*")
-                            else:
-                                st.caption("*Cálculo: Valor base mínimo cobrado de R$ 300,00 (referente à base de 1 a 20 veículos).*")
 
     # === CLIENTES ===
     with menu[2]:
@@ -691,11 +707,11 @@ if st.session_state.perfil == "Admin":
                             if not df_os.empty:
                                 df_os_temp = df_os.copy()
                                 df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
-                                os_mes_atual = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_emp) & (df_os_temp['data_hora'].dt.month == mes_a) & (df_os_temp['data_hora'].dt.year == ano_a)]
+                                os_mes_atual = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_emp) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'].dt.month == mes_a) & (df_os_temp['data_hora'].dt.year == ano_a)]
                                 total_os_mes_emp = len(os_mes_atual)
                             
                             taxa = (total_os_mes_emp / len(df_emp_filtrada) * 100) if len(df_emp_filtrada) > 0 else 0
-                            st.markdown(f"📊 **De acordo com a base de {len(df_emp_filtrada)} clientes/veículos, a taxa de acionamento neste mês é de {taxa:.1f}%.**")
+                            st.markdown(f"📊 **De acordo com a base de {len(df_emp_filtrada)} veículos, a taxa de acionamento neste mês é de {taxa:.1f}%.**")
                             
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                             
@@ -900,22 +916,29 @@ if st.session_state.perfil == "Admin":
                 c_target_del = st.selectbox("🔎 Selecione o Cliente para EXCLUIR:", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x])
                 
                 if c_target_del != "":
-                    st.error(f"⚠️ Tem certeza absoluta que deseja excluir o cliente **{opcoes_cli[c_target_del]}**?")
-                    col_sim, col_nao = st.columns(2)
-                    
-                    if col_sim.button("✅ Sim, excluir cliente"):
-                        with st.spinner("Apagando registro..."):
-                            df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target_del]
-                            sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
-                            if sucesso:
-                                registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE", f"Apagou o cliente ID {c_target_del}")
-                                st.success("🗑️ Cliente excluído permanentemente!")
-                                st.session_state.aba_cli = "Listar"
-                                time.sleep(1); st.rerun()
-                            else: st.error(f"Falha na nuvem: {erro}")
+                    if "cli_del_confirm" not in st.session_state: st.session_state.cli_del_confirm = None
+                    if st.session_state.cli_del_confirm != c_target_del:
+                        if st.button("🗑️ Excluir permanentemente"):
+                            st.session_state.cli_del_confirm = c_target_del
+                            st.rerun()
                             
-                    if col_nao.button("❌ Não, cancelar"):
-                        st.info("Ação cancelada.")
+                    if st.session_state.get("cli_del_confirm") == c_target_del:
+                        st.error(f"⚠️ Tem certeza absoluta que deseja excluir o cliente **{opcoes_cli[c_target_del]}**?")
+                        col_sim, col_nao = st.columns(2)
+                        if col_sim.button("✅ Sim, excluir cliente"):
+                            with st.spinner("Apagando registro..."):
+                                df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target_del]
+                                sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE", f"Apagou o cliente ID {c_target_del}")
+                                    st.success("🗑️ Cliente excluído permanentemente!")
+                                    st.session_state.cli_del_confirm = None
+                                    st.session_state.aba_cli = "Listar"
+                                    time.sleep(1); st.rerun()
+                                else: st.error(f"Falha na nuvem: {erro}")
+                        if col_nao.button("❌ Não, cancelar"):
+                            st.session_state.cli_del_confirm = None
+                            st.rerun()
 
     # === EMPRESAS ===
     with menu[3]:
@@ -1016,22 +1039,29 @@ if st.session_state.perfil == "Admin":
                 e_target_del = st.selectbox("🔎 Selecione a Empresa para EXCLUIR:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x])
                 
                 if e_target_del != "":
-                    st.error(f"⚠️ Tem certeza que deseja excluir a empresa **{opcoes_emp[e_target_del]}**?")
-                    col_sim, col_nao = st.columns(2)
-                    
-                    if col_sim.button("✅ Sim, excluir empresa"):
-                        with st.spinner("Excluindo empresa..."):
-                            df_empresas = df_empresas[df_empresas['cnpj'] != e_target_del]
-                            sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
-                            if sucesso:
-                                registrar_atividade(st.session_state.user, "EXCLUSÃO EMPRESA", f"Apagou a empresa CNPJ: {e_target_del}")
-                                st.success("🗑️ Empresa excluída permanentemente!")
-                                st.session_state.aba_emp = "Listar"
-                                time.sleep(1); st.rerun()
-                            else: st.error(f"Falha na nuvem: {erro}")
+                    if "emp_del_confirm" not in st.session_state: st.session_state.emp_del_confirm = None
+                    if st.session_state.emp_del_confirm != e_target_del:
+                        if st.button("🗑️ Excluir permanentemente"):
+                            st.session_state.emp_del_confirm = e_target_del
+                            st.rerun()
                             
-                    if col_nao.button("❌ Não, cancelar"):
-                        st.info("Ação cancelada.")
+                    if st.session_state.get("emp_del_confirm") == e_target_del:
+                        st.error(f"⚠️ Tem certeza que deseja excluir a empresa **{opcoes_emp[e_target_del]}**?")
+                        col_sim, col_nao = st.columns(2)
+                        if col_sim.button("✅ Sim, excluir empresa"):
+                            with st.spinner("Excluindo empresa..."):
+                                df_empresas = df_empresas[df_empresas['cnpj'] != e_target_del]
+                                sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO EMPRESA", f"Apagou a empresa CNPJ: {e_target_del}")
+                                    st.success("🗑️ Empresa excluída permanentemente!")
+                                    st.session_state.emp_del_confirm = None
+                                    st.session_state.aba_emp = "Listar"
+                                    time.sleep(1); st.rerun()
+                                else: st.error(f"Falha na nuvem: {erro}")
+                        if col_nao.button("❌ Não, cancelar"):
+                            st.session_state.emp_del_confirm = None
+                            st.rerun()
 
     # === PRESTADORES ===
     with menu[4]:
@@ -1180,22 +1210,29 @@ if st.session_state.perfil == "Admin":
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
                 
                 if p_target_del != "":
-                    st.error(f"⚠️ Tem certeza que deseja excluir o prestador **{opcoes_pre[p_target_del]}**?")
-                    col_sim, col_nao = st.columns(2)
-                    
-                    if col_sim.button("✅ Sim, excluir prestador"):
-                        with st.spinner("Excluindo prestador..."):
-                            df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target_del]
-                            sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
-                            if sucesso:
-                                registrar_atividade(st.session_state.user, "EXCLUSÃO PRESTADOR", f"Apagou o prestador ID {p_target_del}")
-                                st.success("🗑️ Prestador excluído permanentemente!")
-                                st.session_state.aba_pre = "Listar"
-                                time.sleep(1); st.rerun()
-                            else: st.error(f"Falha na nuvem: {erro}")
+                    if "pre_del_confirm" not in st.session_state: st.session_state.pre_del_confirm = None
+                    if st.session_state.pre_del_confirm != p_target_del:
+                        if st.button("🗑️ Excluir permanentemente"):
+                            st.session_state.pre_del_confirm = p_target_del
+                            st.rerun()
                             
-                    if col_nao.button("❌ Não, cancelar"):
-                        st.info("Ação cancelada.")
+                    if st.session_state.get("pre_del_confirm") == p_target_del:
+                        st.error(f"⚠️ Tem certeza que deseja excluir o prestador **{opcoes_pre[p_target_del]}**?")
+                        col_sim, col_nao = st.columns(2)
+                        if col_sim.button("✅ Sim, excluir prestador"):
+                            with st.spinner("Excluindo prestador..."):
+                                df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target_del]
+                                sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO PRESTADOR", f"Apagou o prestador ID {p_target_del}")
+                                    st.success("🗑️ Prestador excluído permanentemente!")
+                                    st.session_state.pre_del_confirm = None
+                                    st.session_state.aba_pre = "Listar"
+                                    time.sleep(1); st.rerun()
+                                else: st.error(f"Falha na nuvem: {erro}")
+                        if col_nao.button("❌ Não, cancelar"):
+                            st.session_state.pre_del_confirm = None
+                            st.rerun()
 
     # === ABA 6: SEGURANÇA E BACKUP ===
     with menu[5]:
@@ -1291,10 +1328,10 @@ if st.session_state.perfil == "Admin":
                     st.session_state.confirmar_limpeza_total = False
                     st.rerun()
 
-    # === ABA 8: GESTÃO FINANCEIRA (NOVA E AUTOMÁTICA) ===
+    # === ABA 8: GESTÃO FINANCEIRA ===
     with menu[7]:
         st.subheader("💰 Gestão Financeira - Controle de Recebimentos")
-        st.write("Visão unificada do seu contas a receber. As empresas aparecem automaticamente aqui.")
+        st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
         
         mes_atual_str = obter_hora_brasilia().strftime("%m/%Y")
         mes_filtro = st.text_input("Mês/Ano de Referência:", value=mes_atual_str)
@@ -1312,18 +1349,10 @@ if st.session_state.perfil == "Admin":
                 
                 if not df_financeiro.empty and 'id' in df_financeiro.columns:
                     existe = df_financeiro[df_financeiro['id'] == id_unico]
-                else:
-                    existe = pd.DataFrame()
+                else: existe = pd.DataFrame()
                     
                 if existe.empty:
-                    novo_fin = pd.DataFrame([{
-                        'id': id_unico, 
-                        'mes_ano': mes_filtro, 
-                        'empresa': nome_emp, 
-                        'valor_faturado': '0.00', 
-                        'valor_pago': '0.00', 
-                        'status': 'Pendente'
-                    }])
+                    novo_fin = pd.DataFrame([{'id': id_unico, 'mes_ano': mes_filtro, 'empresa': nome_emp, 'valor_faturado': '0.00', 'valor_pago': '0.00', 'status': 'Pendente'}])
                     df_financeiro = pd.concat([df_financeiro, novo_fin], ignore_index=True)
                     alterado = True
                     
@@ -1331,16 +1360,14 @@ if st.session_state.perfil == "Admin":
                 df_financeiro.to_csv(FILE_FINANCEIRO, index=False)
                 salvar_no_github(FILE_FINANCEIRO)
             
-            # FILTRO: Apenas o Mês Pesquisado E APENAS EMPRESAS ATIVAS (Resolve o bug de inativas não sumirem)
+            # Filtro exclusivo de Empresas Ativas para a visão do mês
             lista_nomes_ativos = empresas_ativas['nome'].str.upper().tolist()
-            df_fin_mes = df_financeiro[
-                (df_financeiro['mes_ano'] == mes_filtro) & 
-                (df_financeiro['empresa'].str.upper().isin(lista_nomes_ativos))
-            ].copy()
+            df_fin_mes = df_financeiro[(df_financeiro['mes_ano'] == mes_filtro) & (df_financeiro['empresa'].str.upper().isin(lista_nomes_ativos))].copy()
             
-            # 2. CÁLCULOS TOTAIS PARA O DASHBOARD
+            # 2. CÁLCULOS TOTAIS E TAXA DE ACIONAMENTO
             total_faturado_mes = 0.0
             total_recebido_mes = 0.0
+            taxas_exibicao = []
             
             for idx, r_fin in df_fin_mes.iterrows():
                 emp_name = r_fin['empresa']
@@ -1348,11 +1375,16 @@ if st.session_state.perfil == "Admin":
                 
                 if not dados_emp_base.empty:
                     modo_fat = str(dados_emp_base.iloc[0].get('modo_faturamento', '')).strip()
+                    mes_s, ano_s = mes_filtro.split('/')
+                    
+                    # Calcula sempre para obtermos a Taxa de Acionamento Real
+                    fatura_calc, _, _, taxa, _ = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os)
+                    taxas_exibicao.append(f"{taxa:.1f}%")
+                    
                     if modo_fat == 'Performance (Escalonado)':
-                        mes_s, ano_s = mes_filtro.split('/')
-                        fatura_calc, _, _, _, _ = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os)
                         df_fin_mes.at[idx, 'valor_faturado'] = f"{fatura_calc:.2f}"
                         df_financeiro.loc[df_financeiro['id'] == r_fin['id'], 'valor_faturado'] = f"{fatura_calc:.2f}"
+                else: taxas_exibicao.append("0.0%")
                 
                 try: total_faturado_mes += float(str(df_fin_mes.at[idx, 'valor_faturado']).replace(',', '.'))
                 except: pass
@@ -1362,15 +1394,12 @@ if st.session_state.perfil == "Admin":
             
             inadimplencia = total_faturado_mes - total_recebido_mes if total_faturado_mes > total_recebido_mes else 0.0
             
-            # 3. CARDS DE RESUMO VISUAL
+            # 3. CARDS VISUAIS
             st.markdown("---")
             col_d1, col_d2, col_d3 = st.columns(3)
-            with col_d1:
-                st.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Total Faturado no Mês</div><div class="metric-value" style="color: #1976D2;">R$ {total_faturado_mes:.2f}</div></div>', unsafe_allow_html=True)
-            with col_d2:
-                st.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Total Recebido (Caixa)</div><div class="metric-value val-pago">R$ {total_recebido_mes:.2f}</div></div>', unsafe_allow_html=True)
-            with col_d3:
-                st.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Inadimplência / A Receber</div><div class="metric-value val-atrasado">R$ {inadimplencia:.2f}</div></div>', unsafe_allow_html=True)
+            with col_d1: st.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Total Faturado no Mês</div><div class="metric-value" style="color: #1976D2;">R$ {total_faturado_mes:.2f}</div></div>', unsafe_allow_html=True)
+            with col_d2: st.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Total Recebido (Caixa)</div><div class="metric-value val-pago">R$ {total_recebido_mes:.2f}</div></div>', unsafe_allow_html=True)
+            with col_d3: st.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Inadimplência / A Receber</div><div class="metric-value val-atrasado">R$ {inadimplencia:.2f}</div></div>', unsafe_allow_html=True)
             
             # 4. TABELA DE VISUALIZAÇÃO
             st.markdown("### Lançamentos")
@@ -1384,7 +1413,8 @@ if st.session_state.perfil == "Admin":
                 except: diferencas.append("R$ 0.00")
             
             df_view_fin['diferenca'] = diferencas
-            st.dataframe(df_view_fin[['empresa', 'valor_faturado', 'valor_pago', 'diferenca', 'status']].style.map(formatar_status_financeiro, subset=['status']), use_container_width=True)
+            df_view_fin['taxa_de_uso'] = taxas_exibicao
+            st.dataframe(df_view_fin[['empresa', 'taxa_de_uso', 'valor_faturado', 'valor_pago', 'diferenca', 'status']].style.map(formatar_status_financeiro, subset=['status']), use_container_width=True)
             
             st.write("---")
             st.markdown("### ✏️ Editar Lançamento (Dar Baixa)")
@@ -1400,7 +1430,6 @@ if st.session_state.perfil == "Admin":
                 
                 with st.form("form_financeiro"):
                     st.write(f"**Empresa:** {emp_edit} | **Mês:** {mes_filtro}")
-                    
                     c_f1, c_f2, c_f3 = st.columns(3)
                     
                     if modo_fat_edit == 'Performance (Escalonado)':
@@ -1429,9 +1458,7 @@ if st.session_state.perfil == "Admin":
                                 registrar_atividade(st.session_state.user, "BAIXA FINANCEIRA", f"Editou o faturamento de {emp_edit} ({mes_filtro}) para status {status_final}")
                                 st.success("✅ Registro atualizado com sucesso!")
                                 time.sleep(1); st.rerun()
-                            else:
-                                st.error(f"Falha na nuvem: {erro}")
-
+                            else: st.error(f"Falha na nuvem: {erro}")
 
 # --- INTERFACE DE PARCEIROS RESTRITA ---
 else:
@@ -1447,10 +1474,10 @@ else:
         if not df_os.empty:
             df_os_temp_p = df_os.copy()
             df_os_temp_p['data_hora'] = pd.to_datetime(df_os_temp_p['data_hora'], errors='coerce')
-            os_mes_atual_p = df_os_temp_p[(df_os_temp_p['empresa'].str.upper() == st.session_state.empresa_vinculada.upper()) & (df_os_temp_p['data_hora'].dt.month == mes_atual_taxa_p) & (df_os_temp_p['data_hora'].dt.year == ano_atual_taxa_p)]
+            os_mes_atual_p = df_os_temp_p[(df_os_temp_p['empresa'].str.upper() == st.session_state.empresa_vinculada.upper()) & (df_os_temp_p['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp_p['data_hora'].dt.month == mes_atual_taxa_p) & (df_os_temp_p['data_hora'].dt.year == ano_atual_taxa_p)]
             total_os_mes_p = len(os_mes_atual_p)
         taxa_p = (total_os_mes_p / base_clientes_taxa_p * 100) if base_clientes_taxa_p > 0 else 0
-        st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa_p} clientes/veículos, a taxa de acionamento neste mês é de {taxa_p:.1f}%.**")
+        st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa_p} veículos, a taxa de acionamento neste mês é de {taxa_p:.1f}%.**")
         st.write("---")
         
         if "aba_part" not in st.session_state: st.session_state.aba_part = "Visualizar"
@@ -1601,7 +1628,7 @@ else:
                             st.session_state.aba_part = "Visualizar"
                             time.sleep(1); st.rerun()
                         else:
-                            st.error("⚠️ Atenção: Instabilidade na Conexão com a Nuvem. Ocorreu um erro ao sincronizar este cadastro com a base de dados da Central AD.")
+                            st.error("⚠️ Atenção: Instabilidade na Conexão com a Nuvem.")
                             gerar_botao_whatsapp({
                                 "Ação": "Novo Cadastro", 
                                 "Parceiro": st.session_state.empresa_vinculada.upper(),
@@ -1681,22 +1708,29 @@ else:
                 part_target_del = st.selectbox("🔎 Selecione o cliente para EXCLUIR:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x])
                 
                 if part_target_del != "":
-                    st.error(f"⚠️ Tem certeza que deseja excluir permanentemente o cliente **{opcoes_dict_p[part_target_del]}**?")
-                    col_sim, col_nao = st.columns(2)
-                    
-                    if col_sim.button("✅ Sim, excluir cliente"):
-                        with st.spinner("Excluindo registro..."):
-                            df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
-                            sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
-                            if sucesso:
-                                registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE PARCEIRO", f"Apagou o cliente ID {part_target_del}")
-                                st.success("🗑️ Cliente excluído permanentemente!")
-                                st.session_state.aba_part = "Visualizar"
-                                time.sleep(1); st.rerun()
-                            else: st.error(f"Erro na nuvem: {erro}")
+                    if "part_del_confirm" not in st.session_state: st.session_state.part_del_confirm = None
+                    if st.session_state.part_del_confirm != part_target_del:
+                        if st.button("🗑️ Excluir permanentemente"):
+                            st.session_state.part_del_confirm = part_target_del
+                            st.rerun()
                             
-                    if col_nao.button("❌ Não, cancelar"):
-                        st.info("Ação cancelada.")
+                    if st.session_state.get("part_del_confirm") == part_target_del:
+                        st.error(f"⚠️ Tem certeza que deseja excluir permanentemente o cliente **{opcoes_dict_p[part_target_del]}**?")
+                        col_sim, col_nao = st.columns(2)
+                        if col_sim.button("✅ Sim, excluir cliente"):
+                            with st.spinner("Excluindo registro..."):
+                                df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
+                                sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE PARCEIRO", f"Apagou o cliente ID {part_target_del}")
+                                    st.success("🗑️ Cliente excluído permanentemente!")
+                                    st.session_state.part_del_confirm = None
+                                    st.session_state.aba_part = "Visualizar"
+                                    time.sleep(1); st.rerun()
+                                else: st.error(f"Erro na nuvem: {erro}")
+                        if col_nao.button("❌ Não, cancelar"):
+                            st.session_state.part_del_confirm = None
+                            st.rerun()
 
     with menu_parceiro[1]:
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
