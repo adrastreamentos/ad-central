@@ -4,3 +4,4 @@ data_hora,usuario,acao,detalhes
 2026-06-28 20:01:50,AD Rastreamento Veicular (ADMIN),EXCLUSÃO CLIENTE,Apagou o cliente ID 78
 2026-06-28 22:03:27,AD Rastreamento Veicular (ADMIN),NOVO PRESTADOR,Cadastrou prestador TESTE
 2026-06-28 22:03:54,AD Rastreamento Veicular (ADMIN),EDIÇÃO PRESTADOR,Editou o prestador TESTE
+2026-06-28 22:29:13,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 2 para a placa EDR1236
