@@ -7,6 +7,9 @@ import base64
 import time
 import requests
 import json
+from PIL import Image
+import numpy as np
+from streamlit_drawable_canvas import st_canvas
 
 # ===================================================================================
 # FUNÇÕES GLOBAIS E ESTILIZAÇÃO (NOVO VISUAL)
@@ -684,7 +687,7 @@ if st.session_state.perfil == "Admin":
                         nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
                         df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
                         sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
-                        ifsucesso:
+                        if sucesso:
                             registrar_atividade(st.session_state.user, "NOVA OS", f"Abriu chamado {nova_id} para a placa {placa_alvo}")
                             st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
                             st.session_state.os_busca_val = ""
@@ -1288,7 +1291,7 @@ if st.session_state.perfil == "Admin":
                     st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 1º Clique aqui para Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     
                     col_h1, col_h2 = st.columns(2)
-                    if col_h1.button("✅ 2º Confirmar Approvação no Sistema", key=f"apr_{p['id']}"):
+                    if col_h1.button("✅ 2º Confirmar Aprovação no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
                         sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
                         if sucesso: st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
@@ -1539,7 +1542,7 @@ if st.session_state.perfil == "Admin":
     # === ABA 8: GESTÃO FINANCEIRA ===
     with menu[7]:
         st.subheader("💰 Gestão Financeira - Controle de Recebimentos")
-        st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é updated em tempo real.")
+        st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
         
         mes_atual_str = obter_hora_brasilia().strftime("%m/%Y")
         mes_filtro = st.text_input("Mês/Ano de Referência:", value=mes_atual_str)
@@ -1813,14 +1816,12 @@ elif st.session_state.perfil == "Parceiro":
             
             col_pb1, col_pb2, col_pb3 = st.columns(3)
             
-            # --- CORREÇÃO: BUSCAR O ESTADO DA EMPRESA PARCEIRA ---
             uf_padrao_parceiro = "RN"
             if not df_empresas.empty:
                 emp_dados = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
                 if not emp_dados.empty:
                     uf_padrao_parceiro = str(emp_dados.iloc[0].get('est', 'RN')).upper()
             idx_uf_parceiro = ESTADOS_BR.index(uf_padrao_parceiro) if uf_padrao_parceiro in ESTADOS_BR else ESTADOS_BR.index("RN")
-            # -----------------------------------------------------
 
             p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_uf_parceiro)
             p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=0)
@@ -1834,7 +1835,7 @@ elif st.session_state.perfil == "Parceiro":
                 vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                 pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
                 
-                if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa de Veículo são obrigatórios.")
+                if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                 else:
                     with st.spinner("Salvando novo registro e sincronizando com a nuvem..."):
                         prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
@@ -1888,12 +1889,12 @@ elif st.session_state.perfil == "Parceiro":
                     frota_editada_p = st.data_editor(pd.DataFrame(frota_inicial_p), num_rows="dynamic", use_container_width=True)
                     st.write("---")
                     
-                    col_pb1, col_pb2, col_pb3 = st.columns(2)
+                    col_pb1, col_pb2, col_pb3 = st.columns(3)
                     idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if str(dados_part_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part)
                     idx_plano_p = PLANOS_KM.index(str(dados_part_ant.get('plano_km', 'Sem Limite'))) if str(dados_part_ant.get('plano_km', 'Sem Limite')) in PLANOS_KM else 0
                     p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=idx_plano_p)
-                    p_stat = col_pb1.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_part_ant['status'])))
+                    p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_part_ant['status'])))
                     
                     if st.button("Salvar Alterações"):
                         p_cpf = apenas_numeros_letras(p_cpf_raw)
@@ -1903,7 +1904,7 @@ elif st.session_state.perfil == "Parceiro":
                         vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                         pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
                         
-                        if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa de Veículo são obrigatórios.")
+                        if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                         else:
                             with st.spinner("Atualizando cadastro na nuvem..."):
                                 df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome_in.upper(), p_cpf, apenas_numeros_letras(p_tel_raw), p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
@@ -1992,7 +1993,7 @@ elif st.session_state.perfil == "Prestador":
                     vistoria_completa = False
             
             if not vistoria_completa:
-                st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada (Fotos e Assinatura) ANTES de carregar o veículo no guincho.</div>', unsafe_allow_html=True)
+                st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
                 
                 if "passo_vistoria" not in st.session_state:
                     st.session_state.passo_vistoria = 0
@@ -2004,10 +2005,10 @@ elif st.session_state.perfil == "Prestador":
                     "3. Foto da Lateral Esquerda",
                     "4. Foto da Lateral Direita",
                     "5. Foto Focada na Placa",
-                    "6. Foto da Assinatura do Cliente"
+                    "6. Assinatura Digital do Cliente"
                 ]
                 
-                if passo < len(fotos_necessarias):
+                if passo < 5: # Fotos (Passos de 0 a 4)
                     st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
                     img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
                     
@@ -2023,6 +2024,37 @@ elif st.session_state.perfil == "Prestador":
                         if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
                             st.session_state.passo_vistoria = 0
                             st.rerun()
+                            
+                elif passo == 5: # Passo 6: Assinatura Digital
+                    st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
+                    st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
+                    
+                    canvas_result = st_canvas(
+                        fill_color="rgba(255, 255, 255, 0.3)", 
+                        stroke_width=3,
+                        stroke_color="#000000",
+                        background_color="#EEEEEE",
+                        height=250,
+                        drawing_mode="freedraw",
+                        key=f"canvas_{os_row['id']}",
+                    )
+                    
+                    if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
+                        if canvas_result.image_data is not None:
+                            with st.spinner("Salvando assinatura..."):
+                                # Converte o desenho (matriz numpy) em imagem JPG
+                                img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
+                                img = img.convert("RGB") # Remove o fundo transparente para salvar em JPG
+                                img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
+                                
+                                st.session_state.passo_vistoria += 1
+                                st.rerun()
+                        else:
+                            st.error("Por favor, peça ao cliente para assinar antes de salvar.")
+                            
+                    if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
+                        st.session_state.passo_vistoria = 4
+                        st.rerun()
                 else:
                     st.session_state.passo_vistoria = 0
                     st.rerun()
