@@ -1,3 +1,3 @@
 id,data_hora,cliente_id,cliente_nome,placa,empresa,tipo_servico,motivo,prestador,localizacao,destino,obs,status_os,veiculo_desc,plano_km,valor_cobrado
-1,2026-06-28 19:50:52,79,TESTE,EDR1236,AD RASTREAMENTO VEICULAR,Guincho,Outros,david | Telefone/Zap: 84999814428,"Av. Bacharel Tomaz Landim, 16","Rua dos Cajueiros,115,Residencial Nova Parnamirim AP. 807",teste,EM ATENDIMENTO,CARRO,50km,"0,00"
+1,2026-06-28 19:50:52,79,TESTE,EDR1236,AD RASTREAMENTO VEICULAR,Guincho,Outros,david | Telefone/Zap: 84999814428,"Av. Bacharel Tomaz Landim, 16","Rua dos Cajueiros,115,Residencial Nova Parnamirim AP. 807",teste,ENCERRADO,CARRO,50km,"0,00"
 2,2026-06-28 22:29:12,79,TESTE,EDR1236,AD RASTREAMENTO VEICULAR,Pane Elétrica,Outros,TESTE | Telefone/Zap: 84999814428,"Av. Bacharel Tomaz Landim, 16","Av. Bacharel Tomaz Landim, 16",teste,ENCERRADO,CARRO,50km,"0,00"
