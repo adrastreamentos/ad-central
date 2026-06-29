@@ -684,7 +684,7 @@ if st.session_state.perfil == "Admin":
                         nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
                         df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
                         sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
-                        if sucesso:
+                        ifsucesso:
                             registrar_atividade(st.session_state.user, "NOVA OS", f"Abriu chamado {nova_id} para a placa {placa_alvo}")
                             st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
                             st.session_state.os_busca_val = ""
@@ -801,7 +801,7 @@ if st.session_state.perfil == "Admin":
                     df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
                     tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
                     
-                    # Verifica Vistoria para Administrador
+                    # Verifica Vistoria para Admin
                     v_path = os.path.join(FOLDER, "vistorias", str(os_id_alvo))
                     fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
                     vistoria_completa_admin = True
@@ -1288,7 +1288,7 @@ if st.session_state.perfil == "Admin":
                     st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 1º Clique aqui para Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     
                     col_h1, col_h2 = st.columns(2)
-                    if col_h1.button("✅ 2º Confirmar Aprovação no Sistema", key=f"apr_{p['id']}"):
+                    if col_h1.button("✅ 2º Confirmar Approvação no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
                         sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
                         if sucesso: st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
@@ -1539,7 +1539,7 @@ if st.session_state.perfil == "Admin":
     # === ABA 8: GESTÃO FINANCEIRA ===
     with menu[7]:
         st.subheader("💰 Gestão Financeira - Controle de Recebimentos")
-        st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
+        st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é updated em tempo real.")
         
         mes_atual_str = obter_hora_brasilia().strftime("%m/%Y")
         mes_filtro = st.text_input("Mês/Ano de Referência:", value=mes_atual_str)
@@ -1834,7 +1834,7 @@ elif st.session_state.perfil == "Parceiro":
                 vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                 pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
                 
-                if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
+                if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa de Veículo são obrigatórios.")
                 else:
                     with st.spinner("Salvando novo registro e sincronizando com a nuvem..."):
                         prox_id = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
@@ -1888,12 +1888,12 @@ elif st.session_state.perfil == "Parceiro":
                     frota_editada_p = st.data_editor(pd.DataFrame(frota_inicial_p), num_rows="dynamic", use_container_width=True)
                     st.write("---")
                     
-                    col_pb1, col_pb2, col_pb3 = st.columns(3)
+                    col_pb1, col_pb2, col_pb3 = st.columns(2)
                     idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if str(dados_part_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part)
                     idx_plano_p = PLANOS_KM.index(str(dados_part_ant.get('plano_km', 'Sem Limite'))) if str(dados_part_ant.get('plano_km', 'Sem Limite')) in PLANOS_KM else 0
                     p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=idx_plano_p)
-                    p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_part_ant['status'])))
+                    p_stat = col_pb1.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_part_ant['status'])))
                     
                     if st.button("Salvar Alterações"):
                         p_cpf = apenas_numeros_letras(p_cpf_raw)
@@ -1903,7 +1903,7 @@ elif st.session_state.perfil == "Parceiro":
                         vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                         pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
                         
-                        if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
+                        if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa de Veículo são obrigatórios.")
                         else:
                             with st.spinner("Atualizando cadastro na nuvem..."):
                                 df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista']] = [p_nome_in.upper(), p_cpf, apenas_numeros_letras(p_tel_raw), p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p]
@@ -1992,41 +1992,52 @@ elif st.session_state.perfil == "Prestador":
                     vistoria_completa = False
             
             if not vistoria_completa:
-                st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada (Fotos e Assinatura) ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
-                with st.form(f"vistoria_form_{os_row['id']}"):
-                    st.write("📸 **Tire as fotos ou anexe da galeria:**")
-                    col_f1, col_f2 = st.columns(2)
+                st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada (Fotos e Assinatura) ANTES de carregar o veículo no guincho.</div>', unsafe_allow_html=True)
+                
+                if "passo_vistoria" not in st.session_state:
+                    st.session_state.passo_vistoria = 0
+                
+                passo = st.session_state.passo_vistoria
+                nomes_exibicao = [
+                    "1. Foto da Frente do Veículo",
+                    "2. Foto da Traseira do Veículo",
+                    "3. Foto da Lateral Esquerda",
+                    "4. Foto da Lateral Direita",
+                    "5. Foto Focada na Placa",
+                    "6. Foto da Assinatura do Cliente"
+                ]
+                
+                if passo < len(fotos_necessarias):
+                    st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
+                    img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
                     
-                    f_frente = col_f1.file_uploader("1. Foto da Frente", type=['jpg','jpeg','png'])
-                    f_tras = col_f2.file_uploader("2. Foto da Traseira", type=['jpg','jpeg','png'])
-                    f_esq = col_f1.file_uploader("3. Lateral Esquerda", type=['jpg','jpeg','png'])
-                    f_dir = col_f2.file_uploader("4. Lateral Direita", type=['jpg','jpeg','png'])
-                    f_placa = col_f1.file_uploader("5. Foto Focada na Placa", type=['jpg','jpeg','png'])
-                    f_ass = col_f2.file_uploader("6. Foto do Termo Assinado pelo Cliente", type=['jpg','jpeg','png'])
-                    
-                    if st.form_submit_button("Salvar Vistoria de Entrada"):
-                        if all([f_frente, f_tras, f_esq, f_dir, f_placa, f_ass]):
-                            with st.spinner("Enviando vistoria para a Central..."):
-                                for img, name in zip([f_frente, f_tras, f_esq, f_dir, f_placa, f_ass], fotos_necessarias):
-                                    with open(os.path.join(vistoria_path, f"{name}.jpg"), "wb") as f_img:
-                                        f_img.write(img.getbuffer())
-                            st.success("✅ Vistoria registrada e travada com sucesso! Você está autorizado a transportar o veículo.")
-                            time.sleep(1.5)
+                    if img_capturada:
+                        with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
+                            f_img.write(img_capturada.getbuffer())
+                        st.success(f"✅ Foto salva!")
+                        if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
+                            st.session_state.passo_vistoria += 1
                             st.rerun()
-                        else:
-                            st.error("❌ O sistema exige que TODAS as 6 fotos sejam anexadas para liberar o transporte.")
+                    
+                    if passo > 0:
+                        if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
+                            st.session_state.passo_vistoria = 0
+                            st.rerun()
+                else:
+                    st.session_state.passo_vistoria = 0
+                    st.rerun()
             else:
                 st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
                 st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
                 
-                if st.button(f"🏁 FINALIZAR OS Nº {os_row['id']} (Cheguei e Descarreguei)"):
-                    with st.spinner("Finalizando atendimento e comunicando a Central..."):
+                if st.button(f"🏁 FINALIZAR OS Nº {os_row['id']} (Cheguei e Descarreguei)", key=f"btn_fin_{os_row['id']}"):
+                    with st.spinner("Finalizando atendimento..."):
                         df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'ENCERRADO'
                         sucesso, erro = salvar_dados(df_os, FILE_OS)
                         if sucesso:
-                            registrar_atividade(st.session_state.user, "ENCERRAMENTO DE OS (PRESTADOR)", f"Prestador finalizou a OS {os_row['id']} no destino final.")
+                            registrar_atividade(st.session_state.user, "ENCERRAMENTO DE OS (PRESTADOR)", f"Prestador finalizou a OS {os_row['id']}.")
                             st.success("🎉 Missão Cumprida! OS Finalizada com sucesso. O relatório e as fotos já estão com a Central AD.")
                             time.sleep(2)
                             st.rerun()
                         else:
-                            st.error(f"Erro ao finalizar na nuvem: {erro}")
+                            st.error(f"Erro ao finalizar: {erro}")
