@@ -7,3 +7,4 @@ data_hora,usuario,acao,detalhes
 2026-06-28 22:29:13,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 2 para a placa EDR1236
 2026-06-28 22:55:18,TESTE,ENCERRAMENTO DE OS (PRESTADOR),Prestador finalizou a OS 2.
 2026-06-28 23:19:51,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 1
+2026-06-28 23:20:52,AD Rastreamento Veicular (ADMIN),EDIÇÃO PRESTADOR,Editou o prestador TESTE ANDREA
