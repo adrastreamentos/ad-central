@@ -1,19 +1,1 @@
 data_hora,usuario,acao,detalhes
-2026-06-28 19:49:28,AD Rastreamento Veicular (ADMIN),NOVO CLIENTE,Cadastrou TESTE para a empresa AD RASTREAMENTO VEICULAR
-2026-06-28 19:50:53,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 1 para a placa EDR1236
-2026-06-28 20:01:50,AD Rastreamento Veicular (ADMIN),EXCLUSÃO CLIENTE,Apagou o cliente ID 78
-2026-06-28 22:03:27,AD Rastreamento Veicular (ADMIN),NOVO PRESTADOR,Cadastrou prestador TESTE
-2026-06-28 22:03:54,AD Rastreamento Veicular (ADMIN),EDIÇÃO PRESTADOR,Editou o prestador TESTE
-2026-06-28 22:29:13,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 2 para a placa EDR1236
-2026-06-28 22:55:18,TESTE,ENCERRAMENTO DE OS (PRESTADOR),Prestador finalizou a OS 2.
-2026-06-28 23:19:51,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 1
-2026-06-28 23:20:52,AD Rastreamento Veicular (ADMIN),EDIÇÃO PRESTADOR,Editou o prestador TESTE ANDREA
-2026-06-28 23:21:41,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 3 para a placa EDR1236
-2026-06-28 23:25:32,TESTE ANDREA,ENTREGA DE VEÍCULO (PRESTADOR),Prestador entregou a OS 3.
-2026-06-28 23:25:55,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 3
-2026-06-28 23:31:24,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 1 para a placa EDR1236
-2026-06-28 23:33:44,ANDREA RODRIGUES BARBOSA,ENTREGA DE VEÍCULO (PRESTADOR),Prestador entregou a OS 1.
-2026-06-28 23:34:15,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 1
-2026-06-28 23:35:04,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,Apagou o prestador ID 32
-2026-06-28 23:35:18,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,Apagou o prestador ID 33
-2026-06-28 23:35:35,AD Rastreamento Veicular (ADMIN),EXCLUSÃO CLIENTE,Apagou o cliente ID 79
