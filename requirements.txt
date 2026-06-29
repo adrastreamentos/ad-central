@@ -1,1 +1,5 @@
-fpdf
+pandas
+requests
+Pillow
+numpy
+streamlit-drawable-canvas
