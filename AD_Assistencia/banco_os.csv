@@ -1,2 +1,2 @@
 id,data_hora,cliente_id,cliente_nome,placa,empresa,tipo_servico,motivo,prestador,localizacao,destino,obs,status_os,veiculo_desc,plano_km,valor_cobrado
-1,2026-06-30 23:11:58,49,VINICIUS LEANDRO ALVES,QGA9I19,AD RASTREAMENTO VEICULAR,Guincho,Outros,david | Telefone/Zap: 84999814428,supermecado queiroz,sao gonçalo,realizado,EM ATENDIMENTO,HONDA CG 150 FAN ESDI,Sem Limite,"0,00"
+1,2026-06-30 23:11:58,49,VINICIUS LEANDRO ALVES,QGA9I19,AD RASTREAMENTO VEICULAR,Guincho,Outros,david | Telefone/Zap: 84999814428,supermecado queiroz,sao gonçalo,realizado,ENCERRADO,HONDA CG 150 FAN ESDI,Sem Limite,"0,00"
