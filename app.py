@@ -1690,4 +1690,38 @@ elif st.session_state.perfil == "Prestador":
                 col_p1.text_input("Nome / Guincho (Fixo):", value=dados_p['nome'], disabled=True)
                 col_p2.text_input("CPF/CNPJ (Fixo):", value=dados_p.get('cpf', ''), disabled=True)
 
-                servicos_atuais = [s.strip() for s in str(dados_p.get('tipo', '')).split
+                servicos_atuais = [s.strip() for s in str(dados_p.get('tipo', '')).split(',') if s.strip() in OPCOES_SERVICOS]
+                if not servicos_atuais: servicos_atuais = ["Guincho"]
+
+                t_prest_lista = col_p1.multiselect("Tipos de Serviço Prestado:", options=OPCOES_SERVICOS, default=servicos_atuais)
+                tel_p_raw = col_p2.text_input("Telefone de Contato (Com DDD):", value=dados_p.get('telefone', ''))
+
+                end_p_in = col_p1.text_input("Endereço / Base:", value=dados_p.get('endereco', ''))
+                cid_p_in = col_p2.text_input("Cidade Base:", value=dados_p.get('cidade', ''))
+
+                cep_p_in = col_p1.text_input("CEP:", value=dados_p.get('cep', ''))
+                idx_est_p = ESTADOS_BR.index(str(dados_p.get('est', 'RN')).upper()) if str(dados_p.get('est', 'RN')).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
+                est_p = col_p2.selectbox("Estado (UF) de Atuação:", options=ESTADOS_BR, index=idx_est_p)
+
+                senha_atual = dados_p.get('senha', '')
+                nova_senha = st.text_input("Senha de Acesso ao Aplicativo:", value=senha_atual, type="password")
+
+                if st.form_submit_button("💾 Salvar Alterações no Perfil", use_container_width=True):
+                    if not t_prest_lista:
+                        st.error("Selecione ao menos um tipo de serviço prestado.")
+                    elif not nova_senha:
+                        st.error("A senha não pode ficar em branco.")
+                    else:
+                        with st.spinner("Sincronizando seus dados com a Central..."):
+                            df_prestadores.loc[df_prestadores['id'] == dados_p['id'], ['tipo', 'telefone', 'endereco', 'cidade', 'cep', 'est', 'senha']] = [", ".join(t_prest_lista), apenas_numeros_letras(tel_p_raw), end_p_in, cid_p_in.upper(), cep_p_in, est_p, nova_senha]
+                            sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
+
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "EDIÇÃO PERFIL PRESTADOR", "O prestador atualizou o próprio cadastro via APP.")
+                                st.success("✅ Perfil atualizado com sucesso!")
+                                time.sleep(1.5)
+                                st.rerun()
+                            else:
+                                st.error(f"⚠️ Erro de conexão com a nuvem: {erro}")
+        else:
+            st.error("Erro ao localizar seu cadastro na base de dados. Entre em contato com a Central AD.")
