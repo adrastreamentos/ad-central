@@ -11,3 +11,4 @@ data_hora,usuario,acao,detalhes
 2026-07-03 22:58:55,AD Rastreamento Veicular (ADMIN),BAIXA FINANCEIRA,Editou o faturamento de JRS RASTREAMENTO (07/2026) para status Pago
 2026-07-03 22:59:09,AD Rastreamento Veicular (ADMIN),BAIXA FINANCEIRA,Editou o faturamento de AD RASTREAMENTO VEICULAR (07/2026) para status Pago
 2026-07-04 00:08:27,AD Rastreamento Veicular (ADMIN),EXCLUSÃO CLIENTE,Apagou o cliente -> ID: 78 | Nome: TESTE | CPF: 123456789 | Placa Principal: WWW1234 | Empresa: AD RASTREAMENTO VEICULAR
+2026-07-04 00:26:31,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,Apagou prestador -> ID: 3 | Nome: ZN REBOQUE (QUERIDINHO) | Tipo: Guincho
