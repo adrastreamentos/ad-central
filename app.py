@@ -22,7 +22,6 @@ def formatar_status_financeiro(val):
     elif str(val).strip() == 'Atrasado': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
     else: return 'background-color: #fff8e1; color: #f57f17; font-weight: bold;'
 
-# Função para pegar os 3 últimos meses automaticamente (Financeiro)
 def get_ultimos_3_meses():
     hoje = datetime.now()
     meses = []
@@ -594,7 +593,7 @@ if st.session_state.perfil == "Admin":
                             df_os.loc[df_os['id'].astype(str) == str(os_id_edit), ['placa', 'status_os']] = [nova_placa.upper(), novo_status]
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
                             if sucesso:
-                                registrar_atividade(st.session_state.user, "CORREÇÃO DE OS", f"Editou a placa/status da OS ID: {os_id_edit}")
+                                registrar_atividade(st.session_state.user, "CORREÇÃO DE OS", f"Editou a OS ID: {os_id_edit} | Nova Placa: {nova_placa.upper()} | Novo Status: {novo_status}")
                                 st.success("✅ OS atualizada com sucesso! O cálculo de acionamento foi reajustado.")
                                 time.sleep(1.5); st.rerun()
                             else: st.error(f"Erro na nuvem: {erro}")
@@ -610,9 +609,13 @@ if st.session_state.perfil == "Admin":
                     col_s, col_n = st.columns(2)
                     if col_s.button("✅ Sim, excluir OS"):
                         with st.spinner("Excluindo..."):
+                            os_apagada = df_os[df_os['id'].astype(str) == str(os_id_edit)].iloc[0]
+                            detalhes_exclusao_os = f"Apagou OS ID: {os_id_edit} | Cliente: {os_apagada['cliente_nome']} | Placa: {os_apagada['placa']} | Empresa: {os_apagada['empresa']}"
+                            
                             df_os = df_os[df_os['id'].astype(str) != str(os_id_edit)]
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
                             if sucesso:
+                                registrar_atividade(st.session_state.user, "EXCLUSÃO OS", detalhes_exclusao_os)
                                 st.success("🗑️ OS excluída! Taxa de acionamento atualizada.")
                                 st.session_state.os_del_confirm = None
                                 time.sleep(1.5); st.rerun()
@@ -653,7 +656,7 @@ if st.session_state.perfil == "Admin":
                     else:
                         st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
                     
-                    # ATUALIZAÇÃO 1: Adicionado o Link do Prestador no WhatsApp
+                    # ATUALIZAÇÃO: Link no WhatsApp para o Portal do Prestador
                     texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}\n\n🔗 *Acesse seu painel para Vistoria:* https://mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=prestador")
                     link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
                     
@@ -838,7 +841,7 @@ if st.session_state.perfil == "Admin":
                         df_clientes_temp = pd.concat([df_clientes, novo], ignore_index=True)
                         sucesso, erro = salvar_dados(df_clientes_temp, FILE_CLIENTES)
                         if sucesso:
-                            registrar_atividade(st.session_state.user, "NOVO CLIENTE", f"Cadastrou {nome} para a empresa {emp}")
+                            registrar_atividade(st.session_state.user, "NOVO CLIENTE", f"Cadastrou {nome} para a empresa {emp} (Placa: {pla_prin})")
                             st.success("✅ Cliente cadastrado com sucesso!")
                             for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]: st.session_state[k] = ""
                             st.session_state.aba_cli = "Listar"
@@ -909,7 +912,7 @@ if st.session_state.perfil == "Admin":
                                 df_clientes.loc[df_clientes['id'].astype(str) == c_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','emp_name','status','veiculos_lista']] = [nome, cpf, tel, end_in, cid_in.upper(), cep_in, plano_km, vei_prin, pla_prin, est, emp.upper(), status, frota_json_str]
                                 sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
                                 if sucesso:
-                                    registrar_atividade(st.session_state.user, "EDIÇÃO DE CLIENTE", f"Editou os dados do cliente {nome}")
+                                    registrar_atividade(st.session_state.user, "EDIÇÃO DE CLIENTE", f"Editou os dados do cliente {nome} (Placa: {pla_prin})")
                                     st.success("✅ Alterações salvas com sucesso!"); st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
                                 else:
                                     st.error(f"⚠️ Erro ao salvar edição na nuvem: {erro}")
@@ -929,10 +932,14 @@ if st.session_state.perfil == "Admin":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir cliente"):
                             with st.spinner("Apagando registro..."):
+                                # ATUALIZAÇÃO: LOG DETALHADO DE EXCLUSÃO
+                                cliente_apagado = df_clientes[df_clientes['id'].astype(str) == c_target_del].iloc[0]
+                                detalhes_del = f"Apagou o cliente -> ID: {c_target_del} | Nome: {cliente_apagado['nome']} | CPF: {cliente_apagado.get('cpf','')} | Placa Principal: {cliente_apagado.get('pla','')} | Empresa: {cliente_apagado.get('emp_name','')}"
+                                
                                 df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target_del]
                                 sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
                                 if sucesso:
-                                    registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE", f"Apagou o cliente ID {c_target_del}")
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE", detalhes_del)
                                     st.success("🗑️ Cliente excluído permanentemente!"); st.session_state.cli_del_confirm = None; st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()
@@ -977,7 +984,7 @@ if st.session_state.perfil == "Admin":
                         df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
                         sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
                         if sucesso:
-                            registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()}")
+                            registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()} (CNPJ: {cnpj})")
                             st.success("✅ Empresa cadastrada com sucesso!"); st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
                         else:
                             st.error(f"Erro na nuvem: {erro}")
@@ -1025,10 +1032,14 @@ if st.session_state.perfil == "Admin":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir empresa"):
                             with st.spinner("Excluindo empresa..."):
+                                # ATUALIZAÇÃO: LOG DETALHADO
+                                emp_apagada = df_empresas[df_empresas['cnpj'] == e_target_del].iloc[0]
+                                detalhes_emp = f"Apagou a empresa -> CNPJ: {e_target_del} | Nome: {emp_apagada['nome']} | Resp: {emp_apagada.get('responsavel', '')}"
+                                
                                 df_empresas = df_empresas[df_empresas['cnpj'] != e_target_del]
                                 sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
                                 if sucesso:
-                                    registrar_atividade(st.session_state.user, "EXCLUSÃO EMPRESA", f"Apagou a empresa CNPJ: {e_target_del}")
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO EMPRESA", detalhes_emp)
                                     st.success("🗑️ Empresa excluída permanentemente!"); st.session_state.emp_del_confirm = None; st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.emp_del_confirm = None; st.rerun()
@@ -1049,7 +1060,9 @@ if st.session_state.perfil == "Admin":
                     if col_h1.button("✅ 2º Confirmar Aprovação no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
                         sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        if sucesso: st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
+                        if sucesso: 
+                            registrar_atividade(st.session_state.user, "APROVAÇÃO PRESTADOR", f"Aprovou o cadastro de {p['nome']}")
+                            st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
                         else: st.error(f"Falha na nuvem: {erro}")
                     if col_h2.button("❌ Reprovar/Arquivar", key=f"rep_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Reprovado'
@@ -1110,7 +1123,7 @@ if st.session_state.perfil == "Admin":
                         df_prestadores_temp = pd.concat([df_prestadores, novo_p], ignore_index=True)
                         sucesso, erro = salvar_dados(df_prestadores_temp, FILE_PRESTADORES)
                         if sucesso:
-                            registrar_atividade(st.session_state.user, "NOVO PRESTADOR", f"Cadastrou prestador {n_prest_in.upper()}")
+                            registrar_atividade(st.session_state.user, "NOVO PRESTADOR", f"Cadastrou prestador {n_prest_in.upper()} ({t_prest})")
                             st.success("✅ Prestador cadastrado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                         else:
                             st.error(f"Erro na nuvem: {erro}")
@@ -1162,10 +1175,14 @@ if st.session_state.perfil == "Admin":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir prestador"):
                             with st.spinner("Excluindo prestador..."):
+                                # ATUALIZAÇÃO: LOG DETALHADO
+                                pre_apagado = df_prestadores[df_prestadores['id'].astype(str) == p_target_del].iloc[0]
+                                detalhes_pre = f"Apagou prestador -> ID: {p_target_del} | Nome: {pre_apagado['nome']} | Tipo: {pre_apagado.get('tipo','')}"
+                                
                                 df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target_del]
                                 sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
                                 if sucesso:
-                                    registrar_atividade(st.session_state.user, "EXCLUSÃO PRESTADOR", f"Apagou o prestador ID {p_target_del}")
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO PRESTADOR", detalhes_pre)
                                     st.success("🗑️ Prestador excluído permanentemente!"); st.session_state.pre_del_confirm = None; st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.pre_del_confirm = None; st.rerun()
@@ -1200,20 +1217,34 @@ if st.session_state.perfil == "Admin":
                         st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
                     else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
 
-    # === ABA 7: AUDITORIA E LOGS ===
+    # === ABA 7: AUDITORIA E LOGS (COM NOVA CAIXA DE DETALHES) ===
     with menu[6]:
         st.subheader("🕵️ Painel de Auditoria e Registro de Atividades")
-        st.write("Acompanhe o histórico de alterações. Selecione o registro e clique em excluir para remover itens específicos.")
+        st.write("Acompanhe o histórico de alterações. Selecione o registro para ver detalhes ou excluí-lo.")
         if df_logs.empty: st.info("Nenhuma atividade registrada ainda.")
         else:
             df_logs_exibicao = df_logs.copy().sort_values(by='data_hora', ascending=False)
             busca_log = st.text_input("🔍 Buscar no registro:")
-            if busca_log: df_logs_exibicao = df_logs_exibicao[df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False)]
+            if busca_log: df_logs_exibicao = df_logs_exibicao[df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['acao'].str.contains(busca_log, case=False, na=False)]
             st.write("---")
+            
             df_logs_exibicao['idx_temp'] = df_logs_exibicao.index
             opcoes_log = {str(i): f"{r['data_hora']} - {r['usuario']} - {r['acao']}" for i, r in df_logs_exibicao.iterrows()}
-            log_selecionado = st.selectbox("Selecione um registro específico para excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione para excluir..." if x == "" else opcoes_log[x])
+            log_selecionado = st.selectbox("Selecione um registro para ver os Detalhes Completos ou Excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log[x])
+            
             if log_selecionado != "":
+                detalhe_row = df_logs_exibicao.loc[int(log_selecionado)]
+                
+                # ATUALIZAÇÃO: CAIXA DE DETALHAMENTO NO ADMIN
+                st.markdown(f"""
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
+                    <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
+                    <p style="margin-bottom:5px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p>
+                    <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
+                    <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos:</strong> {detalhe_row['detalhes']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 if st.button("❌ Excluir este registro selecionado"):
                     with st.spinner("Removendo registro..."):
                         df_logs = df_logs.drop(int(log_selecionado))
@@ -1583,10 +1614,14 @@ elif st.session_state.perfil == "Parceiro":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir cliente"):
                             with st.spinner("Excluindo registro..."):
+                                # ATUALIZAÇÃO: LOG DETALHADO DO PARCEIRO
+                                cli_p_apagado = df_clientes[df_clientes['id'].astype(str) == part_target_del].iloc[0]
+                                detalhes_del_p = f"Apagou o cliente -> ID: {part_target_del} | Nome: {cli_p_apagado['nome']} | CPF: {cli_p_apagado.get('cpf','')} | Placa Principal: {cli_p_apagado.get('pla','')}"
+                                
                                 df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
                                 sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
                                 if sucesso:
-                                    registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE PARCEIRO", f"Apagou o cliente ID {part_target_del}")
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE PARCEIRO", detalhes_del_p)
                                     st.success("🗑️ Cliente excluído permanentemente!"); st.session_state.part_del_confirm = None; st.session_state.aba_part = "Visualizar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.part_del_confirm = None; st.rerun()
@@ -1628,7 +1663,7 @@ elif st.session_state.perfil == "Parceiro":
             bg_cor = "#e8f5e9" if status_f == "Pago" else "#ffebee" if status_f == "Atrasado" else "#fff8e1"
             c_f3.markdown(f'<div class="metric-card" style="border: 2px solid {cor_borda}; background-color: {bg_cor};"><div style="color: #666; font-size: 16px;">Status no Sistema Central</div><div class="metric-value" style="color: {cor_borda}; font-size: 28px;">{status_f.upper()}</div></div>', unsafe_allow_html=True)
 
-    # ATUALIZAÇÃO: Aba de Auditoria Restrita para a Empresa
+    # ATUALIZAÇÃO: Aba de Auditoria Restrita para a Empresa (Apenas Leitura)
     with menu_parceiro[3]:
         st.subheader("🕵️ Auditoria e Histórico de Atividades")
         st.write("Verifique com transparência as ações realizadas exclusivamente pelo seu usuário no sistema.")
@@ -1645,15 +1680,17 @@ elif st.session_state.perfil == "Parceiro":
             
             st.write("---")
             opcoes_log_p = {str(i): f"{r['data_hora']} - {r['acao']}" for i, r in df_logs_parc.iterrows()}
-            log_sel_p = st.selectbox("Selecione um registro para detalhar:", options=[""] + list(opcoes_log_p.keys()), format_func=lambda x: "Selecione para ver o detalhamento..." if x == "" else opcoes_log_p[x])
+            log_sel_p = st.selectbox("Selecione um registro para ver os Detalhes Completos:", options=[""] + list(opcoes_log_p.keys()), format_func=lambda x: "Selecione para ver o detalhamento..." if x == "" else opcoes_log_p[x])
             
             if log_sel_p != "":
                 detalhe_row = df_logs_parc.loc[int(log_sel_p)]
+                
+                # CAIXA DE DETALHAMENTO NO PARCEIRO (Sem botões de exclusão)
                 st.markdown(f"""
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF;">
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
                     <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
                     <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
-                    <p style="margin-bottom:5px;"><strong>📝 Detalhes do Evento:</strong> {detalhe_row['detalhes']}</p>
+                    <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
