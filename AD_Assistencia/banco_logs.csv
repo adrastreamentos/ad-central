@@ -9,3 +9,4 @@ data_hora,usuario,acao,detalhes
 2026-07-03 21:57:47,ANDREA TESTE,ENTREGA DE VEÍCULO (PRESTADOR),Prestador entregou a OS 2.
 2026-07-03 21:58:21,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 2
 2026-07-03 22:58:55,AD Rastreamento Veicular (ADMIN),BAIXA FINANCEIRA,Editou o faturamento de JRS RASTREAMENTO (07/2026) para status Pago
+2026-07-03 22:59:09,AD Rastreamento Veicular (ADMIN),BAIXA FINANCEIRA,Editou o faturamento de AD RASTREAMENTO VEICULAR (07/2026) para status Pago
