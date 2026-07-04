@@ -13,3 +13,4 @@ data_hora,usuario,acao,detalhes
 2026-07-04 00:08:27,AD Rastreamento Veicular (ADMIN),EXCLUSÃO CLIENTE,Apagou o cliente -> ID: 78 | Nome: TESTE | CPF: 123456789 | Placa Principal: WWW1234 | Empresa: AD RASTREAMENTO VEICULAR
 2026-07-04 00:26:31,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,Apagou prestador -> ID: 3 | Nome: ZN REBOQUE (QUERIDINHO) | Tipo: Guincho
 2026-07-04 00:26:57,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,Apagou prestador -> ID: 35 | Nome: ANDREA TESTE | Tipo: Guincho
+2026-07-04 00:27:25,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,"Apagou prestador -> ID: 34 | Nome: GERDIVAN LIMA ALVES/ANDRASEG | Tipo: Guincho, Pane Seca"
