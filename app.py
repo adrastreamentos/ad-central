@@ -609,7 +609,7 @@ if st.session_state.perfil == "Admin":
                     col_s, col_n = st.columns(2)
                     if col_s.button("✅ Sim, excluir OS"):
                         with st.spinner("Excluindo..."):
-                            # ATUALIZAÇÃO: LOG DETALHADO DE EXCLUSÃO
+                            # LOG DETALHADO DE EXCLUSÃO DE OS
                             os_apagada = df_os[df_os['id'].astype(str) == str(os_id_edit)].iloc[0]
                             detalhes_exclusao_os = f"Apagou OS ID: {os_id_edit} | Cliente: {os_apagada['cliente_nome']} | Placa: {os_apagada['placa']} | Empresa: {os_apagada['empresa']}"
                             
@@ -657,7 +657,7 @@ if st.session_state.perfil == "Admin":
                     else:
                         st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
                     
-                    # ATUALIZAÇÃO: Link no WhatsApp para o Portal do Prestador
+                    # Link no WhatsApp para o Portal do Prestador
                     texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}\n\n🔗 *Acesse seu painel para Vistoria:* https://mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=prestador")
                     link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
                     
@@ -933,7 +933,7 @@ if st.session_state.perfil == "Admin":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir cliente"):
                             with st.spinner("Apagando registro..."):
-                                # ATUALIZAÇÃO: LOG DETALHADO DE EXCLUSÃO DE CLIENTE
+                                # LOG DETALHADO DE EXCLUSÃO DE CLIENTE
                                 cliente_apagado = df_clientes[df_clientes['id'].astype(str) == c_target_del].iloc[0]
                                 detalhes_del = f"Apagou o cliente -> ID: {c_target_del} | Nome: {cliente_apagado['nome']} | CPF: {cliente_apagado.get('cpf','')} | Placa Principal: {cliente_apagado.get('pla','')} | Empresa: {cliente_apagado.get('emp_name','')}"
                                 
@@ -985,7 +985,7 @@ if st.session_state.perfil == "Admin":
                         df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
                         sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
                         if sucesso:
-                            registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()}")
+                            registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()} (CNPJ: {cnpj})")
                             st.success("✅ Empresa cadastrada com sucesso!"); st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
                         else:
                             st.error(f"Erro na nuvem: {erro}")
@@ -1033,7 +1033,7 @@ if st.session_state.perfil == "Admin":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir empresa"):
                             with st.spinner("Excluindo empresa..."):
-                                # ATUALIZAÇÃO: LOG DETALHADO DE EXCLUSÃO DE EMPRESA
+                                # LOG DETALHADO DE EXCLUSÃO DE EMPRESA
                                 emp_apagada = df_empresas[df_empresas['cnpj'] == e_target_del].iloc[0]
                                 detalhes_emp = f"Apagou a empresa -> CNPJ: {e_target_del} | Nome: {emp_apagada['nome']} | Resp: {emp_apagada.get('responsavel', '')}"
                                 
@@ -1061,12 +1061,18 @@ if st.session_state.perfil == "Admin":
                     if col_h1.button("✅ 2º Confirmar Aprovação no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
                         sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        if sucesso: st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
+                        if sucesso: 
+                            registrar_atividade(st.session_state.user, "APROVAÇÃO PRESTADOR", f"Aprovou o cadastro de {p['nome']}")
+                            st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
                         else: st.error(f"Falha na nuvem: {erro}")
-                    if col_h2.button("❌ Reprovar/Arquivar", key=f"rep_{p['id']}"):
-                        df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Reprovado'
+                    
+                    # ATUALIZAÇÃO: EXCLUSÃO DIRETA QUANDO REPROVADO
+                    if col_h2.button("❌ Reprovar/Excluir", key=f"rep_{p['id']}"):
+                        df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != str(p['id'])]
                         sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        if sucesso: st.info("Movido para reprovados."); time.sleep(1); st.rerun()
+                        if sucesso: 
+                            registrar_atividade(st.session_state.user, "REPROVAÇÃO PRESTADOR", f"Reprovou e excluiu o cadastro de {p['nome']}")
+                            st.info("Cadastro reprovado e excluído permanentemente."); time.sleep(1); st.rerun()
                         else: st.error(f"Falha na nuvem: {erro}")
             st.write("---")
         
@@ -1122,7 +1128,7 @@ if st.session_state.perfil == "Admin":
                         df_prestadores_temp = pd.concat([df_prestadores, novo_p], ignore_index=True)
                         sucesso, erro = salvar_dados(df_prestadores_temp, FILE_PRESTADORES)
                         if sucesso:
-                            registrar_atividade(st.session_state.user, "NOVO PRESTADOR", f"Cadastrou prestador {n_prest_in.upper()}")
+                            registrar_atividade(st.session_state.user, "NOVO PRESTADOR", f"Cadastrou prestador {n_prest_in.upper()} ({t_prest})")
                             st.success("✅ Prestador cadastrado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                         else:
                             st.error(f"Erro na nuvem: {erro}")
@@ -1174,7 +1180,7 @@ if st.session_state.perfil == "Admin":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir prestador"):
                             with st.spinner("Excluindo prestador..."):
-                                # ATUALIZAÇÃO: LOG DETALHADO DE EXCLUSÃO DE PRESTADOR
+                                # LOG DETALHADO DE EXCLUSÃO DE PRESTADOR
                                 pre_apagado = df_prestadores[df_prestadores['id'].astype(str) == p_target_del].iloc[0]
                                 detalhes_pre = f"Apagou prestador -> ID: {p_target_del} | Nome: {pre_apagado['nome']} | Tipo: {pre_apagado.get('tipo','')}"
                                 
@@ -1613,7 +1619,7 @@ elif st.session_state.perfil == "Parceiro":
                         col_sim, col_nao = st.columns(2)
                         if col_sim.button("✅ Sim, excluir cliente"):
                             with st.spinner("Excluindo registro..."):
-                                # ATUALIZAÇÃO: LOG DETALHADO DO PARCEIRO
+                                # LOG DETALHADO DO PARCEIRO
                                 cli_p_apagado = df_clientes[df_clientes['id'].astype(str) == part_target_del].iloc[0]
                                 detalhes_del_p = f"Apagou o cliente -> ID: {part_target_del} | Nome: {cli_p_apagado['nome']} | CPF: {cli_p_apagado.get('cpf','')} | Placa Principal: {cli_p_apagado.get('pla','')}"
                                 
@@ -1701,133 +1707,85 @@ elif st.session_state.perfil == "Prestador":
     st.subheader(f"🚛 Meu Painel de Atendimento | Prestador: {st.session_state.user}")
     st.write("---")
 
-    tab_chamados, tab_perfil = st.tabs(["🚨 Meus Chamados", "👤 Meu Perfil / Editar Cadastro"])
-
-    with tab_chamados:
-        df_os_prest = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
-        meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
-        
-        if meus_chamados.empty:
-            st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
-        else:
-            for _, os_row in meus_chamados.iterrows():
-                st.markdown(f"### 🚨 Chamado Nº {os_row['id']}")
-                status_atual_prestador = str(os_row.get('status_os', '')).upper()
+    df_os_prest = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
+    meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
+    
+    if meus_chamados.empty:
+        st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
+    else:
+        for _, os_row in meus_chamados.iterrows():
+            st.markdown(f"### 🚨 Chamado Nº {os_row['id']}")
+            status_atual_prestador = str(os_row.get('status_os', '')).upper()
+            
+            c1, c2 = st.columns(2)
+            c1.write(f"**Cliente:** {os_row['cliente_nome']}")
+            c1.write(f"**Serviço:** {os_row['tipo_servico']} ({os_row['motivo']})")
+            c1.write(f"**Veículo:** {os_row.get('veiculo_desc', 'N/D')} | **Placa:** {os_row['placa']}")
+            c2.write(f"**Local de Retirada:** {os_row['localizacao']}")
+            c2.write(f"**Destino:** {os_row['destino']}")
+            c2.write(f"**Observações:** {os_row['obs']}")
+            
+            if status_atual_prestador == 'FINALIZADO PELO PRESTADOR':
+                st.success("🏁 Você já chegou ao destino e finalizou esta OS! O veículo foi entregue. Aguardando a Central AD confirmar o encerramento do chamado no sistema.")
+            else:
+                vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
+                os.makedirs(vistoria_path, exist_ok=True)
+                fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+                vistoria_completa = True
+                for f in fotos_necessarias:
+                    if not os.path.exists(os.path.join(vistoria_path, f"{f}.jpg")):
+                        vistoria_completa = False
                 
-                c1, c2 = st.columns(2)
-                c1.write(f"**Cliente:** {os_row['cliente_nome']}")
-                c1.write(f"**Serviço:** {os_row['tipo_servico']} ({os_row['motivo']})")
-                c1.write(f"**Veículo:** {os_row.get('veiculo_desc', 'N/D')} | **Placa:** {os_row['placa']}")
-                c2.write(f"**Local de Retirada:** {os_row['localizacao']}")
-                c2.write(f"**Destino:** {os_row['destino']}")
-                c2.write(f"**Observações:** {os_row['obs']}")
-                
-                if status_atual_prestador == 'FINALIZADO PELO PRESTADOR':
-                    st.success("🏁 Você já chegou ao destino e finalizou esta OS! O veículo foi entregue. Aguardando a Central AD confirmar o encerramento do chamado no sistema.")
-                else:
-                    # Controle de Vistoria
-                    vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
-                    os.makedirs(vistoria_path, exist_ok=True)
-                    fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-                    vistoria_completa = True
-                    for f in fotos_necessarias:
-                        if not os.path.exists(os.path.join(vistoria_path, f"{f}.jpg")):
-                            vistoria_completa = False
+                if not vistoria_completa:
+                    st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
                     
-                    if not vistoria_completa:
-                        st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
+                    if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
+                    passo = st.session_state.passo_vistoria
+                    nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
+                    
+                    if passo < 5: 
+                        st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
+                        img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
+                        if img_capturada:
+                            with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
+                                f_img.write(img_capturada.getbuffer())
+                            st.success(f"✅ Foto salva!")
+                            if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
+                                st.session_state.passo_vistoria += 1
+                                st.rerun()
+                        if passo > 0:
+                            if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
+                                st.session_state.passo_vistoria = 0; st.rerun()
+                                
+                    elif passo == 5: 
+                        st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
+                        st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
+                        canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
                         
-                        if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
-                        passo = st.session_state.passo_vistoria
-                        nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
-                        
-                        if passo < 5: # Fotos 0 a 4
-                            st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
-                            img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
-                            if img_capturada:
-                                with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
-                                    f_img.write(img_capturada.getbuffer())
-                                st.success(f"✅ Foto salva!")
-                                if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
+                        if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
+                            if canvas_result.image_data is not None:
+                                with st.spinner("Salvando assinatura e avisando a central..."):
+                                    img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
+                                    img = img.convert("RGB") 
+                                    img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
+                                    df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
+                                    salvar_dados(df_os, FILE_OS)
                                     st.session_state.passo_vistoria += 1
                                     st.rerun()
-                            if passo > 0:
-                                if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
-                                    st.session_state.passo_vistoria = 0; st.rerun()
-                                    
-                        elif passo == 5: # Assinatura com Canvas
-                            st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
-                            st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
-                            canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
-                            
-                            if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
-                                if canvas_result.image_data is not None:
-                                    with st.spinner("Salvando assinatura e avisando a central..."):
-                                        img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
-                                        img = img.convert("RGB") 
-                                        img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
-                                        
-                                        # MUDA O STATUS PARA "EM ROTA" E SALVA
-                                        df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
-                                        salvar_dados(df_os, FILE_OS)
-                                        
-                                        st.session_state.passo_vistoria += 1
-                                        st.rerun()
-                                else: st.error("Peça ao cliente para assinar antes de salvar.")
-                            if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
-                                st.session_state.passo_vistoria = 4; st.rerun()
-                        else: st.session_state.passo_vistoria = 0; st.rerun()
+                            else: st.error("Peça ao cliente para assinar antes de salvar.")
+                        if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
+                            st.session_state.passo_vistoria = 4; st.rerun()
+                
+                else:
+                    st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
                     
-                    else: # Vistoria Ok, Em Rota
-                        st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
-                        
-                        if st.button(f"🏁 CHEGUEI E DESCARREGUEI (Finalizar OS)", key=f"btn_fin_{os_row['id']}"):
-                            with st.spinner("Avisando a Central sobre a entrega..."):
-                                df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'FINALIZADO PELO PRESTADOR'
-                                sucesso, erro = salvar_dados(df_os, FILE_OS)
-                                if sucesso:
-                                    registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregou a OS {os_row['id']}.")
-                                    st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
-                                    time.sleep(2); st.rerun()
-                                else: st.error(f"Erro ao avisar central: {erro}")
-
-    with tab_perfil:
-        st.markdown("### ✏️ Atualizar Meus Dados")
-        df_prestador_atual = df_prestadores[df_prestadores['nome'].str.upper() == st.session_state.user.upper()]
-        if not df_prestador_atual.empty:
-            dados_p = df_prestador_atual.iloc[0]
-            with st.form("form_edit_perfil_prestador"):
-                col_p1, col_p2 = st.columns(2)
-                col_p1.text_input("Nome / Guincho (Fixo):", value=dados_p['nome'], disabled=True)
-                col_p2.text_input("CPF/CNPJ (Fixo):", value=dados_p.get('cpf', ''), disabled=True)
-                
-                servicos_atuais = [s.strip() for s in str(dados_p.get('tipo', '')).split(',') if s.strip() in OPCOES_SERVICOS]
-                if not servicos_atuais: servicos_atuais = ["Guincho"]
-                t_prest_lista = col_p1.multiselect("Tipos de Serviço Prestado:", options=OPCOES_SERVICOS, default=servicos_atuais)
-                tel_p_raw = col_p2.text_input("Telefone de Contato (Com DDD):", value=dados_p.get('telefone', ''))
-                
-                end_p_in = col_p1.text_input("Endereço / Base:", value=dados_p.get('endereco', ''))
-                cid_p_in = col_p2.text_input("Cidade Base:", value=dados_p.get('cidade', ''))
-                
-                cep_p_in = col_p1.text_input("CEP:", value=dados_p.get('cep', ''))
-                idx_est_p = ESTADOS_BR.index(str(dados_p.get('est', 'RN')).upper()) if str(dados_p.get('est', 'RN')).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
-                est_p = col_p2.selectbox("Estado (UF) de Atuação:", options=ESTADOS_BR, index=idx_est_p)
-                
-                senha_atual = dados_p.get('senha', '')
-                nova_senha = st.text_input("Senha de Acesso ao Aplicativo:", value=senha_atual, type="password")
-                
-                if st.form_submit_button("💾 Salvar Alterações no Perfil", use_container_width=True):
-                    if not t_prest_lista: st.error("Selecione ao menos um tipo de serviço prestado.")
-                    elif not nova_senha: st.error("A senha não pode ficar em branco.")
-                    else:
-                        with st.spinner("Sincronizando seus dados com a Central..."):
-                            df_prestadores.loc[df_prestadores['id'] == dados_p['id'], ['tipo', 'telefone', 'endereco', 'cidade', 'cep', 'est', 'senha']] = [", ".join(t_prest_lista), apenas_numeros_letras(tel_p_raw), end_p_in, cid_p_in.upper(), cep_p_in, est_p, nova_senha]
-                            sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
+                    if st.button(f"🏁 CHEGUEI E DESCARREGUEI (Finalizar OS)", key=f"btn_fin_{os_row['id']}"):
+                        with st.spinner("Avisando a Central sobre a entrega..."):
+                            df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'FINALIZADO PELO PRESTADOR'
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
                             if sucesso:
-                                registrar_atividade(st.session_state.user, "EDIÇÃO PERFIL PRESTADOR", "O prestador atualizou o próprio cadastro via APP.")
-                                st.success("✅ Perfil atualizado com sucesso!")
-                                time.sleep(1.5); st.rerun()
-                            else: st.error(f"⚠️ Erro de conexão com a nuvem: {erro}")
-        else:
-            st.error("Erro ao localizar seu cadastro na base de dados. Entre em contato com a Central AD.")
+                                registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregou a OS {os_row['id']}.")
+                                st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
+                                time.sleep(2); st.rerun()
+                            else: st.error(f"Erro ao avisar central: {erro}")
