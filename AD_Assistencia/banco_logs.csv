@@ -15,3 +15,4 @@ data_hora,usuario,acao,detalhes
 2026-07-04 00:26:57,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,Apagou prestador -> ID: 35 | Nome: ANDREA TESTE | Tipo: Guincho
 2026-07-04 00:27:25,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,"Apagou prestador -> ID: 34 | Nome: GERDIVAN LIMA ALVES/ANDRASEG | Tipo: Guincho, Pane Seca"
 2026-07-04 00:27:45,AD Rastreamento Veicular (ADMIN),EXCLUSÃO PRESTADOR,"Apagou prestador -> ID: 33 | Nome: GERDIVAN LIMA ALVES/ANDRASEG | Tipo: Guincho, Pane Seca"
+2026-07-08 19:14:42,JRS RASTREAMENTO,NOVO CLIENTE PARCEIRO,Cadastrou o cliente LITORAL ALIMENTOS
