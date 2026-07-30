@@ -189,7 +189,7 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR ATUALIZADO DE CÁLCULO FINANCEIRO (MODO ESCALONADO)
+# MOTOR ATUALIZADO DE CÁLCULO FINANCEIRO (MODO ESCALONADO - 5 DEGRAUS)
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais):
     tb_precos = {
@@ -197,10 +197,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         "3%": {"50km": 9.10, "100km": 13.15, "200km": 17.20, "Sem Limite": 17.20},
         "4%": {"50km": 11.80, "100km": 17.20, "200km": 22.60, "Sem Limite": 22.60},
         "5%": {"50km": 14.50, "100km": 21.25, "200km": 28.00, "Sem Limite": 28.00},
-        "6%": {"50km": 17.20, "100km": 25.30, "200km": 33.40, "Sem Limite": 33.40},
-        "7%": {"50km": 19.90, "100km": 29.35, "200km": 38.80, "Sem Limite": 38.80},
-        "8%": {"50km": 22.60, "100km": 33.40, "200km": 44.20, "Sem Limite": 44.20},
-        "9%": {"50km": 25.30, "100km": 37.45, "200km": 49.60, "Sem Limite": 49.60},
         "10%": {"50km": 28.00, "100km": 41.50, "200km": 55.00, "Sem Limite": 55.00},
     }
     
@@ -232,16 +228,12 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     total_os = len(os_filtro)
     taxa = (total_os / total_v * 100) if total_v > 0 else 0
     
-    faixa = "2%"
-    if taxa >= 26: faixa = "10%"
-    elif taxa >= 24: faixa = "9%"
-    elif taxa >= 22: faixa = "8%"
-    elif taxa >= 20: faixa = "7%"
-    elif taxa >= 18: faixa = "6%"
-    elif taxa >= 16: faixa = "5%"
-    elif taxa >= 14: faixa = "4%"
-    elif taxa >= 10: faixa = "3%"
-    elif taxa > 2.0: faixa = "3%"
+    # NOVA REGRA DOS 5 DEGRAUS
+    if taxa > 10.0: faixa = "10%"
+    elif taxa > 7.0: faixa = "5%"
+    elif taxa > 5.0: faixa = "4%"
+    elif taxa > 3.0: faixa = "3%"
+    else: faixa = "2%"
 
     fatura_total = 0.0
     if total_v > 0:
@@ -1556,7 +1548,7 @@ elif st.session_state.perfil == "Parceiro":
                     c1.write(f"**CPF:** {cli_data_p['cpf']}")
                     c1.write(f"**Telefone:** {cli_data_p['tel']}")
                     c1.write(f"**Plano Contratado:** {cli_data_p.get('plano_km', 'N/D')}")
-                    c2.write(f"**Endereço:** {cli_data_p.get('endereco', 'N/D')} - {cli_data_p.get('cidade', 'N/D')}/{cli_data_p.get('est', 'N/D')}")
+                    c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
                     status_color_p = "🟢 Ativo" if cli_data_p['status'] == 'Ativo' else "🔴 Inativo"
                     c2.write(f"**Status:** {status_color_p}")
                     st.write("**🚗 Frota Cadastrada:**")
