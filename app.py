@@ -71,7 +71,7 @@ def obter_ciclo_contrato_anual(data_cad_str):
         
     return inicio, fim
 
-# V8.0 INDICATOR
+# V8.1 INDICATOR
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -453,7 +453,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.1</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -722,7 +722,6 @@ if st.session_state.perfil == "Admin":
                 resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
                 tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
                 
-                # Se não houver telefone cadastrado para a empresa, usa o do cliente final como segurança
                 if not tel_responsavel:
                     tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
 
@@ -961,11 +960,8 @@ if st.session_state.perfil == "Admin":
                                 
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
-                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}")
-                                c1.write(f"**Telefone:** {cli_data['tel']}")
-                                c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
-                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
-                                c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
+                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
                                 c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
                                 st.write("**🚗 Frota Cadastrada:**")
                                 try:
@@ -1202,7 +1198,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.emp_inc_cnpj = cnpj_raw
             resp_in = c1.text_input("Nome do Responsável:", value=st.session_state.get("emp_inc_resp", ""))
             st.session_state.emp_inc_resp = resp_in
-            tel_e_raw = c2.text_input("Telefone da Central / Responsável:", value=st.session_state.get("emp_inc_tel", ""))
+            tel_e_raw = c2.text_input("Telefone da Central 24h:", value=st.session_state.get("emp_inc_tel", ""))
             st.session_state.emp_inc_tel = tel_e_raw
             mail_in = c1.text_input("E-mail corporativo:", value=st.session_state.get("emp_inc_mail", ""))
             st.session_state.emp_inc_mail = mail_in
@@ -1237,7 +1233,7 @@ if st.session_state.perfil == "Admin":
                     n_emp_in = c1.text_input("Nome da Empresa:", value=dados_e_ant['nome'])
                     cnpj_raw = c2.text_input("CNPJ da Empresa:", value=dados_e_ant['cnpj'])
                     resp_in = c1.text_input("Nome do Responsável:", value=dados_e_ant['responsavel'])
-                    tel_e_raw = c2.text_input("Telefone da Central / Responsável:", value=dados_e_ant['telefone'])
+                    tel_e_raw = c2.text_input("Telefone da Central 24h:", value=dados_e_ant['telefone'])
                     mail_in = c1.text_input("E-mail corporativo:", value=dados_e_ant['email'])
                     idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if str(dados_e_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e)
@@ -1969,12 +1965,19 @@ elif st.session_state.perfil == "Parceiro":
 
     with menu_parceiro[3]:
         st.subheader("🕵️ Auditoria e Histórico de Atividades")
-        st.write("Verifique com transparência as ações realizadas exclusivamente pelo seu usuário no sistema.")
+        st.write("Verifique com transparência as ações realizadas no sistema que envolvem a sua empresa.")
         
-        df_logs_parc = df_logs[df_logs['usuario'].str.upper() == st.session_state.user.upper()].copy()
+        # CORREÇÃO DA AUDITORIA DO PARCEIRO: Agora ele vê o que ele fez E o que o Admin fez pela empresa dele
+        empresa_upper = st.session_state.empresa_vinculada.upper()
+        user_upper = st.session_state.user.upper()
+        
+        df_logs_parc = df_logs[
+            (df_logs['usuario'].str.upper() == user_upper) | 
+            (df_logs['detalhes'].str.upper().str.contains(empresa_upper, na=False))
+        ].copy()
         
         if df_logs_parc.empty:
-            st.info("Nenhuma atividade registrada por sua empresa ainda.")
+            st.info("Nenhuma atividade registrada por sua empresa ou central ainda.")
         else:
             df_logs_parc = df_logs_parc.sort_values(by='data_hora', ascending=False)
             busca_log_p = st.text_input("🔍 Buscar no seu registro (ex: placa, nome):")
@@ -1991,6 +1994,7 @@ elif st.session_state.perfil == "Parceiro":
                 st.markdown(f"""
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
                     <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
+                    <p style="margin-bottom:5px;"><strong>👤 Feito por:</strong> {detalhe_row['usuario']}</p>
                     <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
                     <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p>
                 </div>
