@@ -13,7 +13,7 @@ import calendar
 from streamlit_drawable_canvas import st_canvas
 
 # ===================================================================================
-# FUNÇÕES GLOBAIS E ESTILIZAÇÃO
+# FUNÇÕES GLOBAIS E ESTILIZAÇÃO (NOVO VISUAL)
 # ===================================================================================
 def colorir_status(val):
     return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
@@ -44,32 +44,39 @@ def calcular_datas_ciclo(mes, ano, dia_venc_str):
     try:
         dt_venc_atual = datetime(ano, mes, dia_venc)
     except ValueError:
+        # Se for um dia inválido para o mês (ex: 30 de fev), ajusta pro último dia válido
         max_day = calendar.monthrange(ano, mes)[1]
         dt_venc_atual = datetime(ano, mes, max_day)
         
+    # O ciclo encerra sempre 2 dias ANTES do vencimento às 23:59:59
     dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
+    # O ciclo inicia exatos 30 dias corridos para trás à meia-noite (29 dias + o próprio dia = 30)
     dt_inicio = (dt_fim - timedelta(days=29)).replace(hour=0, minute=0, second=0)
+    
     return dt_inicio, dt_fim
 
 def obter_ciclo_contrato_anual(data_cad_str):
     try: dt_cad = datetime.strptime(str(data_cad_str)[:10], "%Y-%m-%d")
     except: dt_cad = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    
     hoje = datetime.now()
-    try: aniversario_este_ano = dt_cad.replace(year=hoje.year)
-    except ValueError: aniversario_este_ano = dt_cad.replace(year=hoje.year, day=28)
-        
-    if hoje < aniversario_este_ano:
+    
+    # Calcula o aniversário no ano atual
+    try: aniv_este_ano = dt_cad.replace(year=hoje.year)
+    except ValueError: aniv_este_ano = dt_cad.replace(year=hoje.year, day=28)
+    
+    if hoje < aniv_este_ano:
         try: inicio = dt_cad.replace(year=hoje.year - 1)
         except ValueError: inicio = dt_cad.replace(year=hoje.year - 1, day=28)
-        fim = aniversario_este_ano
+        fim = aniv_este_ano - timedelta(seconds=1)
     else:
-        inicio = aniversario_este_ano
+        inicio = aniv_este_ano
         try: fim = dt_cad.replace(year=hoje.year + 1)
         except ValueError: fim = dt_cad.replace(year=hoje.year + 1, day=28)
+        fim = fim - timedelta(seconds=1)
+        
     return inicio, fim
 
-# V5.0 INDICATOR
+# V6.0 INDICATOR
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -100,6 +107,7 @@ st.markdown("""
     .val-pendente { color: #f57f17; }
     .val-atrasado { color: #E53935; }
     .stTextInput input, .stSelectbox div[data-baseweb="select"], .stDateInput input { border-radius: 8px; border: 1px solid #d1d5db; padding: 10px; }
+    .stTextInput input:focus, .stSelectbox div[data-baseweb="select"]:focus-within { border-color: #7B2CBF; box-shadow: 0 0 0 1px #7B2CBF; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -119,7 +127,6 @@ FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
 FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
 
-def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
 def apenas_numeros_letras(texto): return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
@@ -146,13 +153,18 @@ def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
     return salvar_no_github(caminho)
 
+def gerar_botao_whatsapp(dados_dict):
+    texto = "🚨 *ERRO DE SINCRONIZAÇÃO - LANÇAMENTO MANUAL* 🚨\nOlá, Central AD!\nTentei salvar dados na plataforma, mas falhou. Seguem os dados:\n\n"
+    for k, v in dados_dict.items(): texto += f"*{k}:* {v}\n"
+    link = f"https://api.whatsapp.com/send?phone=5584999305771&text={urllib.parse.quote(texto)}"
+    st.markdown(f'<a href="{link}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 12px 24px; border: none; border-radius: 6px; width: 100%; margin-top: 10px;">📲 Informar Falha via WhatsApp</button></a>', unsafe_allow_html=True)
+
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
         df = pd.read_csv(caminho, dtype=str)
         df.columns = df.columns.str.strip().str.lower()
         for col in colunas_obrigatorias:
             if col not in df.columns: 
-                # Adiciona Data de Cadastro retroativa caso não exista na base
                 if col == 'data_cadastro': df[col] = datetime.now().strftime("%Y-%m-%d")
                 else: df[col] = "" 
         for col in df.columns:
@@ -173,7 +185,7 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO AUDITÁVEL
+# MOTOR DE CÁLCULO FINANCEIRO AUDITÁVEL E INTELIGENTE
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
@@ -358,20 +370,22 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
         <div style="margin-bottom: 20px;">
             <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3>
             <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo de apuração, conforme os degraus abaixo:</p>
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;">
                 <thead>
                     <tr style="background-color: #e0e0e0; color: #333;">
-                        <th style="border: 1px solid #ddd; padding: 6px;">Taxa de Acionamento (Uso)</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Faixa Enquadrada</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Custo Base Placa (Ex: 50km)</th>
+                        <th style="border: 1px solid #ddd; padding: 6px;">Taxa (Uso)</th>
+                        <th style="border: 1px solid #ddd; padding: 6px;">Faixa</th>
+                        <th style="border: 1px solid #ddd; padding: 6px;">Plano 50km</th>
+                        <th style="border: 1px solid #ddd; padding: 6px;">Plano 100km</th>
+                        <th style="border: 1px solid #ddd; padding: 6px;">Plano 200km/Sem Limite</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto Máximo)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 8,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,20</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 13,15</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 22,60</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 21,25</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 41,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 55,00</td></tr>
                 </tbody>
             </table>
         </div>
@@ -443,7 +457,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v5.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v6.0</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -571,7 +585,6 @@ if st.session_state.perfil == "Admin":
                             else:
                                 veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
                                 
-                                # Movemos a seleção do serviço para CIMA, para calcular os limites exatos antes de liberar
                                 tipo_servico = st.selectbox("Tipo de Serviço Solicitado:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"])
                                 motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
                                 
@@ -582,7 +595,6 @@ if st.session_state.perfil == "Admin":
                                 
                                 st.info(f"📍 Cliente: **{empresa_os.upper()}** | UF do Veículo: **{uf_cliente}**")
                                 
-                                # --- NOVO MOTOR DE AUDITORIA DE LIMITES POR PLACA (V5.0) ---
                                 dt_cad_str = str(cliente_dados.get('data_cadastro', ''))
                                 inicio_ciclo, fim_ciclo = obter_ciclo_contrato_anual(dt_cad_str)
                                 
@@ -594,7 +606,6 @@ if st.session_state.perfil == "Admin":
                                 
                                 placa_alvo_limpa = apenas_numeros_letras(placa_alvo).upper()
                                 
-                                # Filtra TODAS as OS desta placa específica no ANO DE CONTRATO ATUAL
                                 os_placa_ano = df_os_carencia[
                                     (df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_alvo_limpa) & 
                                     (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO'])) &
@@ -619,11 +630,9 @@ if st.session_state.perfil == "Admin":
                                 c_s4.metric("Borracheiro", f"{uso_atual['BORRACHEIRO']} / {LIMITES_ANUAIS['BORRACHEIRO']}")
                                 c_s5.metric("Chaveiro", f"{uso_atual['CHAVEIRO']} / {LIMITES_ANUAIS['CHAVEIRO']}")
                                 
-                                # VERIFICAÇÃO DE ESTOURO DE LIMITE
                                 tipo_servico_limpo = tipo_servico.upper()
                                 limite_excedido = uso_atual.get(tipo_servico_limpo, 0) >= LIMITES_ANUAIS.get(tipo_servico_limpo, 1)
 
-                                # VERIFICAÇÃO GLOBAL DOS 60 DIAS (INDEPENDENTE DO ANO)
                                 os_recentes = df_os_carencia[
                                     (df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_alvo_limpa) & 
                                     (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))
@@ -642,7 +651,6 @@ if st.session_state.perfil == "Admin":
                                 status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
                                 cliente_inativo = (status_cliente_os == 'Inativo')
 
-                                # EXIBIÇÃO DE ALERTAS RESTRITIVOS
                                 if cliente_inativo or bloqueio_60 or limite_excedido:
                                     st.write("---")
                                     if cliente_inativo:
@@ -911,15 +919,16 @@ if st.session_state.perfil == "Admin":
                                 
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
-                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}")
-                                c1.write(f"**Telefone:** {cli_data['tel']}")
-                                c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
-                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
-                                c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
+                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
                                 c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
+                                st.write("**🚗 Frota Cadastrada:**")
+                                try:
+                                    frota = json.loads(cli_data['veiculos_lista'])
+                                    st.table(pd.DataFrame(frota))
+                                except: st.write(f"{cli_data.get('vei', '')} - Placa: {cli_data.get('pla', '')}")
                                 st.write("---")
                                 
-                                # EXIBIÇÃO INTELIGENTE POR PLACA
                                 lista_frota_ficha = []
                                 if pd.notna(cli_data.get('veiculos_lista')) and cli_data['veiculos_lista']:
                                     try:
@@ -989,7 +998,6 @@ if st.session_state.perfil == "Admin":
             cep_in = c2.text_input("CEP:", value=st.session_state.get("cli_inc_cep", ""))
             st.session_state.cli_inc_cep = cep_in
             
-            # NOVO CAMPO: DATA DE CADASTRO
             cad_data = c1.date_input("Data de Cadastro (Início do Contrato):", value=datetime.now())
             
             st.write("---")
@@ -1575,7 +1583,7 @@ if st.session_state.perfil == "Admin":
                             else: st.error(f"Falha na nuvem: {erro}")
 
 # ===================================================================================
-# INTERFACE DE PARCEIROS RESTRITA (COM DETALHAR FATURA E EXTRATO PDF)
+# INTERFACE DE PARCEIROS RESTRITA
 # ===================================================================================
 elif st.session_state.perfil == "Parceiro":
     menu_parceiro = st.tabs(["👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"])
@@ -1660,7 +1668,6 @@ elif st.session_state.perfil == "Parceiro":
                         st.write(f"{cli_data_p.get('vei', '')} - Placa: {cli_data_p.get('pla', '')}")
                     st.write("---")
                     
-                    # EXIBIÇÃO INTELIGENTE POR PLACA
                     lista_frota_ficha = []
                     if pd.notna(cli_data_p.get('veiculos_lista')) and cli_data_p['veiculos_lista']:
                         try:
@@ -1861,7 +1868,6 @@ elif st.session_state.perfil == "Parceiro":
         if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
         else: st.dataframe(df_os_parceiro, use_container_width=True)
 
-    # ABA FINANCEIRO DO PARCEIRO
     with menu_parceiro[2]:
         st.subheader("💰 Gestão Financeira (Meu Faturamento)")
         st.write("Confira as faturas, o status dos pagamentos e o extrato detalhado da sua empresa.")
