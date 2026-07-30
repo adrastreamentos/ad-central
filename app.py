@@ -41,21 +41,17 @@ def calcular_datas_ciclo(mes, ano, dia_venc_str):
     try: dia_venc = int(dia_venc_str)
     except: dia_venc = 30
     
-    def clamp_date(y, m, d):
-        max_day = calendar.monthrange(y, m)[1]
-        return datetime(y, m, min(d, max_day))
+    try:
+        dt_venc_atual = datetime(ano, mes, dia_venc)
+    except ValueError:
+        # Corrige dias como 30 de fevereiro para o último dia válido
+        max_day = calendar.monthrange(ano, mes)[1]
+        dt_venc_atual = datetime(ano, mes, max_day)
         
-    dt_venc = clamp_date(ano, mes, dia_venc)
-    dt_fechamento = dt_venc - timedelta(days=2) # FECHA 2 DIAS ANTES DO VENCIMENTO
-    
-    if mes == 1: mes_ant, ano_ant = 12, ano - 1
-    else: mes_ant, ano_ant = mes - 1, ano
-        
-    dt_venc_ant = clamp_date(ano_ant, mes_ant, dia_venc)
-    dt_fechamento_ant = dt_venc_ant - timedelta(days=2)
-    
-    dt_inicio = (dt_fechamento_ant + timedelta(days=1)).replace(hour=0, minute=0, second=0)
-    dt_fim = dt_fechamento.replace(hour=23, minute=59, second=59)
+    # O fechamento é exatamente 2 dias antes do vencimento
+    dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
+    # O início retroage 30 dias corridos (29 dias + o próprio dia)
+    dt_inicio = (dt_fim - timedelta(days=29)).replace(hour=0, minute=0, second=0)
     
     return dt_inicio, dt_fim
 
@@ -96,7 +92,7 @@ st.markdown("""
 ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
 PLANOS_KM = ["Sem Limite", "50km", "100km", "150km", "200km", "300km", "400km", "500km"]
 OPCOES_SERVICOS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"]
-OPCOES_DIAS_VENC = ["5", "10", "15", "20", "25", "30"]
+OPCOES_DIAS_VENC = ["5", "10", "15", "20", "25", "30", "31"]
 
 FOLDER = "AD_Assistencia"
 os.makedirs(FOLDER, exist_ok=True)
@@ -310,6 +306,9 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
 
     str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
     str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
+    
+    # Gerador de nome aleatório para não guardar no cache do navegador
+    timestamp_arquivo = int(time.time())
 
     html_content = f"""
     <html>
@@ -318,7 +317,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
         <div style="text-align: center; margin-bottom: 20px;">
             <h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2>
             <p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p>
-            <p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência: {mes}/{ano}</p>
+            <p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p>
         </div>
         <hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;">
         
@@ -326,12 +325,12 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
             <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas):</strong> {dados_fat['total_os']} atendimentos</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Taxa de Acionamento Atingida no Mês:</strong> {dados_fat['taxa']:.1f}% (Enquadrado na <strong>Faixa {dados_fat['faixa']}</strong>)</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Taxa de Acionamento Atingida:</strong> {dados_fat['taxa']:.1f}% (Enquadrado na <strong>Faixa {dados_fat['faixa']}</strong>)</p>
         </div>
 
         <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS (Dentro do Ciclo)</h3>
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background-color: #7B2CBF; color: white;">
@@ -351,7 +350,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
 
         <div style="margin-bottom: 20px;">
             <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3>
-            <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo, conforme degraus abaixo:</p>
+            <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo de apuração, conforme os degraus abaixo:</p>
             <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center;">
                 <thead>
                     <tr style="background-color: #e0e0e0; color: #333;">
@@ -361,7 +360,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Até 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td></tr>
@@ -401,7 +400,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     </html>
     """
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
+    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
 # INICIALIZAÇÃO DE DADOS
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista']
@@ -437,7 +436,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">v3.0</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -563,43 +562,52 @@ if st.session_state.perfil == "Admin":
                             
                             if not lista_frota_opcoes: st.error("Este cliente não possui veículos cadastrados com placa válida.")
                             else:
-                                veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
+                                # --- NOVA LÓGICA VISUAL DE AUDITORIA DE 60 DIAS ---
+                                df_os_carencia = df_os.copy()
+                                df_os_carencia['data_hora'] = pd.to_datetime(df_os_carencia['data_hora'], errors='coerce')
+                                df_os_carencia = df_os_carencia.dropna(subset=['data_hora'])
+                                
+                                opcoes_veiculos_formatadas = []
+                                for veic in lista_frota_opcoes:
+                                    placa_raw = veic.split("Placa: ")[1].strip()
+                                    placa_limpa = apenas_numeros_letras(placa_raw).upper()
+                                    
+                                    # Filtra no banco removendo caracteres especiais da placa para bater exato
+                                    os_rec = df_os_carencia[(df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))]
+                                    
+                                    if not os_rec.empty:
+                                        ult_os = os_rec.sort_values('data_hora', ascending=False).iloc[0]
+                                        dias_passados = (obter_hora_brasilia().replace(tzinfo=None) - ult_os['data_hora']).days
+                                        if 0 <= dias_passados < 60:
+                                            opcoes_veiculos_formatadas.append(f"🚫 [BLOQUEADO - {60 - dias_passados} dias] {veic}")
+                                        else:
+                                            opcoes_veiculos_formatadas.append(f"✅ [LIBERADO] {veic}")
+                                    else:
+                                        opcoes_veiculos_formatadas.append(f"✅ [LIBERADO] {veic}")
+                                
+                                veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", opcoes_veiculos_formatadas)
+                                
+                                # Extrai a placa verdadeira independente da formatação do status
                                 placa_alvo = veiculo_sel_os.split("Placa: ")[1].strip().upper()
-                                veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
+                                veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].replace("🚫 [BLOQUEADO", "").replace("✅ [LIBERADO]", "").split("] ")[-1].strip()
+                                
                                 uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
                                 plano_km_os, cidade_cliente, cliente_id_os, cliente_nome_os, empresa_os = str(cliente_dados.get('plano_km', 'N/D')), str(cliente_dados.get('cidade', '')).strip().upper(), str(c_target_os), str(cliente_dados['nome']), str(cliente_dados['emp_name'])
+                                
                                 st.info(f"📍 Cliente: **{empresa_os.upper()}** | UF do Veículo: **{uf_cliente}**")
                                 st.markdown(f'<div class="info-box">🛣️ PLANO KM CONTRATADO: {plano_km_os}</div>', unsafe_allow_html=True)
                                 
                                 status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
-                                
-                                # --- RESTAURAÇÃO E CORREÇÃO INVIOLÁVEL DA TRAVA DOS 60 DIAS ---
-                                df_os_carencia = df_os.copy()
-                                df_os_carencia['data_hora'] = pd.to_datetime(df_os_carencia['data_hora'], errors='coerce')
-                                # Limpa formatação da placa para evitar erro de string (ABC-1234 vs ABC1234)
-                                df_os_carencia['placa_limpa'] = df_os_carencia['placa'].astype(str).str.replace("-", "").str.replace(" ", "").str.upper().str.strip()
-                                placa_alvo_limpa = placa_alvo.replace("-", "").replace(" ", "").upper().strip()
-                                
-                                os_recentes = df_os_carencia[(df_os_carencia['placa_limpa'] == placa_alvo_limpa) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))]
-                                
-                                bloqueio_60 = False
-                                msg_bloqueio = ""
-                                if not os_recentes.empty:
-                                    ultima_os = os_recentes.sort_values('data_hora', ascending=False).iloc[0]
-                                    if pd.notna(ultima_os['data_hora']):
-                                        dias_passados = (obter_hora_brasilia().replace(tzinfo=None) - ultima_os['data_hora']).days
-                                        if 0 <= dias_passados < 60:
-                                            bloqueio_60 = True
-                                            msg_bloqueio = f"Veículo utilizou assistência há {dias_passados} dias (Faltam {60 - dias_passados} dias para liberar no sistema)."
-
                                 cliente_inativo = (status_cliente_os == 'Inativo')
+                                bloqueio_60 = "🚫 [BLOQUEADO" in veiculo_sel_os
 
                                 if cliente_inativo or bloqueio_60:
                                     st.write("---")
                                     if cliente_inativo:
                                         st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento. O atendimento padrão está bloqueado.</span></div>', unsafe_allow_html=True)
                                     if bloqueio_60:
-                                        st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: REGRA DOS 60 DIAS 🚫<br><span style="font-size: 14px; font-weight: normal;">{msg_bloqueio}</span></div>', unsafe_allow_html=True)
+                                        dias_txt = veiculo_sel_os.split("BLOQUEADO - ")[1].split("]")[0]
+                                        st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: REGRA DOS 60 DIAS 🚫<br><span style="font-size: 14px; font-weight: normal;">Veículo utilizou assistência recentemente. Faltam {dias_txt} para liberar no sistema.</span></div>', unsafe_allow_html=True)
                                         
                                     liberar_excecao = st.checkbox("⚠️ Ciente do bloqueio: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra da Central)")
                                     if liberar_excecao: pronto_para_prosseguir = True
