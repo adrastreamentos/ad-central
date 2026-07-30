@@ -71,7 +71,7 @@ def obter_ciclo_contrato_anual(data_cad_str):
         
     return inicio, fim
 
-# V7.0 INDICATOR
+# V7.1 INDICATOR
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -283,6 +283,83 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str
     }
 
+# ===================================================================================
+# RELATÓRIOS PDF (OS E EXTRATO FINANCEIRO SUPER DETALHADO)
+# ===================================================================================
+def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
+    cards_html = ""
+    for _, row in df_os_rows.iterrows():
+        empresa_os = str(row['empresa']).upper()
+        df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == str(row['cliente_id'])]
+        tel_cliente, veiculo_cliente, placa_cliente, estado_cliente, plano_km_pdf = row.get('tel', ''), "", str(row.get('placa', '')).upper(), "RN", str(row.get('plano_km', 'N/D'))
+        valor_cobrado_pdf = str(row.get('valor_cobrado', '0,00'))
+        if not df_c_alvo.empty:
+            if not tel_cliente: tel_cliente = df_c_alvo.iloc[0].get('tel', '')
+            veiculo_cliente = str(df_c_alvo.iloc[0].get('vei', '')).upper()
+            if placa_cliente in ['NAN', 'N/D', '']: placa_cliente = str(df_c_alvo.iloc[0].get('pla', '')).upper()
+            estado_cliente = str(df_c_alvo.iloc[0].get('est', '')).upper()
+            if plano_km_pdf in ['N/D', 'nan']: plano_km_pdf = str(df_c_alvo.iloc[0].get('plano_km', 'N/D'))
+            
+        v_path = os.path.join(FOLDER, "vistorias", str(row['id']))
+        vistoria_html = ""
+        if os.path.exists(v_path):
+            vistoria_html += """
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #7B2CBF;">5. VISTORIA DE ENTRADA E ASSINATURA</h3>
+                <div style="display: table; width: 100%; border-collapse: collapse;">
+                    <div style="display: table-row;">
+            """
+            fotos = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+            col_count = 0
+            for f_name in fotos:
+                img_path = os.path.join(v_path, f"{f_name}.jpg")
+                if os.path.exists(img_path):
+                    with open(img_path, "rb") as img_f: b64 = base64.b64encode(img_f.read()).decode()
+                    if col_count > 0 and col_count % 3 == 0: vistoria_html += '</div><div style="display: table-row;">'
+                    vistoria_html += f"""
+                        <div style="display: table-cell; text-align: center; padding: 5px; width: 33%;">
+                            <p style="font-size: 11px; margin-bottom: 5px; font-weight: bold;">{f_name.replace('_', ' ')}</p>
+                            <img src="data:image/jpeg;base64,{b64}" style="width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #ccc; border-radius: 4px;" />
+                        </div>
+                    """
+                    col_count += 1
+            vistoria_html += "</div></div></div>"
+
+        cards_html += f"""
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto 40px auto; padding: 20px; background-color: #fff; page-break-inside: avoid;">
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h2 style="margin: 0; color: #7B2CBF; font-size: 22px; font-weight: bold;">{empresa_os} - ASSISTÊNCIA 24H</h2>
+                <p style="margin: 5px 0; font-style: italic; color: #555; font-size: 13px;">Relatorio de Atendimento - OS Numero: {row['id']}</p>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #333; margin-bottom: 20px;">
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">1. DETALHES DO CLIENTE E VÍNCULO</h3>
+                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['cliente_nome']).upper()} | Tel: {tel_cliente}</p>
+                <p style="margin: 3px 0; font-size: 13px;">Empresa: {empresa_os} | Franquia: <strong>{plano_km_pdf}</strong></p>
+                <p style="margin: 3px 0; font-size: 13px;">Valor do Serviço Particular: <strong>R$ {valor_cobrado_pdf}</strong></p>
+                <p style="margin: 3px 0; font-size: 13px;">Veículo: {veiculo_cliente} | Placa: {placa_cliente} | UF: {estado_cliente}</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">2. DADOS DO ACIONAMENTO E SERVIÇO</h3>
+                <p style="margin: 3px 0; font-size: 13px;">Serviço: {row['tipo_servico']} | Motivo: {str(row['motivo']).upper()}</p>
+                <p style="margin: 3px 0; font-size: 13px;">Horário: {row['data_hora']} | Status: {str(row.get('status_os', 'ENCERRADO')).upper()}</p>
+                <p style="margin: 3px 0; font-size: 13px;">Origem: {row['localizacao']} | Destino: {row['destino']}</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">3. PRESTADOR ACIONADO</h3>
+                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['prestador']).upper()}</p>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">4. DESCRIÇÃO</h3>
+                <p style="margin: 3px 0; font-size: 13px; background-color: #fcfcfc; padding: 5px;">{row['obs']}</p>
+            </div>
+            {vistoria_html}
+            <hr style="border: 0; border-top: 1px dashed #ccc; margin-top: 30px;">
+        </div>
+        """
+    b64 = base64.b64encode(f"<html><head><meta charset='utf-8'></head><body>{cards_html}</body></html>".encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório Completo (PDF)</button></a>'
+
 def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
     
@@ -453,7 +530,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v7.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v7.2</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -658,29 +735,52 @@ if st.session_state.perfil == "Admin":
                                         
                                     liberar_excecao = st.checkbox("⚠️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra da Central)")
                                     
-                                    # NOVA LÓGICA DE EXCEÇÃO COM WHATSAPP PIX
                                     if liberar_excecao: 
                                         valor_excecao = st.text_input("Valor do Serviço Extra a ser Cobrado (R$):", value="0,00")
                                         valor_cobrado_os = valor_excecao
                                         
+                                        # BUSCA INTELIGENTE DO TELEFONE DO RESPONSÁVEL NA EMPRESA PARCEIRA
                                         emp_match = df_empresas[df_empresas['nome'].str.upper() == empresa_os.upper()]
                                         resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
+                                        tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
                                         
+                                        # Fallback se a empresa não tiver telefone cadastrado: usa o telefone do próprio cliente
+                                        if not tel_responsavel:
+                                            tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
+
+                                        # CAPTURA O DESTINO E ORIGEM PREENCHIDOS ABAIXO PARA ENVIAR NO ZAP
+                                        # Como os campos de localizacao/destino aparecem logo abaixo, vamos deixar o botão de zap habilitado para disparar após preencher, ou usar variáveis vazias se clicar antes. 
+                                        # Para garantir que pegue o destino digitado, colocamos o input de origem/destino antes ou logo junto.
+                                        st.write("👇 *Preencha a origem e o destino abaixo para gerar a mensagem completa no WhatsApp:*")
+                                        
+                                        loc_temp = st.text_input("Endereço de Origem (Onde pegar o veículo):", value=st.session_state.os_loc_val)
+                                        st.session_state.os_loc_val = loc_temp
+                                        dest_temp = st.text_input("Endereço de Destino (Onde deixar o veículo):", value=st.session_state.os_dest_val)
+                                        st.session_state.os_dest_val = dest_temp
+
                                         texto_pix = (
                                             f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\n"
-                                            f"Olá! O acionamento para a placa *{placa_alvo}* foi liberado em caráter de exceção, autorizado pela empresa parceira *{empresa_os}* (Resp: {resp_empresa}).\n\n"
+                                            f"Olá *{resp_empresa}* (Empresa: *{empresa_os}*),\n\n"
+                                            f"O acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\n\n"
+                                            f"📋 *Detalhes completos do Atendimento:*\n"
+                                            f"• Serviço: {tipo_servico} ({motivo_servico})\n"
+                                            f"• Onde pegar (Origem): {loc_temp if loc_temp else 'A informar'}\n"
+                                            f"• Onde deixar (Destino): {dest_temp if dest_temp else 'A informar'}\n"
+                                            f"• Motivo da Exceção: Limite Anual / Carência de 60 dias atingida\n\n"
                                             f"💰 *Valor do Serviço Extra:* R$ {valor_excecao}\n\n"
-                                            f"⚠️ *Atenção:* O atendimento será iniciado *somente após o envio do comprovante* de pagamento deste valor.\n\n"
+                                            f"⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\n\n"
                                             f"📲 *DADOS PARA PAGAMENTO (PIX):*\n"
                                             f"Chave PIX (CNPJ): *55496449000184*\n"
                                             f"Nome: *AD Rastreamento Veicular LTDA*\n\n"
                                             f"Envie o comprovante nesta conversa para despacharmos o socorro imediatamente!"
                                         )
                                         
-                                        tel_cliente_limpo = apenas_numeros_letras(cliente_dados.get('tel', ''))
-                                        link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_cliente_limpo}&text={urllib.parse.quote(texto_pix)}"
+                                        link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
                                         
-                                        st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 8px 16px; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 10px; width: 100%;">💬 Enviar Cobrança PIX via WhatsApp para o Cliente</button></a>', unsafe_allow_html=True)
+                                        if not tel_responsavel:
+                                            st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
+                                        
+                                        st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin: 10px 0; width: 100%;">💬 Enviar Cobrança PIX com Trajeto para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
                                         
                                         pronto_para_prosseguir = True
                                     else: pronto_para_prosseguir = False
@@ -940,11 +1040,8 @@ if st.session_state.perfil == "Admin":
                                 
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
-                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}")
-                                c1.write(f"**Telefone:** {cli_data['tel']}")
-                                c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
-                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
-                                c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
+                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
                                 c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
                                 st.write("**🚗 Frota Cadastrada:**")
                                 try:
@@ -1181,7 +1278,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.emp_inc_cnpj = cnpj_raw
             resp_in = c1.text_input("Nome do Responsável:", value=st.session_state.get("emp_inc_resp", ""))
             st.session_state.emp_inc_resp = resp_in
-            tel_e_raw = c2.text_input("Telefone da Central 24h:", value=st.session_state.get("emp_inc_tel", ""))
+            tel_e_raw = c2.text_input("Telefone da Central / Responsável:", value=st.session_state.get("emp_inc_tel", ""))
             st.session_state.emp_inc_tel = tel_e_raw
             mail_in = c1.text_input("E-mail corporativo:", value=st.session_state.get("emp_inc_mail", ""))
             st.session_state.emp_inc_mail = mail_in
@@ -1216,7 +1313,7 @@ if st.session_state.perfil == "Admin":
                     n_emp_in = c1.text_input("Nome da Empresa:", value=dados_e_ant['nome'])
                     cnpj_raw = c2.text_input("CNPJ da Empresa:", value=dados_e_ant['cnpj'])
                     resp_in = c1.text_input("Nome do Responsável:", value=dados_e_ant['responsavel'])
-                    tel_e_raw = c2.text_input("Telefone da Central 24h:", value=dados_e_ant['telefone'])
+                    tel_e_raw = c2.text_input("Telefone da Central / Responsável:", value=dados_e_ant['telefone'])
                     mail_in = c1.text_input("E-mail corporativo:", value=dados_e_ant['email'])
                     idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if str(dados_e_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e)
@@ -1387,7 +1484,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
@@ -1849,7 +1946,7 @@ elif st.session_state.perfil == "Parceiro":
                         frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
                         frota_json_str_p = json.dumps(frota_limpa_p.to_dict('records'))
                         vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
-                        pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
+                        pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa.empty else ""
                         if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                         else:
                             with st.spinner("Atualizando cadastro na nuvem..."):
@@ -1970,6 +2067,7 @@ elif st.session_state.perfil == "Parceiro":
                 st.markdown(f"""
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
                     <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
+                    <p style="margin-bottom:5px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p>
                     <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
                     <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p>
                 </div>
