@@ -71,7 +71,7 @@ def obter_ciclo_contrato_anual(data_cad_str):
         
     return inicio, fim
 
-# V6.1 INDICATOR
+# V6.2 INDICATOR
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -122,7 +122,6 @@ FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
 FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
 
-# CORREÇÃO APLICADA: DEVOLUÇÃO DA FUNÇÃO DA HORA DE BRASÍLIA
 def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
 def apenas_numeros_letras(texto): return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
@@ -283,6 +282,83 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         'soma_adicionais': soma_adicionais, 'soma_excedentes': soma_excedentes,
         'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str
     }
+
+# ===================================================================================
+# RELATÓRIOS PDF (OS E EXTRATO FINANCEIRO SUPER DETALHADO)
+# ===================================================================================
+def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
+    cards_html = ""
+    for _, row in df_os_rows.iterrows():
+        empresa_os = str(row['empresa']).upper()
+        df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == str(row['cliente_id'])]
+        tel_cliente, veiculo_cliente, placa_cliente, estado_cliente, plano_km_pdf = row.get('tel', ''), "", str(row.get('placa', '')).upper(), "RN", str(row.get('plano_km', 'N/D'))
+        valor_cobrado_pdf = str(row.get('valor_cobrado', '0,00'))
+        if not df_c_alvo.empty:
+            if not tel_cliente: tel_cliente = df_c_alvo.iloc[0].get('tel', '')
+            veiculo_cliente = str(df_c_alvo.iloc[0].get('vei', '')).upper()
+            if placa_cliente in ['NAN', 'N/D', '']: placa_cliente = str(df_c_alvo.iloc[0].get('pla', '')).upper()
+            estado_cliente = str(df_c_alvo.iloc[0].get('est', '')).upper()
+            if plano_km_pdf in ['N/D', 'nan']: plano_km_pdf = str(df_c_alvo.iloc[0].get('plano_km', 'N/D'))
+            
+        v_path = os.path.join(FOLDER, "vistorias", str(row['id']))
+        vistoria_html = ""
+        if os.path.exists(v_path):
+            vistoria_html += """
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #7B2CBF;">5. VISTORIA DE ENTRADA E ASSINATURA</h3>
+                <div style="display: table; width: 100%; border-collapse: collapse;">
+                    <div style="display: table-row;">
+            """
+            fotos = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+            col_count = 0
+            for f_name in fotos:
+                img_path = os.path.join(v_path, f"{f_name}.jpg")
+                if os.path.exists(img_path):
+                    with open(img_path, "rb") as img_f: b64 = base64.b64encode(img_f.read()).decode()
+                    if col_count > 0 and col_count % 3 == 0: vistoria_html += '</div><div style="display: table-row;">'
+                    vistoria_html += f"""
+                        <div style="display: table-cell; text-align: center; padding: 5px; width: 33%;">
+                            <p style="font-size: 11px; margin-bottom: 5px; font-weight: bold;">{f_name.replace('_', ' ')}</p>
+                            <img src="data:image/jpeg;base64,{b64}" style="width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #ccc; border-radius: 4px;" />
+                        </div>
+                    """
+                    col_count += 1
+            vistoria_html += "</div></div></div>"
+
+        cards_html += f"""
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto 40px auto; padding: 20px; background-color: #fff; page-break-inside: avoid;">
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h2 style="margin: 0; color: #7B2CBF; font-size: 22px; font-weight: bold;">{empresa_os} - ASSISTÊNCIA 24H</h2>
+                <p style="margin: 5px 0; font-style: italic; color: #555; font-size: 13px;">Relatorio de Atendimento - OS Numero: {row['id']}</p>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #333; margin-bottom: 20px;">
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">1. DETALHES DO CLIENTE E VÍNCULO</h3>
+                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['cliente_nome']).upper()} | Tel: {tel_cliente}</p>
+                <p style="margin: 3px 0; font-size: 13px;">Empresa: {empresa_os} | Franquia: <strong>{plano_km_pdf}</strong></p>
+                <p style="margin: 3px 0; font-size: 13px;">Valor do Serviço Particular: <strong>R$ {valor_cobrado_pdf}</strong></p>
+                <p style="margin: 3px 0; font-size: 13px;">Veículo: {veiculo_cliente} | Placa: {placa_cliente} | UF: {estado_cliente}</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">2. DADOS DO ACIONAMENTO E SERVIÇO</h3>
+                <p style="margin: 3px 0; font-size: 13px;">Serviço: {row['tipo_servico']} | Motivo: {str(row['motivo']).upper()}</p>
+                <p style="margin: 3px 0; font-size: 13px;">Horário: {row['data_hora']} | Status: {str(row.get('status_os', 'ENCERRADO')).upper()}</p>
+                <p style="margin: 3px 0; font-size: 13px;">Origem: {row['localizacao']} | Destino: {row['destino']}</p>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">3. PRESTADOR ACIONADO</h3>
+                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['prestador']).upper()}</p>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">4. DESCRIÇÃO</h3>
+                <p style="margin: 3px 0; font-size: 13px; background-color: #fcfcfc; padding: 5px;">{row['obs']}</p>
+            </div>
+            {vistoria_html}
+            <hr style="border: 0; border-top: 1px dashed #ccc; margin-top: 30px;">
+        </div>
+        """
+    b64 = base64.b64encode(f"<html><head><meta charset='utf-8'></head><body>{cards_html}</body></html>".encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório Completo (PDF)</button></a>'
 
 def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
@@ -454,7 +530,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v6.1</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v6.2</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -916,8 +992,11 @@ if st.session_state.perfil == "Admin":
                                 
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
-                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
-                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
+                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}")
+                                c1.write(f"**Telefone:** {cli_data['tel']}")
+                                c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
+                                c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
                                 c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
                                 st.write("**🚗 Frota Cadastrada:**")
                                 try:
@@ -1360,7 +1439,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
