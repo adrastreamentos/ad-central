@@ -396,8 +396,29 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
             </table>
         </div>
 
+        <div style="margin-bottom: 20px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3>
+            <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota, conforme os degraus abaixo:</p>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center;">
+                <thead>
+                    <tr style="background-color: #e0e0e0; color: #333;">
+                        <th style="border: 1px solid #ddd; padding: 6px;">Taxa de Acionamento (Uso)</th>
+                        <th style="border: 1px solid #ddd; padding: 6px;">Faixa Enquadrada</th>
+                        <th style="border: 1px solid #ddd; padding: 6px;">Custo Base Placa (Ex: 50km)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Até 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr>
+                </tbody>
+            </table>
+        </div>
+
         <div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3>
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3>
             <p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p>
             <p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Rateio nos 20 primeiros): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p>
             <p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (Valor integral da faixa atual): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p>
@@ -406,7 +427,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
         </div>
         
         <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS COBRADAS</h3>
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS COBRADAS</h3>
             <p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p>
             <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                 <thead>
