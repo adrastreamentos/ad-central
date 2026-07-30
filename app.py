@@ -9,6 +9,7 @@ import requests
 import json
 from PIL import Image
 import numpy as np
+import calendar
 from streamlit_drawable_canvas import st_canvas
 
 # ===================================================================================
@@ -33,6 +34,30 @@ def get_ultimos_3_meses():
             y -= 1
         meses.append(f"{m:02d}/{y}")
     return meses
+
+def calcular_datas_ciclo(mes, ano, dia_venc_str):
+    mes = int(mes)
+    ano = int(ano)
+    try: dia_venc = int(dia_venc_str)
+    except: dia_venc = 30
+    
+    def clamp_date(y, m, d):
+        max_day = calendar.monthrange(y, m)[1]
+        return datetime(y, m, min(d, max_day))
+        
+    dt_venc = clamp_date(ano, mes, dia_venc)
+    dt_fechamento = dt_venc - timedelta(days=2) # FECHA 2 DIAS ANTES DO VENCIMENTO
+    
+    if mes == 1: mes_ant, ano_ant = 12, ano - 1
+    else: mes_ant, ano_ant = mes - 1, ano
+        
+    dt_venc_ant = clamp_date(ano_ant, mes_ant, dia_venc)
+    dt_fechamento_ant = dt_venc_ant - timedelta(days=2)
+    
+    dt_inicio = (dt_fechamento_ant + timedelta(days=1)).replace(hour=0, minute=0, second=0)
+    dt_fim = dt_fechamento.replace(hour=23, minute=59, second=59)
+    
+    return dt_inicio, dt_fim
 
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
@@ -71,6 +96,7 @@ st.markdown("""
 ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
 PLANOS_KM = ["Sem Limite", "50km", "100km", "150km", "200km", "300km", "400km", "500km"]
 OPCOES_SERVICOS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"]
+OPCOES_DIAS_VENC = ["5", "10", "15", "20", "25", "30"]
 
 FOLDER = "AD_Assistencia"
 os.makedirs(FOLDER, exist_ok=True)
@@ -138,9 +164,9 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO AUDITÁVEL (COM TRAVA DE PLACAS VAZIAS E INATIVOS)
+# MOTOR DE CÁLCULO FINANCEIRO AUDITÁVEL E INTELIGENTE (CICLO DE VENCIMENTO)
 # ===================================================================================
-def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais):
+def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
         "2%": {"50km": 6.90, "100km": 8.90, "200km": 11.20, "Sem Limite": 11.20},
         "3%": {"50km": 9.10, "100km": 13.15, "200km": 17.20, "Sem Limite": 17.20},
@@ -150,7 +176,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     }
     
     lista_veiculos_emp = []
-    # RIGOR: Filtra a empresa exata e APENAS clientes com status 'Ativo'
     df_cli_fat = df_clientes_atuais[(df_clientes_atuais['emp_name'].str.upper() == nome_empresa.upper()) & (df_clientes_atuais['status'].str.strip() == 'Ativo')]
     
     for _, r_cli in df_cli_fat.iterrows():
@@ -163,33 +188,38 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                 frota_json = json.loads(str(r_cli['veiculos_lista']))
                 for v in frota_json:
                     p = str(v.get('Placa', '')).strip().upper().replace("-","").replace(" ","")
-                    # RIGOR: Só entra se tiver ao menos 6 caracteres (Evita contar linhas em branco geradas pelo editor)
-                    if len(p) >= 6 and p not in ['NAN', 'N/D']:
-                        placas_extraidas.append(p)
+                    if len(p) >= 6 and p not in ['NAN', 'N/D']: placas_extraidas.append(p)
             except: pass
             
         if not placas_extraidas:
             p1 = str(r_cli.get('pla', '')).strip().upper().replace("-","").replace(" ","")
             if len(p1) >= 6 and p1 not in ['NAN', 'N/D']: placas_extraidas.append(p1)
-            
             p2 = str(r_cli.get('pla_2', '')).strip().upper().replace("-","").replace(" ","")
             if len(p2) >= 6 and p2 not in ['NAN', 'N/D']: placas_extraidas.append(p2)
             
         for placa in placas_extraidas:
             lista_veiculos_emp.append({
-                'placa': placa,
-                'plano': plano_limpo,
-                'cliente': str(r_cli.get('nome', '')).upper()
+                'placa': placa, 'plano': plano_limpo, 'cliente': str(r_cli.get('nome', '')).upper()
             })
 
     total_v = len(lista_veiculos_emp)
+    
+    # PEGA O DIA DE VENCIMENTO DA EMPRESA
+    dia_venc_str = '30'
+    emp_dados_fat = df_empresas_atuais[df_empresas_atuais['nome'].str.upper() == nome_empresa.upper()]
+    if not emp_dados_fat.empty:
+        dia_venc_str = str(emp_dados_fat.iloc[0].get('dia_vencimento', '30')).strip()
+        if not dia_venc_str or dia_venc_str == 'nan': dia_venc_str = '30'
+
+    # CALCULA O CICLO EXATO (Fecha 2 dias antes do vencimento)
+    dt_inicio, dt_fim = calcular_datas_ciclo(mes, ano, dia_venc_str)
     
     df_os_temp = df_os_atuais.copy()
     df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
     os_filtro = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & 
                            (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & 
-                           (df_os_temp['data_hora'].dt.month == int(mes)) & 
-                           (df_os_temp['data_hora'].dt.year == int(ano))]
+                           (df_os_temp['data_hora'] >= dt_inicio) & 
+                           (df_os_temp['data_hora'] <= dt_fim)]
     total_os = len(os_filtro)
     
     taxa = (total_os / total_v * 100) if total_v > 0 else 0
@@ -233,107 +263,26 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             fatura_total += (soma_adicionais + soma_excedentes)
             
     return {
-        'fatura_total': fatura_total,
-        'total_v': total_v,
-        'total_os': total_os,
-        'taxa': taxa,
-        'faixa': faixa,
-        'veiculos': lista_veiculos_emp,
+        'fatura_total': fatura_total, 'total_v': total_v, 'total_os': total_os,
+        'taxa': taxa, 'faixa': faixa, 'veiculos': lista_veiculos_emp,
         'valor_base': 300.00 if total_v > 0 else 0.0,
-        'soma_adicionais': soma_adicionais,
-        'soma_excedentes': soma_excedentes
+        'soma_adicionais': soma_adicionais, 'soma_excedentes': soma_excedentes,
+        'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str
     }
 
-# ===================================================================================
-# RELATÓRIOS PDF (OS E EXTRATO FINANCEIRO SUPER DETALHADO)
-# ===================================================================================
-def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
-    cards_html = ""
-    for _, row in df_os_rows.iterrows():
-        empresa_os = str(row['empresa']).upper()
-        df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == str(row['cliente_id'])]
-        tel_cliente, veiculo_cliente, placa_cliente, estado_cliente, plano_km_pdf = row.get('tel', ''), "", str(row.get('placa', '')).upper(), "RN", str(row.get('plano_km', 'N/D'))
-        valor_cobrado_pdf = str(row.get('valor_cobrado', '0,00'))
-        if not df_c_alvo.empty:
-            if not tel_cliente: tel_cliente = df_c_alvo.iloc[0].get('tel', '')
-            veiculo_cliente = str(df_c_alvo.iloc[0].get('vei', '')).upper()
-            if placa_cliente in ['NAN', 'N/D', '']: placa_cliente = str(df_c_alvo.iloc[0].get('pla', '')).upper()
-            estado_cliente = str(df_c_alvo.iloc[0].get('est', '')).upper()
-            if plano_km_pdf in ['N/D', 'nan']: plano_km_pdf = str(df_c_alvo.iloc[0].get('plano_km', 'N/D'))
-            
-        v_path = os.path.join(FOLDER, "vistorias", str(row['id']))
-        vistoria_html = ""
-        if os.path.exists(v_path):
-            vistoria_html += """
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #7B2CBF;">5. VISTORIA DE ENTRADA E ASSINATURA</h3>
-                <div style="display: table; width: 100%; border-collapse: collapse;">
-                    <div style="display: table-row;">
-            """
-            fotos = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-            col_count = 0
-            for f_name in fotos:
-                img_path = os.path.join(v_path, f"{f_name}.jpg")
-                if os.path.exists(img_path):
-                    with open(img_path, "rb") as img_f: b64 = base64.b64encode(img_f.read()).decode()
-                    if col_count > 0 and col_count % 3 == 0: vistoria_html += '</div><div style="display: table-row;">'
-                    vistoria_html += f"""
-                        <div style="display: table-cell; text-align: center; padding: 5px; width: 33%;">
-                            <p style="font-size: 11px; margin-bottom: 5px; font-weight: bold;">{f_name.replace('_', ' ')}</p>
-                            <img src="data:image/jpeg;base64,{b64}" style="width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #ccc; border-radius: 4px;" />
-                        </div>
-                    """
-                    col_count += 1
-            vistoria_html += "</div></div></div>"
-
-        cards_html += f"""
-        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto 40px auto; padding: 20px; background-color: #fff; page-break-inside: avoid;">
-            <div style="text-align: center; margin-bottom: 10px;">
-                <h2 style="margin: 0; color: #7B2CBF; font-size: 22px; font-weight: bold;">{empresa_os} - ASSISTÊNCIA 24H</h2>
-                <p style="margin: 5px 0; font-style: italic; color: #555; font-size: 13px;">Relatorio de Atendimento - OS Numero: {row['id']}</p>
-            </div>
-            <hr style="border: 0; border-top: 1px solid #333; margin-bottom: 20px;">
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">1. DETALHES DO CLIENTE E VÍNCULO</h3>
-                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['cliente_nome']).upper()} | Tel: {tel_cliente}</p>
-                <p style="margin: 3px 0; font-size: 13px;">Empresa: {empresa_os} | Franquia: <strong>{plano_km_pdf}</strong></p>
-                <p style="margin: 3px 0; font-size: 13px;">Valor do Serviço Particular: <strong>R$ {valor_cobrado_pdf}</strong></p>
-                <p style="margin: 3px 0; font-size: 13px;">Veículo: {veiculo_cliente} | Placa: {placa_cliente} | UF: {estado_cliente}</p>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">2. DADOS DO ACIONAMENTO E SERVIÇO</h3>
-                <p style="margin: 3px 0; font-size: 13px;">Serviço: {row['tipo_servico']} | Motivo: {str(row['motivo']).upper()}</p>
-                <p style="margin: 3px 0; font-size: 13px;">Horário: {row['data_hora']} | Status: {str(row.get('status_os', 'ENCERRADO')).upper()}</p>
-                <p style="margin: 3px 0; font-size: 13px;">Origem: {row['localizacao']} | Destino: {row['destino']}</p>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">3. PRESTADOR ACIONADO</h3>
-                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['prestador']).upper()}</p>
-            </div>
-            <div style="margin-bottom: 10px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">4. DESCRIÇÃO</h3>
-                <p style="margin: 3px 0; font-size: 13px; background-color: #fcfcfc; padding: 5px;">{row['obs']}</p>
-            </div>
-            {vistoria_html}
-            <hr style="border: 0; border-top: 1px dashed #ccc; margin-top: 30px;">
-        </div>
-        """
-    b64 = base64.b64encode(f"<html><head><meta charset='utf-8'></head><body>{cards_html}</body></html>".encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório Completo (PDF)</button></a>'
-
-def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais):
-    dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais)
+def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
+    dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
     
     df_os_temp = df_os_atuais.copy()
     df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
     os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & 
                         (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & 
-                        (df_os_temp['data_hora'].dt.month == int(mes)) & 
-                        (df_os_temp['data_hora'].dt.year == int(ano))].sort_values(by='data_hora')
+                        (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & 
+                        (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora')
 
     linhas_os_html = ""
     if os_mes.empty:
-        linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste mês.</td></tr>"
+        linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste ciclo.</td></tr>"
     else:
         for _, r in os_mes.iterrows():
             linhas_os_html += f"""
@@ -359,6 +308,9 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
         </tr>
         """
 
+    str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
+    str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
+
     html_content = f"""
     <html>
     <head><meta charset='utf-8'></head>
@@ -366,19 +318,20 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
         <div style="text-align: center; margin-bottom: 20px;">
             <h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2>
             <p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p>
-            <p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Referência: {mes}/{ano}</p>
+            <p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência: {mes}/{ano}</p>
         </div>
         <hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;">
         
         <div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL</h3>
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas):</strong> {dados_fat['total_os']} atendimentos</p>
             <p style="margin: 4px 0; font-size: 13px;"><strong>Taxa de Acionamento Atingida no Mês:</strong> {dados_fat['taxa']:.1f}% (Enquadrado na <strong>Faixa {dados_fat['faixa']}</strong>)</p>
         </div>
 
         <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO MÊS</h3>
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS (Dentro do Ciclo)</h3>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background-color: #7B2CBF; color: white;">
@@ -398,7 +351,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
 
         <div style="margin-bottom: 20px;">
             <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3>
-            <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota, conforme os degraus abaixo:</p>
+            <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo, conforme degraus abaixo:</p>
             <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: center;">
                 <thead>
                     <tr style="background-color: #e0e0e0; color: #333;">
@@ -408,7 +361,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Até 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td></tr>
@@ -452,7 +405,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
 
 # INICIALIZAÇÃO DE DADOS
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista']
-col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento']
+col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','cidade','cep','est','status','homologado','senha','frota']
 col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
 col_fin = ['id', 'mes_ano', 'empresa', 'valor_faturado', 'valor_pago', 'status']
@@ -620,10 +573,14 @@ if st.session_state.perfil == "Admin":
                                 
                                 status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
                                 
-                                # --- RESTAURANDO A TRAVA DOS 60 DIAS ---
+                                # --- RESTAURAÇÃO E CORREÇÃO INVIOLÁVEL DA TRAVA DOS 60 DIAS ---
                                 df_os_carencia = df_os.copy()
                                 df_os_carencia['data_hora'] = pd.to_datetime(df_os_carencia['data_hora'], errors='coerce')
-                                os_recentes = df_os_carencia[(df_os_carencia['placa'] == placa_alvo) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))]
+                                # Limpa formatação da placa para evitar erro de string (ABC-1234 vs ABC1234)
+                                df_os_carencia['placa_limpa'] = df_os_carencia['placa'].astype(str).str.replace("-", "").str.replace(" ", "").str.upper().str.strip()
+                                placa_alvo_limpa = placa_alvo.replace("-", "").replace(" ", "").upper().strip()
+                                
+                                os_recentes = df_os_carencia[(df_os_carencia['placa_limpa'] == placa_alvo_limpa) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))]
                                 
                                 bloqueio_60 = False
                                 msg_bloqueio = ""
@@ -633,7 +590,7 @@ if st.session_state.perfil == "Admin":
                                         dias_passados = (obter_hora_brasilia().replace(tzinfo=None) - ultima_os['data_hora']).days
                                         if 0 <= dias_passados < 60:
                                             bloqueio_60 = True
-                                            msg_bloqueio = f"Veículo utilizou assistência há {dias_passados} dias (Faltam {60 - dias_passados} dias para liberar)."
+                                            msg_bloqueio = f"Veículo utilizou assistência há {dias_passados} dias (Faltam {60 - dias_passados} dias para liberar no sistema)."
 
                                 cliente_inativo = (status_cliente_os == 'Inativo')
 
@@ -644,7 +601,7 @@ if st.session_state.perfil == "Admin":
                                     if bloqueio_60:
                                         st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: REGRA DOS 60 DIAS 🚫<br><span style="font-size: 14px; font-weight: normal;">{msg_bloqueio}</span></div>', unsafe_allow_html=True)
                                         
-                                    liberar_excecao = st.checkbox("⚠️ Ciente do bloqueio: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra)")
+                                    liberar_excecao = st.checkbox("⚠️ Ciente do bloqueio: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra da Central)")
                                     if liberar_excecao: pronto_para_prosseguir = True
                                     else: pronto_para_prosseguir = False
                                 else: pronto_para_prosseguir = True
@@ -885,7 +842,7 @@ if st.session_state.perfil == "Admin":
                             ano_a = datetime.now().year
                             
                             # RIGOR NO ADMIN: Usa o mesmo motor para mostrar a frota real ativa na tela
-                            dados_taxa_admin = calcular_fatura_parceiro(nome_emp, mes_a, ano_a, df_clientes, df_os)
+                            dados_taxa_admin = calcular_fatura_parceiro(nome_emp, mes_a, ano_a, df_clientes, df_os, df_empresas)
                             st.markdown(f"📊 **Base Apurada: {dados_taxa_admin['total_v']} veículos ativos | Taxa de Acionamento Atual: {dados_taxa_admin['taxa']:.1f}% (Faixa {dados_taxa_admin['faixa']})**")
                             
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
@@ -1114,14 +1071,19 @@ if st.session_state.perfil == "Admin":
             mail_in = c1.text_input("E-mail corporativo:", value=st.session_state.get("emp_inc_mail", ""))
             st.session_state.emp_inc_mail = mail_in
             est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
-            stat_e = c1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0)
-            modo_fat_e = st.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=0)
+            
+            # NOVO CAMPO: DIA DE VENCIMENTO DA EMPRESA
+            c_v1, c_v2, c_v3 = st.columns(3)
+            stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0)
+            modo_fat_e = c_v2.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=0)
+            dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=OPCOES_DIAS_VENC.index("30"))
+
             if st.button("Salvar Nova Empresa"):
                 cnpj = apenas_numeros_letras(cnpj_raw)
                 if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
                 else:
                     with st.spinner("Salvando empresa..."):
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e, 'modo_faturamento': modo_fat_e}])
+                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e, 'modo_faturamento': modo_fat_e, 'dia_vencimento': dia_v_e}])
                         df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
                         sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
                         if sucesso:
@@ -1145,15 +1107,23 @@ if st.session_state.perfil == "Admin":
                     mail_in = c1.text_input("E-mail corporativo:", value=dados_e_ant['email'])
                     idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if str(dados_e_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e)
-                    stat_e = c1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_e_ant['status'])))
+                    
+                    c_v1, c_v2, c_v3 = st.columns(3)
+                    stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_e_ant['status'])))
                     idx_modo_fat = ["Tradicional", "Performance (Escalonado)"].index(str(dados_e_ant.get('modo_faturamento', 'Tradicional'))) if str(dados_e_ant.get('modo_faturamento', 'Tradicional')) in ["Tradicional", "Performance (Escalonado)"] else 0
-                    modo_fat_e = st.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=idx_modo_fat)
+                    modo_fat_e = c_v2.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=idx_modo_fat)
+                    
+                    venc_ant = str(dados_e_ant.get('dia_vencimento', '30')).strip()
+                    if not venc_ant or venc_ant == 'nan': venc_ant = "30"
+                    idx_venc = OPCOES_DIAS_VENC.index(venc_ant) if venc_ant in OPCOES_DIAS_VENC else OPCOES_DIAS_VENC.index("30")
+                    dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=idx_venc)
+
                     if st.button("Salvar Alterações"):
                         cnpj = apenas_numeros_letras(cnpj_raw)
                         if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
                         else:
                             with st.spinner("Atualizando dados da empresa..."):
-                                df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status', 'modo_faturamento']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e, modo_fat_e]
+                                df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e, modo_fat_e, dia_v_e]
                                 sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
                                 if sucesso:
                                     registrar_atividade(st.session_state.user, "EDIÇÃO EMPRESA", f"Editou a empresa {n_emp_in.upper()}")
@@ -1305,7 +1275,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
@@ -1451,7 +1421,7 @@ if st.session_state.perfil == "Admin":
                     modo_fat = str(dados_emp_base.iloc[0].get('modo_faturamento', '')).strip()
                     try: mes_s, ano_s = mes_filtro.split('/')
                     except: mes_s, ano_s = datetime.now().month, datetime.now().year
-                    dados_fatura = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os)
+                    dados_fatura = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os, df_empresas)
                     taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
                     if modo_fat == 'Performance (Escalonado)':
                         df_fin_mes.at[idx, 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
@@ -1492,7 +1462,7 @@ if st.session_state.perfil == "Admin":
                 if emp_pdf_sel:
                     try: mes_p, ano_p = mes_filtro.split('/')
                     except: mes_p, ano_p = datetime.now().month, datetime.now().year
-                    st.markdown(gerar_pdf_extrato_detalhado(emp_pdf_sel, mes_p, ano_p, df_clientes, df_os), unsafe_allow_html=True)
+                    st.markdown(gerar_pdf_extrato_detalhado(emp_pdf_sel, mes_p, ano_p, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
 
             st.write("---")
             st.markdown("### ✏️ Editar Lançamento (Dar Baixa)")
@@ -1541,7 +1511,7 @@ elif st.session_state.perfil == "Parceiro":
         if not dados_emp_base_p0.empty:
             modo_fat_p0 = str(dados_emp_base_p0.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
 
-        dados_fat_resumo = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os)
+        dados_fat_resumo = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os, df_empresas)
 
         # EXIBIÇÃO CONDICIONAL DA ESTIMATIVA DE FATURA
         if modo_fat_p0 == 'Performance (Escalonado)':
@@ -1830,7 +1800,7 @@ elif st.session_state.perfil == "Parceiro":
                 
                 with st.expander("🔍 Detalhar Fatura no Aplicativo"):
                     st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período:** {mes_filtro_p}")
-                    dados_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os)
+                    dados_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas)
                     st.write(f"- **Total Exato de Veículos na Base (Ativos):** {dados_det['total_v']}")
                     st.write(f"- **Total de Chamados Encerrados:** {dados_det['total_os']}")
                     st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
@@ -1838,7 +1808,7 @@ elif st.session_state.perfil == "Parceiro":
                     st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a tabela de auditoria com todas as placas cobradas e a memória de cálculo.")
 
                 st.write("")
-                st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os), unsafe_allow_html=True)
+                st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
 
     with menu_parceiro[3]:
         st.subheader("🕵️ Auditoria e Histórico de Atividades")
