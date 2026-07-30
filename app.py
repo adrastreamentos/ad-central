@@ -44,17 +44,18 @@ def calcular_datas_ciclo(mes, ano, dia_venc_str):
     try:
         dt_venc_atual = datetime(ano, mes, dia_venc)
     except ValueError:
-        # Corrige dias como 30 de fevereiro para o último dia válido
+        # Se for um dia inválido para o mês (ex: 30 de fev), ajusta pro último dia válido
         max_day = calendar.monthrange(ano, mes)[1]
         dt_venc_atual = datetime(ano, mes, max_day)
         
-    # O fechamento é exatamente 2 dias antes do vencimento
+    # O ciclo encerra sempre 2 dias ANTES do vencimento às 23:59:59
     dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
-    # O início retroage 30 dias corridos (29 dias + o próprio dia)
+    # O ciclo inicia exatos 30 dias corridos para trás à meia-noite (29 dias + o próprio dia = 30)
     dt_inicio = (dt_fim - timedelta(days=29)).replace(hour=0, minute=0, second=0)
     
     return dt_inicio, dt_fim
 
+# INDICADOR V4.0 PARA VOCÊ AUDITAR SE O SERVIDOR STREAMLIT ATUALIZOU
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -172,6 +173,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     }
     
     lista_veiculos_emp = []
+    # RIGOR: Filtra a empresa exata e APENAS clientes com status 'Ativo'
     df_cli_fat = df_clientes_atuais[(df_clientes_atuais['emp_name'].str.upper() == nome_empresa.upper()) & (df_clientes_atuais['status'].str.strip() == 'Ativo')]
     
     for _, r_cli in df_cli_fat.iterrows():
@@ -194,9 +196,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             if len(p2) >= 6 and p2 not in ['NAN', 'N/D']: placas_extraidas.append(p2)
             
         for placa in placas_extraidas:
-            lista_veiculos_emp.append({
-                'placa': placa, 'plano': plano_limpo, 'cliente': str(r_cli.get('nome', '')).upper()
-            })
+            lista_veiculos_emp.append({'placa': placa, 'plano': plano_limpo, 'cliente': str(r_cli.get('nome', '')).upper()})
 
     total_v = len(lista_veiculos_emp)
     
@@ -207,7 +207,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         dia_venc_str = str(emp_dados_fat.iloc[0].get('dia_vencimento', '30')).strip()
         if not dia_venc_str or dia_venc_str == 'nan': dia_venc_str = '30'
 
-    # CALCULA O CICLO EXATO (Fecha 2 dias antes do vencimento)
+    # CALCULA O CICLO EXATO INTELIGENTE
     dt_inicio, dt_fim = calcular_datas_ciclo(mes, ano, dia_venc_str)
     
     df_os_temp = df_os_atuais.copy()
@@ -220,6 +220,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     
     taxa = (total_os / total_v * 100) if total_v > 0 else 0
     
+    # OS 5 DEGRAUS CADASTRADOS RIGOROSAMENTE
     if taxa > 10.0: faixa = "10%"
     elif taxa > 7.0: faixa = "5%"
     elif taxa > 5.0: faixa = "4%"
@@ -307,7 +308,6 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
     str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
     
-    # Gerador de nome aleatório para não guardar no cache do navegador
     timestamp_arquivo = int(time.time())
 
     html_content = f"""
@@ -436,7 +436,8 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">v3.0</span></div>', unsafe_allow_html=True)
+    # TÍTULO ALTERADO PARA V4.0 PARA AUDITORIA DE CACHE
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v4.0</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -562,35 +563,9 @@ if st.session_state.perfil == "Admin":
                             
                             if not lista_frota_opcoes: st.error("Este cliente não possui veículos cadastrados com placa válida.")
                             else:
-                                # --- NOVA LÓGICA VISUAL DE AUDITORIA DE 60 DIAS ---
-                                df_os_carencia = df_os.copy()
-                                df_os_carencia['data_hora'] = pd.to_datetime(df_os_carencia['data_hora'], errors='coerce')
-                                df_os_carencia = df_os_carencia.dropna(subset=['data_hora'])
-                                
-                                opcoes_veiculos_formatadas = []
-                                for veic in lista_frota_opcoes:
-                                    placa_raw = veic.split("Placa: ")[1].strip()
-                                    placa_limpa = apenas_numeros_letras(placa_raw).upper()
-                                    
-                                    # Filtra no banco removendo caracteres especiais da placa para bater exato
-                                    os_rec = df_os_carencia[(df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))]
-                                    
-                                    if not os_rec.empty:
-                                        ult_os = os_rec.sort_values('data_hora', ascending=False).iloc[0]
-                                        dias_passados = (obter_hora_brasilia().replace(tzinfo=None) - ult_os['data_hora']).days
-                                        if 0 <= dias_passados < 60:
-                                            opcoes_veiculos_formatadas.append(f"🚫 [BLOQUEADO - {60 - dias_passados} dias] {veic}")
-                                        else:
-                                            opcoes_veiculos_formatadas.append(f"✅ [LIBERADO] {veic}")
-                                    else:
-                                        opcoes_veiculos_formatadas.append(f"✅ [LIBERADO] {veic}")
-                                
-                                veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", opcoes_veiculos_formatadas)
-                                
-                                # Extrai a placa verdadeira independente da formatação do status
+                                veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
                                 placa_alvo = veiculo_sel_os.split("Placa: ")[1].strip().upper()
-                                veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].replace("🚫 [BLOQUEADO", "").replace("✅ [LIBERADO]", "").split("] ")[-1].strip()
-                                
+                                veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
                                 uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
                                 plano_km_os, cidade_cliente, cliente_id_os, cliente_nome_os, empresa_os = str(cliente_dados.get('plano_km', 'N/D')), str(cliente_dados.get('cidade', '')).strip().upper(), str(c_target_os), str(cliente_dados['nome']), str(cliente_dados['emp_name'])
                                 
@@ -598,16 +573,38 @@ if st.session_state.perfil == "Admin":
                                 st.markdown(f'<div class="info-box">🛣️ PLANO KM CONTRATADO: {plano_km_os}</div>', unsafe_allow_html=True)
                                 
                                 status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
+                                
+                                # --- NOVA AUDITORIA INVIOLÁVEL DOS 60 DIAS ---
+                                df_os_carencia = df_os.copy()
+                                df_os_carencia['data_hora'] = pd.to_datetime(df_os_carencia['data_hora'], errors='coerce')
+                                # Transforma a placa que o usuário escolheu em letras puras para cruzar com o banco
+                                placa_alvo_limpa = apenas_numeros_letras(placa_alvo).upper()
+                                
+                                # Pesquisa ignorando traços antigos salvos no banco
+                                os_recentes = df_os_carencia[
+                                    (df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_alvo_limpa) & 
+                                    (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))
+                                ]
+                                
+                                bloqueio_60 = False
+                                msg_bloqueio = ""
+                                if not os_recentes.empty:
+                                    ultima_os = os_recentes.sort_values('data_hora', ascending=False).iloc[0]
+                                    if pd.notna(ultima_os['data_hora']):
+                                        dias_passados = (obter_hora_brasilia().replace(tzinfo=None) - ultima_os['data_hora']).days
+                                        if 0 <= dias_passados < 60:
+                                            bloqueio_60 = True
+                                            data_ult = ultima_os['data_hora'].strftime("%d/%m/%Y")
+                                            msg_bloqueio = f"Este veículo utilizou um guincho há {dias_passados} dias (em {data_ult}). Faltam {60 - dias_passados} dias para liberar no sistema."
+
                                 cliente_inativo = (status_cliente_os == 'Inativo')
-                                bloqueio_60 = "🚫 [BLOQUEADO" in veiculo_sel_os
 
                                 if cliente_inativo or bloqueio_60:
                                     st.write("---")
                                     if cliente_inativo:
                                         st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento. O atendimento padrão está bloqueado.</span></div>', unsafe_allow_html=True)
                                     if bloqueio_60:
-                                        dias_txt = veiculo_sel_os.split("BLOQUEADO - ")[1].split("]")[0]
-                                        st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: REGRA DOS 60 DIAS 🚫<br><span style="font-size: 14px; font-weight: normal;">Veículo utilizou assistência recentemente. Faltam {dias_txt} para liberar no sistema.</span></div>', unsafe_allow_html=True)
+                                        st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: REGRA DOS 60 DIAS 🚫<br><span style="font-size: 14px; font-weight: bold;">{msg_bloqueio}</span></div>', unsafe_allow_html=True)
                                         
                                     liberar_excecao = st.checkbox("⚠️ Ciente do bloqueio: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra da Central)")
                                     if liberar_excecao: pronto_para_prosseguir = True
@@ -1283,7 +1280,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
@@ -1784,7 +1781,7 @@ elif st.session_state.perfil == "Parceiro":
         df_fin_parc = df_financeiro[(df_financeiro['mes_ano'] == mes_filtro_p) & (df_financeiro['empresa'].str.upper() == st.session_state.empresa_vinculada.upper())]
         
         if df_fin_parc.empty:
-            st.info("Nenhum faturamento gerado ou disponível para visualização neste mês ainda.")
+            st.info("Nenhum faturamento gerado ou disponível para visualização neste ciclo ainda.")
         else:
             row_fin = df_fin_parc.iloc[0]
             v_fat = str(row_fin.get('valor_faturado', '0.00'))
@@ -1807,13 +1804,14 @@ elif st.session_state.perfil == "Parceiro":
                 except: mes_sp, ano_sp = datetime.now().month, datetime.now().year
                 
                 with st.expander("🔍 Detalhar Fatura no Aplicativo"):
-                    st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período:** {mes_filtro_p}")
+                    st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período de Referência:** {mes_filtro_p}")
                     dados_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas)
+                    st.write(f"- **Ciclo de Apuração (30 dias):** {dados_det['dt_inicio'].strftime('%d/%m/%Y')} até {dados_det['dt_fim'].strftime('%d/%m/%Y')}")
                     st.write(f"- **Total Exato de Veículos na Base (Ativos):** {dados_det['total_v']}")
-                    st.write(f"- **Total de Chamados Encerrados:** {dados_det['total_os']}")
+                    st.write(f"- **Total de Chamados Encerrados no Ciclo:** {dados_det['total_os']}")
                     st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
                     st.write(f"- **Valor Final Calculado:** R$ {dados_det['fatura_total']:.2f}")
-                    st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a tabela de auditoria com todas as placas cobradas e a memória de cálculo.")
+                    st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a Tabela de Porcentagens e a auditoria com todas as placas cobradas.")
 
                 st.write("")
                 st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
