@@ -1435,11 +1435,15 @@ if st.session_state.perfil == "Admin":
             
             st.write("---")
             st.markdown("### 🖨️ Emitir Extrato Detalhado por Empresa (PDF)")
-            emp_pdf_sel = st.selectbox("Selecione a Empresa para Gerar o Extrato Detalhado:", lista_nomes_ativos)
-            if emp_pdf_sel:
-                try: mes_p, ano_p = mes_filtro.split('/')
-                except: mes_p, ano_p = datetime.now().month, datetime.now().year
-                st.markdown(gerar_pdf_extrato_detalhado(emp_pdf_sel, mes_p, ano_p, df_clientes, df_os), unsafe_allow_html=True)
+            empresas_escalonadas = empresas_ativas[empresas_ativas['modo_faturamento'] == 'Performance (Escalonado)']['nome'].str.upper().tolist()
+            if not empresas_escalonadas:
+                st.info("Nenhuma empresa ativa cadastrada no modo Performance (Escalonado).")
+            else:
+                emp_pdf_sel = st.selectbox("Selecione a Empresa (Modo Escalonado) para Gerar o Extrato Detalhado:", empresas_escalonadas)
+                if emp_pdf_sel:
+                    try: mes_p, ano_p = mes_filtro.split('/')
+                    except: mes_p, ano_p = datetime.now().month, datetime.now().year
+                    st.markdown(gerar_pdf_extrato_detalhado(emp_pdf_sel, mes_p, ano_p, df_clientes, df_os), unsafe_allow_html=True)
 
             st.write("---")
             st.markdown("### ✏️ Editar Lançamento (Dar Baixa)")
@@ -1490,10 +1494,19 @@ elif st.session_state.perfil == "Parceiro":
             total_os_mes_p = len(os_mes_atual_p)
         taxa_p = (total_os_mes_p / base_clientes_taxa_p * 100) if base_clientes_taxa_p > 0 else 0
         
-        # CÁLCULO ESTIMADO AO VIVO DA FATURA ATUAL DO PARCEIRO
-        fatura_est_p, _, _, _, _ = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os)
+        # IDENTIFICA O MODO DE FATURAMENTO DO PARCEIRO
+        dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
+        modo_fat_p0 = "Tradicional"
+        if not dados_emp_base_p0.empty:
+            modo_fat_p0 = str(dados_emp_base_p0.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
+
+        # EXIBIÇÃO CONDICIONAL DA ESTIMATIVA DE FATURA (APENAS ESCALONADO)
+        if modo_fat_p0 == 'Performance (Escalonado)':
+            fatura_est_p, _, _, _, _ = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os)
+            st.markdown(f"📊 **Base de {base_clientes_taxa_p} veículos | Taxa de acionamento: {taxa_p:.1f}% | 💰 Fatura Estimada (Mês Atual): R$ {fatura_est_p:.2f}**")
+        else:
+            st.markdown(f"📊 **De acordo com a base de {base_clientes_taxa_p} veículos, a taxa de acionamento neste mês é de {taxa_p:.1f}%.**")
         
-        st.markdown(f"📊 **Base de {base_clientes_taxa_p} veículos | Taxa de acionamento: {taxa_p:.1f}% | 💰 Fatura Estimada (Mês Atual): R$ {fatura_est_p:.2f}**")
         st.write("---")
         
         if "aba_part" not in st.session_state: st.session_state.aba_part = "Visualizar"
@@ -1729,11 +1742,17 @@ elif st.session_state.perfil == "Parceiro":
         if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
         else: st.dataframe(df_os_parceiro, use_container_width=True)
 
-    # ABA FINANCEIRO DO PARCEIRO COM BOTÃO DETALHAR E PDF
+    # ABA FINANCEIRO DO PARCEIRO COM BOTÃO DETALHAR E PDF (COM TRAVA DE MODO DE FATURAMENTO)
     with menu_parceiro[2]:
         st.subheader("💰 Gestão Financeira (Meu Faturamento)")
         st.write("Confira as faturas, o status dos pagamentos e o extrato detalhado da sua empresa.")
         
+        # Identifica o modo de faturamento do parceiro
+        dados_emp_base_p = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
+        modo_fat_p = "Tradicional"
+        if not dados_emp_base_p.empty:
+            modo_fat_p = str(dados_emp_base_p.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
+
         opcoes_meses_p = get_ultimos_3_meses()
         escolha_mes_p = st.selectbox("Mês de Referência:", opcoes_meses_p + ["Outro (Buscar por data)"], key="mes_parc")
         if escolha_mes_p == "Outro (Buscar por data)":
@@ -1761,20 +1780,22 @@ elif st.session_state.perfil == "Parceiro":
             bg_cor = "#e8f5e9" if status_f == "Pago" else "#ffebee" if status_f == "Atrasado" else "#fff8e1"
             c_f3.markdown(f'<div class="metric-card" style="border: 2px solid {cor_borda}; background-color: {bg_cor};"><div style="color: #666; font-size: 16px;">Status no Sistema Central</div><div class="metric-value" style="color: {cor_borda}; font-size: 28px;">{status_f.upper()}</div></div>', unsafe_allow_html=True)
 
-            st.write("---")
-            try: mes_sp, ano_sp = mes_filtro_p.split('/')
-            except: mes_sp, ano_sp = datetime.now().month, datetime.now().year
-            
-            with st.expander("🔍 Detalhar Fatura"):
-                st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período:** {mes_filtro_p}")
-                fatura_det, tot_v_det, tot_os_det, taxa_det, faixa_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os)
-                st.write(f"- **Total de Veículos na Base:** {tot_v_det}")
-                st.write(f"- **Total de Chamados Encerrados:** {tot_os_det}")
-                st.write(f"- **Taxa de Acionamento Atingida:** {taxa_det:.1f}% (Faixa: {faixa_det})")
-                st.write(f"- **Valor Final Calculado:** R$ {fatura_det:.2f}")
+            # EXIBIÇÃO CONDICIONAL DO EXTRATO E DETALHAMENTO
+            if modo_fat_p == 'Performance (Escalonado)':
+                st.write("---")
+                try: mes_sp, ano_sp = mes_filtro_p.split('/')
+                except: mes_sp, ano_sp = datetime.now().month, datetime.now().year
+                
+                with st.expander("🔍 Detalhar Fatura"):
+                    st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período:** {mes_filtro_p}")
+                    fatura_det, tot_v_det, tot_os_det, taxa_det, faixa_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os)
+                    st.write(f"- **Total de Veículos na Base:** {tot_v_det}")
+                    st.write(f"- **Total de Chamados Encerrados:** {tot_os_det}")
+                    st.write(f"- **Taxa de Acionamento Atingida:** {taxa_det:.1f}% (Faixa: {faixa_det})")
+                    st.write(f"- **Valor Final Calculado:** R$ {fatura_det:.2f}")
 
-            st.write("")
-            st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os), unsafe_allow_html=True)
+                st.write("")
+                st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os), unsafe_allow_html=True)
 
     with menu_parceiro[3]:
         st.subheader("🕵️ Auditoria e Histórico de Atividades")
