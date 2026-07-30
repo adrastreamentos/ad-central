@@ -71,7 +71,7 @@ def obter_ciclo_contrato_anual(data_cad_str):
         
     return inicio, fim
 
-# V7.1 INDICATOR
+# V8.0 INDICATOR
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -283,83 +283,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str
     }
 
-# ===================================================================================
-# RELATÓRIOS PDF (OS E EXTRATO FINANCEIRO SUPER DETALHADO)
-# ===================================================================================
-def exportar_pdf_html_oficial(df_os_rows, df_clientes_completo, titulo_pdf="relatorio_atendimento"):
-    cards_html = ""
-    for _, row in df_os_rows.iterrows():
-        empresa_os = str(row['empresa']).upper()
-        df_c_alvo = df_clientes_completo[df_clientes_completo['id'].astype(str) == str(row['cliente_id'])]
-        tel_cliente, veiculo_cliente, placa_cliente, estado_cliente, plano_km_pdf = row.get('tel', ''), "", str(row.get('placa', '')).upper(), "RN", str(row.get('plano_km', 'N/D'))
-        valor_cobrado_pdf = str(row.get('valor_cobrado', '0,00'))
-        if not df_c_alvo.empty:
-            if not tel_cliente: tel_cliente = df_c_alvo.iloc[0].get('tel', '')
-            veiculo_cliente = str(df_c_alvo.iloc[0].get('vei', '')).upper()
-            if placa_cliente in ['NAN', 'N/D', '']: placa_cliente = str(df_c_alvo.iloc[0].get('pla', '')).upper()
-            estado_cliente = str(df_c_alvo.iloc[0].get('est', '')).upper()
-            if plano_km_pdf in ['N/D', 'nan']: plano_km_pdf = str(df_c_alvo.iloc[0].get('plano_km', 'N/D'))
-            
-        v_path = os.path.join(FOLDER, "vistorias", str(row['id']))
-        vistoria_html = ""
-        if os.path.exists(v_path):
-            vistoria_html += """
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold; color: #7B2CBF;">5. VISTORIA DE ENTRADA E ASSINATURA</h3>
-                <div style="display: table; width: 100%; border-collapse: collapse;">
-                    <div style="display: table-row;">
-            """
-            fotos = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-            col_count = 0
-            for f_name in fotos:
-                img_path = os.path.join(v_path, f"{f_name}.jpg")
-                if os.path.exists(img_path):
-                    with open(img_path, "rb") as img_f: b64 = base64.b64encode(img_f.read()).decode()
-                    if col_count > 0 and col_count % 3 == 0: vistoria_html += '</div><div style="display: table-row;">'
-                    vistoria_html += f"""
-                        <div style="display: table-cell; text-align: center; padding: 5px; width: 33%;">
-                            <p style="font-size: 11px; margin-bottom: 5px; font-weight: bold;">{f_name.replace('_', ' ')}</p>
-                            <img src="data:image/jpeg;base64,{b64}" style="width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #ccc; border-radius: 4px;" />
-                        </div>
-                    """
-                    col_count += 1
-            vistoria_html += "</div></div></div>"
-
-        cards_html += f"""
-        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto 40px auto; padding: 20px; background-color: #fff; page-break-inside: avoid;">
-            <div style="text-align: center; margin-bottom: 10px;">
-                <h2 style="margin: 0; color: #7B2CBF; font-size: 22px; font-weight: bold;">{empresa_os} - ASSISTÊNCIA 24H</h2>
-                <p style="margin: 5px 0; font-style: italic; color: #555; font-size: 13px;">Relatorio de Atendimento - OS Numero: {row['id']}</p>
-            </div>
-            <hr style="border: 0; border-top: 1px solid #333; margin-bottom: 20px;">
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">1. DETALHES DO CLIENTE E VÍNCULO</h3>
-                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['cliente_nome']).upper()} | Tel: {tel_cliente}</p>
-                <p style="margin: 3px 0; font-size: 13px;">Empresa: {empresa_os} | Franquia: <strong>{plano_km_pdf}</strong></p>
-                <p style="margin: 3px 0; font-size: 13px;">Valor do Serviço Particular: <strong>R$ {valor_cobrado_pdf}</strong></p>
-                <p style="margin: 3px 0; font-size: 13px;">Veículo: {veiculo_cliente} | Placa: {placa_cliente} | UF: {estado_cliente}</p>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">2. DADOS DO ACIONAMENTO E SERVIÇO</h3>
-                <p style="margin: 3px 0; font-size: 13px;">Serviço: {row['tipo_servico']} | Motivo: {str(row['motivo']).upper()}</p>
-                <p style="margin: 3px 0; font-size: 13px;">Horário: {row['data_hora']} | Status: {str(row.get('status_os', 'ENCERRADO')).upper()}</p>
-                <p style="margin: 3px 0; font-size: 13px;">Origem: {row['localizacao']} | Destino: {row['destino']}</p>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">3. PRESTADOR ACIONADO</h3>
-                <p style="margin: 3px 0; font-size: 13px;">Nome: {str(row['prestador']).upper()}</p>
-            </div>
-            <div style="margin-bottom: 10px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">4. DESCRIÇÃO</h3>
-                <p style="margin: 3px 0; font-size: 13px; background-color: #fcfcfc; padding: 5px;">{row['obs']}</p>
-            </div>
-            {vistoria_html}
-            <hr style="border: 0; border-top: 1px dashed #ccc; margin-top: 30px;">
-        </div>
-        """
-    b64 = base64.b64encode(f"<html><head><meta charset='utf-8'></head><body>{cards_html}</body></html>".encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="{titulo_pdf}_{datetime.now().strftime("%Y%m%d")}.html" style="text-decoration: none;"><button style="background-color: #E53935; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🖨️ Baixar Relatório Completo (PDF)</button></a>'
-
 def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
     
@@ -530,7 +453,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v7.2</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.0</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -620,6 +543,9 @@ if st.session_state.perfil == "Admin":
         if "os_obs_val" not in st.session_state: st.session_state.os_obs_val = ""
 
         pronto_para_prosseguir = False
+        is_excecao_flag = False
+        valor_excecao_val = "0,00"
+        
         cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os, uf_cliente, cidade_cliente, valor_cobrado_os = "", "", "", "", "", "", "RN", "", "0,00"
 
         if tipo_atendimento == "Cliente Cadastrado":
@@ -736,52 +662,9 @@ if st.session_state.perfil == "Admin":
                                     liberar_excecao = st.checkbox("⚠️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra da Central)")
                                     
                                     if liberar_excecao: 
-                                        valor_excecao = st.text_input("Valor do Serviço Extra a ser Cobrado (R$):", value="0,00")
-                                        valor_cobrado_os = valor_excecao
-                                        
-                                        # BUSCA INTELIGENTE DO TELEFONE DO RESPONSÁVEL NA EMPRESA PARCEIRA
-                                        emp_match = df_empresas[df_empresas['nome'].str.upper() == empresa_os.upper()]
-                                        resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
-                                        tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
-                                        
-                                        # Fallback se a empresa não tiver telefone cadastrado: usa o telefone do próprio cliente
-                                        if not tel_responsavel:
-                                            tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
-
-                                        # CAPTURA O DESTINO E ORIGEM PREENCHIDOS ABAIXO PARA ENVIAR NO ZAP
-                                        # Como os campos de localizacao/destino aparecem logo abaixo, vamos deixar o botão de zap habilitado para disparar após preencher, ou usar variáveis vazias se clicar antes. 
-                                        # Para garantir que pegue o destino digitado, colocamos o input de origem/destino antes ou logo junto.
-                                        st.write("👇 *Preencha a origem e o destino abaixo para gerar a mensagem completa no WhatsApp:*")
-                                        
-                                        loc_temp = st.text_input("Endereço de Origem (Onde pegar o veículo):", value=st.session_state.os_loc_val)
-                                        st.session_state.os_loc_val = loc_temp
-                                        dest_temp = st.text_input("Endereço de Destino (Onde deixar o veículo):", value=st.session_state.os_dest_val)
-                                        st.session_state.os_dest_val = dest_temp
-
-                                        texto_pix = (
-                                            f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\n"
-                                            f"Olá *{resp_empresa}* (Empresa: *{empresa_os}*),\n\n"
-                                            f"O acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\n\n"
-                                            f"📋 *Detalhes completos do Atendimento:*\n"
-                                            f"• Serviço: {tipo_servico} ({motivo_servico})\n"
-                                            f"• Onde pegar (Origem): {loc_temp if loc_temp else 'A informar'}\n"
-                                            f"• Onde deixar (Destino): {dest_temp if dest_temp else 'A informar'}\n"
-                                            f"• Motivo da Exceção: Limite Anual / Carência de 60 dias atingida\n\n"
-                                            f"💰 *Valor do Serviço Extra:* R$ {valor_excecao}\n\n"
-                                            f"⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\n\n"
-                                            f"📲 *DADOS PARA PAGAMENTO (PIX):*\n"
-                                            f"Chave PIX (CNPJ): *55496449000184*\n"
-                                            f"Nome: *AD Rastreamento Veicular LTDA*\n\n"
-                                            f"Envie o comprovante nesta conversa para despacharmos o socorro imediatamente!"
-                                        )
-                                        
-                                        link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
-                                        
-                                        if not tel_responsavel:
-                                            st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
-                                        
-                                        st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin: 10px 0; width: 100%;">💬 Enviar Cobrança PIX com Trajeto para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
-                                        
+                                        valor_excecao_val = st.text_input("Valor do Serviço Extra a ser Cobrado (R$):", value="0,00")
+                                        valor_cobrado_os = valor_excecao_val
+                                        is_excecao_flag = True
                                         pronto_para_prosseguir = True
                                     else: pronto_para_prosseguir = False
                                 else: pronto_para_prosseguir = True
@@ -825,14 +708,52 @@ if st.session_state.perfil == "Admin":
                 prestador_final = prestador_limpo.split(" - Tel:")[0]
                 tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
             
-            localizacao = st.text_input("Endereço de Origem (Localização atual):", value=st.session_state.os_loc_val)
+            localizacao = st.text_input("Endereço de Origem (Onde pegar o veículo):", value=st.session_state.os_loc_val)
             st.session_state.os_loc_val = localizacao
-            destino = st.text_input("Endereço de Destino:", value=st.session_state.os_dest_val)
+            destino = st.text_input("Endereço de Destino (Onde deixar o veículo):", value=st.session_state.os_dest_val)
             st.session_state.os_dest_val = destino
             obs = st.text_area("Observações:", value=st.session_state.os_obs_val)
             st.session_state.os_obs_val = obs
             
-            if st.button("🚀 Iniciar Atendimento / Gerar OS"):
+            st.write("---")
+            
+            if is_excecao_flag:
+                emp_match = df_empresas[df_empresas['nome'].str.upper() == empresa_os.upper()]
+                resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
+                tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
+                
+                # Se não houver telefone cadastrado para a empresa, usa o do cliente final como segurança
+                if not tel_responsavel:
+                    tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
+
+                texto_pix = (
+                    f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\n"
+                    f"Olá *{resp_empresa}* (Empresa: *{empresa_os}*),\n\n"
+                    f"O acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\n\n"
+                    f"📋 *Detalhes completos do Atendimento:*\n"
+                    f"• Serviço: {tipo_servico} ({motivo_servico})\n"
+                    f"• Onde pegar (Origem): {localizacao if localizacao else 'A informar'}\n"
+                    f"• Onde deixar (Destino): {destino if destino else 'A informar'}\n"
+                    f"• Motivo da Exceção: Limite Anual ou Carência de 60 dias atingida\n\n"
+                    f"💰 *Valor do Serviço Extra:* R$ {valor_excecao_val}\n\n"
+                    f"⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\n\n"
+                    f"📲 *DADOS PARA PAGAMENTO (PIX):*\n"
+                    f"Chave PIX (CNPJ): *55496449000184*\n"
+                    f"Nome: *AD Rastreamento Veicular LTDA*\n\n"
+                    f"Envie o comprovante nesta conversa para despacharmos o socorro imediatamente!"
+                )
+                
+                link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
+                
+                if not tel_responsavel:
+                    st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
+                
+                st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%;">💬 1º PASSO: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
+                st.info("👆 Aguarde o envio do comprovante pelo WhatsApp. Só depois clique no botão abaixo para gerar a OS e enviar o guincho.")
+
+            texto_btn_os = "🚀 2º PASSO: Iniciar Atendimento / Gerar OS" if is_excecao_flag else "🚀 Iniciar Atendimento / Gerar OS"
+            
+            if st.button(texto_btn_os):
                 if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
                 else:
                     with st.spinner("Registrando OS e sincronizando com a nuvem..."):
@@ -1040,8 +961,11 @@ if st.session_state.perfil == "Admin":
                                 
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
-                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
-                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
+                                c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}")
+                                c1.write(f"**Telefone:** {cli_data['tel']}")
+                                c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
+                                c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
                                 c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
                                 st.write("**🚗 Frota Cadastrada:**")
                                 try:
@@ -1484,7 +1408,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
@@ -1946,7 +1870,7 @@ elif st.session_state.perfil == "Parceiro":
                         frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
                         frota_json_str_p = json.dumps(frota_limpa_p.to_dict('records'))
                         vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
-                        pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa.empty else ""
+                        pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
                         if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                         else:
                             with st.spinner("Atualizando cadastro na nuvem..."):
@@ -2067,7 +1991,6 @@ elif st.session_state.perfil == "Parceiro":
                 st.markdown(f"""
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
                     <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
-                    <p style="margin-bottom:5px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p>
                     <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
                     <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p>
                 </div>
