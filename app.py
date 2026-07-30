@@ -408,11 +408,11 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Até 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Tarifa Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td></tr>
                     <tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr>
+                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto Máximo)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr>
                 </tbody>
             </table>
         </div>
