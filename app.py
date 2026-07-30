@@ -619,10 +619,32 @@ if st.session_state.perfil == "Admin":
                                 st.markdown(f'<div class="info-box">🛣️ PLANO KM CONTRATADO: {plano_km_os}</div>', unsafe_allow_html=True)
                                 
                                 status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
-                                if status_cliente_os == 'Inativo':
+                                
+                                # --- RESTAURANDO A TRAVA DOS 60 DIAS ---
+                                df_os_carencia = df_os.copy()
+                                df_os_carencia['data_hora'] = pd.to_datetime(df_os_carencia['data_hora'], errors='coerce')
+                                os_recentes = df_os_carencia[(df_os_carencia['placa'] == placa_alvo) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))]
+                                
+                                bloqueio_60 = False
+                                msg_bloqueio = ""
+                                if not os_recentes.empty:
+                                    ultima_os = os_recentes.sort_values('data_hora', ascending=False).iloc[0]
+                                    if pd.notna(ultima_os['data_hora']):
+                                        dias_passados = (obter_hora_brasilia().replace(tzinfo=None) - ultima_os['data_hora']).days
+                                        if 0 <= dias_passados < 60:
+                                            bloqueio_60 = True
+                                            msg_bloqueio = f"Veículo utilizou assistência há {dias_passados} dias (Faltam {60 - dias_passados} dias para liberar)."
+
+                                cliente_inativo = (status_cliente_os == 'Inativo')
+
+                                if cliente_inativo or bloqueio_60:
                                     st.write("---")
-                                    st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento. O atendimento padrão está bloqueado.</span></div>', unsafe_allow_html=True)
-                                    liberar_excecao = st.checkbox("⚠️ Ciente do status: Liberar Atendimento por Exceção (Autorização manual)")
+                                    if cliente_inativo:
+                                        st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento. O atendimento padrão está bloqueado.</span></div>', unsafe_allow_html=True)
+                                    if bloqueio_60:
+                                        st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA VERMELHO: REGRA DOS 60 DIAS 🚫<br><span style="font-size: 14px; font-weight: normal;">{msg_bloqueio}</span></div>', unsafe_allow_html=True)
+                                        
+                                    liberar_excecao = st.checkbox("⚠️ Ciente do bloqueio: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra)")
                                     if liberar_excecao: pronto_para_prosseguir = True
                                     else: pronto_para_prosseguir = False
                                 else: pronto_para_prosseguir = True
@@ -1283,7 +1305,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
