@@ -37,3 +37,4 @@ data_hora,usuario,acao,detalhes
 2026-07-29 23:47:17,TESTE,ENTREGA DE VEÍCULO (PRESTADOR),Prestador entregou a OS 2.
 2026-07-29 23:47:35,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 2
 2026-07-30 01:48:54,AD Rastreamento Veicular (ADMIN),EDIÇÃO DE CLIENTE,Editou os dados do cliente WESLEY ONOFRE DE OLIVEIRA
+2026-07-30 01:55:45,AD Rastreamento Veicular (ADMIN),BAIXA FINANCEIRA,Editou o faturamento de AD RASTREAMENTO VEICULAR (07/2026) para status Atrasado
