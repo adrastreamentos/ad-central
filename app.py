@@ -44,15 +44,11 @@ def calcular_datas_ciclo(mes, ano, dia_venc_str):
     try:
         dt_venc_atual = datetime(ano, mes, dia_venc)
     except ValueError:
-        # Se for um dia inválido para o mês (ex: 30 de fev), ajusta pro último dia válido
         max_day = calendar.monthrange(ano, mes)[1]
         dt_venc_atual = datetime(ano, mes, max_day)
         
-    # O ciclo encerra sempre 2 dias ANTES do vencimento às 23:59:59
     dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
-    # O ciclo inicia exatos 30 dias corridos para trás à meia-noite (29 dias + o próprio dia = 30)
     dt_inicio = (dt_fim - timedelta(days=29)).replace(hour=0, minute=0, second=0)
-    
     return dt_inicio, dt_fim
 
 def obter_ciclo_contrato_anual(data_cad_str):
@@ -60,7 +56,6 @@ def obter_ciclo_contrato_anual(data_cad_str):
     except: dt_cad = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     hoje = datetime.now()
     
-    # Calcula o aniversário no ano atual
     try: aniv_este_ano = dt_cad.replace(year=hoje.year)
     except ValueError: aniv_este_ano = dt_cad.replace(year=hoje.year, day=28)
     
@@ -76,7 +71,7 @@ def obter_ciclo_contrato_anual(data_cad_str):
         
     return inicio, fim
 
-# V6.0 INDICATOR
+# V6.1 INDICATOR
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -127,6 +122,8 @@ FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
 FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
 
+# CORREÇÃO APLICADA: DEVOLUÇÃO DA FUNÇÃO DA HORA DE BRASÍLIA
+def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
 def apenas_numeros_letras(texto): return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
 
@@ -457,7 +454,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v6.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v6.1</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     
     with col_meio:
@@ -1363,7 +1360,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
