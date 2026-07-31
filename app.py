@@ -13,8 +13,61 @@ import calendar
 from streamlit_drawable_canvas import st_canvas
 
 # ===================================================================================
-# FUNÇÕES GLOBAIS E ESTILIZAÇÃO (NOVO VISUAL)
+# FUNÇÕES GLOBAIS E ESTILIZAÇÃO (NOVO VISUAL) E CORREÇÃO PDF
 # ===================================================================================
+
+def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
+    """Gera o código HTML para o PDF de uma OS específica e retorna o botão de download."""
+    if df_os.empty:
+        return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
+    
+    os_id = df_os['id'].iloc[0]
+    cliente = df_os['cliente_nome'].iloc[0]
+    placa = df_os['placa'].iloc[0]
+    data = df_os['data_hora'].iloc[0]
+    servico = df_os['tipo_servico'].iloc[0]
+    prestador = df_os['prestador'].iloc[0]
+    motivo = df_os.get('motivo', pd.Series(['N/D'])).iloc[0]
+    origem = df_os.get('localizacao', pd.Series(['N/D'])).iloc[0]
+    destino = df_os.get('destino', pd.Series(['N/D'])).iloc[0]
+    obs = df_os.get('obs', pd.Series(['N/D'])).iloc[0]
+    
+    html = f"""
+    <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Relatório de OS #{os_id}</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
+                h2 {{ color: #7B2CBF; border-bottom: 2px solid #E53935; padding-bottom: 5px; }}
+                .info-box {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #7B2CBF; }}
+                .info-box p {{ margin: 8px 0; font-size: 14px; }}
+                .destaque {{ font-weight: bold; color: #E53935; }}
+            </style>
+        </head>
+        <body>
+            <h2>Relatório Oficial de Ordem de Serviço - AD Rastreamento Veicular</h2>
+            <div class="info-box">
+                <p><strong>Número da OS:</strong> #{os_id}</p>
+                <p><strong>Data e Hora do Chamado:</strong> {data}</p>
+                <p><strong>Cliente:</strong> {cliente}</p>
+                <p><strong>Placa do Veículo:</strong> <span class="destaque">{placa}</span></p>
+                <p><strong>Tipo de Serviço:</strong> {servico} ({motivo})</p>
+                <p><strong>Origem (Localização):</strong> {origem}</p>
+                <p><strong>Destino:</strong> {destino}</p>
+                <p><strong>Observações:</strong> {obs}</p>
+                <p><strong>Prestador Acionado:</strong> {prestador}</p>
+            </div>
+            <br>
+            <p style="font-size: 12px; color: #666;"><em>Documento gerado automaticamente pelo sistema operacional Central AD 24h.</em></p>
+        </body>
+    </html>
+    """
+    
+    b64 = base64.b64encode(html.encode('utf-8')).decode()
+    href = f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 8px; font-weight: bold;">📥 Baixar Extrato de OS (PDF/HTML)</a>'
+    return href
+
 def colorir_status(val):
     return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
 
@@ -1004,7 +1057,7 @@ if st.session_state.perfil == "Admin":
                                             elif "ELÉTRICA" in serv_f or "ELETRICA" in serv_f: uso_atual_f["PANE ELÉTRICA"] += 1
                                             elif "BORRACHEIRO" in serv_f: uso_atual_f["BORRACHEIRO"] += 1
                                             elif "CHAVEIRO" in serv_f: uso_atual_f["CHAVEIRO"] += 1
-                                            
+                                        
                                     col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
                                     col_m1.metric("Guinchos", f"{uso_atual_f['GUINCHO']} / {LIMITES_ANUAIS['GUINCHO']}")
                                     col_m2.metric("Pane Seca", f"{uso_atual_f['PANE SECA']} / {LIMITES_ANUAIS['PANE SECA']}")
@@ -1758,7 +1811,7 @@ elif st.session_state.perfil == "Parceiro":
                         os_cli_p = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data_p['id']).strip()]
                         if os_cli_p.empty: st.info("Nenhum acionamento.")
                         else: st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
-                            
+                        
                     if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
                         st.session_state.sel_det_part = ""
                         if widget_key_part in st.session_state: del st.session_state[widget_key_part]
