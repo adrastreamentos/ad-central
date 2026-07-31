@@ -1,5 +1,3 @@
 id,data_hora,cliente_id,cliente_nome,placa,empresa,tipo_servico,motivo,prestador,localizacao,destino,obs,status_os,veiculo_desc,plano_km,valor_cobrado
 1,2026-06-30 23:11:58,49,VINICIUS LEANDRO ALVES,QGA9I19,AD RASTREAMENTO VEICULAR,Guincho,Outros,david | Telefone/Zap: 84999814428,supermecado queiroz,sao gonçalo,realizado,ENCERRADO,HONDA CG 150 FAN ESDI,Sem Limite,"0,00"
 2,2026-07-29 23:36:56,30,EDER BRUNO DA COSTA VIEIRA,PCI4I48,AD RASTREAMENTO VEICULAR,Guincho,Outros,TESTE | Telefone/Zap: 84999814428,"Av. Bacharel Tomaz Landim, 16",rua da tainha,teste teste teste.. isuagfvijbsg ipwupgreg ipwughig iwerghpireg erighprieog,ENCERRADO,RENAULT SANDERO EXPRESSION FLEX,200km,"0,00"
-3,2026-07-31 11:06:06,3,ANA CRISTINA DO NASCIMENTO VIANA,PGQ7113,AD RASTREAMENTO VEICULAR,Guincho,Outros,TESTE | Telefone/Zap: 84999814428,https://ad.rastrosystem.com.br/veiculo/monitoramento-temp/dckusw-a5c0079dcc6a935acedd-4-go0,"Avenida Jaguarari, 60.","CArro parou, não anda mais.
-Caiu uma roda.",ENCERRADO,RENAULT SANDERO AUTHENTIQUE,Sem Limite,"0,00"
