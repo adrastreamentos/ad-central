@@ -31,3 +31,4 @@ id,nome,cpf,tipo,telefone,endereco,cidade,cep,est,status,homologado,senha,frota
 31,ZN REBOQUE 24H O QUERIDINHO,57360994000174,Guincho,84991922112,Rua joana Eliza Fernandes,NATAL,59115565,RN,Ativo,Aprovado,Jr9298r*,[]
 32,GERDIVAN LIMA ALVES,02534470469,"Guincho, Pane Seca",11964523721,Rua Vera Da Silva Pereira,FERRAZ DE VASCONCELOS,08532468,SP,Ativo,Aprovado,474847,[]
 33,TESTE,123456789,Guincho,84999814428,rua da saudade,NATAL,59148550,RN,Ativo,Aprovado,admin,[]
+34,DAK GUINCHO COLINAS,123456789,Guincho,99992312303,BR-135 - Centro,COLINAS ,65690-000,MA,Ativo,Aprovado,admin,[]
