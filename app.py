@@ -228,7 +228,7 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO (V8.3 - TETO 70% + REGRA SUAVIZADA + FIX BUG 0%)
+# MOTOR DE CÁLCULO FINANCEIRO (V8.4 - TETO 70% + REGRA SUAVIZADA + FRANQUIAS)
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
@@ -306,6 +306,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
 
     fatura_total, soma_adicionais, soma_excedentes, valor_base = 0.0, 0.0, 0.0, 0.0
     qtd_exc_50, qtd_exc_100 = 0, 0
+    total_ac, acionamentos_isentos = 0, 0
     
     if modo_fat_calc == "Performance (Escalonado)":
         if total_v > 0:
@@ -393,7 +394,8 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         'taxa': taxa, 'faixa': faixa, 'veiculos': lista_veiculos_emp,
         'valor_base': valor_base, 'soma_adicionais': soma_adicionais, 'soma_excedentes': soma_excedentes,
         'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str,
-        'modo_fat': modo_fat_calc, 'qtd_exc_50': qtd_exc_50, 'qtd_exc_100': qtd_exc_100
+        'modo_fat': modo_fat_calc, 'qtd_exc_50': qtd_exc_50, 'qtd_exc_100': qtd_exc_100,
+        'total_ac': total_ac, 'acionamentos_isentos': acionamentos_isentos
     }
 
 def gerar_texto_resumo_plano(dados_fat):
@@ -420,12 +422,17 @@ def gerar_texto_resumo_plano(dados_fat):
         texto += f"💰 <b>Fatura Mapeada:</b> R$ {fat_tot:.2f}"
         return texto
     elif "Frota Pequena" in modo or "Até 40" in modo:
+        tot_ac = dados_fat.get('total_ac', 0)
+        isentos = dados_fat.get('acionamentos_isentos', 0)
+        
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
+        texto += f"🎟️ <b>Franquia Utilizada:</b> {tot_ac} de {isentos} guinchos<br>"
+        
         if exc > 0:
             detalhe_exc = []
             if dados_fat.get('qtd_exc_50', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_50']}x excedente(s) de 50km")
             if dados_fat.get('qtd_exc_100', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_100']}x excedente(s) de 100km")
-            texto += f"💰 <b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:#E53935; font-size:14px;'>(R$ {base:.2f} Fixo + R$ {exc:.2f} de {' e '.join(detalhe_exc)})</span>"
+            texto += f"💰 <b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:#E53935; font-size:14px;'>(R$ {base:.2f} Fixo + Adicional: R$ {exc:.2f} de {' e '.join(detalhe_exc)})</span>"
         else:
             texto += f"💰 <b>Fatura Atual: R$ {fat_tot:.2f}</b> <span style='color:#2e7d32; font-size:14px;'>(Uso operando perfeitamente dentro da franquia gratuita do pacote)</span>"
         return texto
@@ -457,9 +464,10 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
         secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso. Enquadramento atual de fechamento do cliente: <b>{dados_fat['faixa']}</b>.</p></div>"""
         secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Regra Suavizada para <=20): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (A partir do 21º): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
     elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
-        franquia_qtd = "4 acionamentos" if "Opção B" in modo_pdf else "2 acionamentos"
-        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p></div>"""
-        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Taxa de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
+        franquia_qtd = f"{dados_fat.get('acionamentos_isentos', 2)} guinchos"
+        uso_qtd = f"{dados_fat.get('total_ac', 0)} de {dados_fat.get('acionamentos_isentos', 2)}"
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Consumo no Ciclo:</strong> {uso_qtd} utilizados.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
     else:
         secao_tabela = ""
         secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>"""
@@ -506,7 +514,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.3</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.4</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal == "prestador":
