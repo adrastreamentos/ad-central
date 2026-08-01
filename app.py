@@ -13,6 +13,24 @@ import calendar
 from streamlit_drawable_canvas import st_canvas
 
 # ===================================================================================
+# CONSTANTES DE NEGÓCIO E PLANOS
+# ===================================================================================
+ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
+PLANOS_KM = ["Sem Limite", "50km", "100km", "150km", "200km", "300km", "400km", "500km"]
+OPCOES_SERVICOS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"]
+OPCOES_DIAS_VENC = ["5", "10", "15", "20", "25", "30", "31"]
+
+LIMITES_ANUAIS = {"GUINCHO": 2, "PANE SECA": 1, "PANE ELÉTRICA": 1, "BORRACHEIRO": 1, "CHAVEIRO": 1}
+
+MODOS_FATURAMENTO = [
+    "Tradicional", 
+    "Performance (Escalonado)", 
+    "Plano Frota Pequena (0 a 20 veículos)", 
+    "Plano Até 40 Veículos (Opção A - 2 Acionamentos)", 
+    "Plano Até 40 Veículos (Opção B - 4 Acionamentos)"
+]
+
+# ===================================================================================
 # FUNÇÕES GLOBAIS E ESTILIZAÇÃO (NOVO VISUAL) E CORREÇÃO PDF
 # ===================================================================================
 
@@ -159,13 +177,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
-PLANOS_KM = ["Sem Limite", "50km", "100km", "150km", "200km", "300km", "400km", "500km"]
-OPCOES_SERVICOS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"]
-OPCOES_DIAS_VENC = ["5", "10", "15", "20", "25", "30", "31"]
-
-LIMITES_ANUAIS = {"GUINCHO": 2, "PANE SECA": 1, "PANE ELÉTRICA": 1, "BORRACHEIRO": 1, "CHAVEIRO": 1}
-
 FOLDER = "AD_Assistencia"
 os.makedirs(FOLDER, exist_ok=True)
 FILE_CLIENTES = os.path.join(FOLDER, "banco_clientes.csv")
@@ -273,9 +284,12 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     total_v = len(lista_veiculos_emp)
     
     dia_venc_str = '30'
+    modo_fat_calc = "Tradicional"
     emp_dados_fat = df_empresas_atuais[df_empresas_atuais['nome'].str.upper() == nome_empresa.upper()]
+    
     if not emp_dados_fat.empty:
         dia_venc_str = str(emp_dados_fat.iloc[0].get('dia_vencimento', '30')).strip()
+        modo_fat_calc = str(emp_dados_fat.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
         if not dia_venc_str or dia_venc_str == 'nan': dia_venc_str = '30'
 
     dt_inicio, dt_fim = calcular_datas_ciclo(mes, ano, dia_venc_str)
@@ -296,44 +310,106 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     elif taxa > 3.0: faixa = "3%"
     else: faixa = "2%"
 
-    fatura_total, soma_adicionais, soma_excedentes = 0.0, 0.0, 0.0
+    fatura_total, soma_adicionais, soma_excedentes, valor_base = 0.0, 0.0, 0.0, 0.0
     
-    if total_v > 0:
-        fatura_total = 300.00 
-        if total_v <= 20:
-            for v in lista_veiculos_emp:
-                p_km = v['plano']
-                adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
-                soma_adicionais += adicional
-                v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco se houver)'
-                v['valor_cobrado'] = adicional
-            fatura_total += soma_adicionais
-        else:
-            primeiros_20 = lista_veiculos_emp[:20]
-            excedentes = lista_veiculos_emp[20:]
+    if modo_fat_calc == "Performance (Escalonado)":
+        if total_v > 0:
+            valor_base = 300.00
+            fatura_total = valor_base 
+            if total_v <= 20:
+                for v in lista_veiculos_emp:
+                    p_km = v['plano']
+                    adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
+                    soma_adicionais += adicional
+                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco se houver)'
+                    v['valor_cobrado'] = adicional
+                fatura_total += soma_adicionais
+            else:
+                primeiros_20 = lista_veiculos_emp[:20]
+                excedentes = lista_veiculos_emp[20:]
+                
+                for v in primeiros_20:
+                    p_km = v['plano']
+                    adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
+                    soma_adicionais += adicional
+                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco se houver)'
+                    v['valor_cobrado'] = adicional
+                    
+                for v in excedentes:
+                    p_km = v['plano']
+                    val_cheio = tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"])
+                    soma_excedentes += val_cheio
+                    v['tipo_cobranca'] = 'Excedente (Valor Integral da Tabela)'
+                    v['valor_cobrado'] = val_cheio
+                    
+                fatura_total += (soma_adicionais + soma_excedentes)
+
+    elif "Frota Pequena" in modo_fat_calc or "Até 40 Veículos" in modo_fat_calc:
+        if "Frota Pequena" in modo_fat_calc:
+            valor_base = 300.00
+            acionamentos_isentos = 2
+            taxa_50 = 50.00
+            taxa_100 = 85.00
+        elif "Opção A" in modo_fat_calc:
+            valor_base = 500.00
+            acionamentos_isentos = 2
+            taxa_50 = 50.00
+            taxa_100 = 85.00
+        elif "Opção B" in modo_fat_calc:
+            valor_base = 500.00
+            acionamentos_isentos = 4
+            taxa_50 = 80.00
+            taxa_100 = 130.00
+
+        fatura_total = valor_base
+        
+        acionamentos_50 = 0
+        acionamentos_100 = 0
+        for _, o in os_filtro.iterrows():
+            p_km = str(o.get('plano_km', '50km')).strip()
+            if '50' in p_km: acionamentos_50 += 1
+            else: acionamentos_100 += 1
+                
+        total_ac = acionamentos_50 + acionamentos_100
+        
+        if total_ac > acionamentos_isentos:
+            isentos_restantes = acionamentos_isentos
+            pagantes_50 = 0
+            pagantes_100 = 0
             
-            for v in primeiros_20:
-                p_km = v['plano']
-                adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
-                soma_adicionais += adicional
-                v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco se houver)'
-                v['valor_cobrado'] = adicional
+            # Prioriza consumir os de 50km como gratuitos, deixando os de 100km (mais caros) para faturar
+            if acionamentos_50 >= isentos_restantes:
+                pagantes_50 = acionamentos_50 - isentos_restantes
+                pagantes_100 = acionamentos_100
+            else:
+                isentos_restantes -= acionamentos_50
+                pagantes_50 = 0
+                pagantes_100 = acionamentos_100 - isentos_restantes
                 
-            for v in excedentes:
-                p_km = v['plano']
-                val_cheio = tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"])
-                soma_excedentes += val_cheio
-                v['tipo_cobranca'] = 'Excedente (Valor Integral da Tabela)'
-                v['valor_cobrado'] = val_cheio
-                
-            fatura_total += (soma_adicionais + soma_excedentes)
+            valor_exc_50 = pagantes_50 * taxa_50
+            valor_exc_100 = pagantes_100 * taxa_100
+            soma_excedentes = valor_exc_50 + valor_exc_100
+            fatura_total += soma_excedentes
+            
+        for v in lista_veiculos_emp:
+            v['tipo_cobranca'] = 'Incluso no Pacote (Plano Fixo)'
+            v['valor_cobrado'] = 0.0
+
+    else:
+        # Tradicional / Manual
+        valor_base = 0.0
+        fatura_total = 0.0
+        for v in lista_veiculos_emp:
+            v['tipo_cobranca'] = 'Tradicional / Manual'
+            v['valor_cobrado'] = 0.0
             
     return {
         'fatura_total': fatura_total, 'total_v': total_v, 'total_os': total_os,
         'taxa': taxa, 'faixa': faixa, 'veiculos': lista_veiculos_emp,
-        'valor_base': 300.00 if total_v > 0 else 0.0,
+        'valor_base': valor_base,
         'soma_adicionais': soma_adicionais, 'soma_excedentes': soma_excedentes,
-        'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str
+        'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str,
+        'modo_fat': modo_fat_calc
     }
 
 def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
@@ -377,45 +453,11 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
     str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
     timestamp_arquivo = int(time.time())
+    
+    modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
 
-    html_content = f"""
-    <html>
-    <head><meta charset='utf-8'></head>
-    <body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;">
-        <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2>
-            <p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p>
-            <p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p>
-        </div>
-        <hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;">
-        
-        <div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Taxa de Acionamento Atingida:</strong> {dados_fat['taxa']:.1f}% (Enquadrado na <strong>Faixa {dados_fat['faixa']}</strong>)</p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background-color: #7B2CBF; color: white;">
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {linhas_os_html}
-                </tbody>
-            </table>
-        </div>
-
+    if modo_pdf == "Performance (Escalonado)":
+        secao_tabela = f"""
         <div style="margin-bottom: 20px;">
             <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3>
             <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo de apuração, conforme os degraus abaixo:</p>
@@ -438,7 +480,8 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
                 </tbody>
             </table>
         </div>
-
+        """
+        secao_memoria = f"""
         <div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;">
             <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3>
             <p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p>
@@ -447,9 +490,78 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
             <hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;">
             <p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p>
         </div>
+        """
+    elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
+        franquia_qtd = "4 acionamentos" if "Opção B" in modo_pdf else "2 acionamentos"
+        secao_tabela = f"""
+        <div style="margin-bottom: 20px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3>
+            <p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p>
+            <p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p>
+            <p style="margin: 4px 0 10px 0; font-size: 13px; color: #666;">Acionamentos que ultrapassam a franquia do pacote são cobrados como taxa de excedente por evento de acordo com a quilometragem acionada.</p>
+        </div>
+        """
+        secao_memoria = f"""
+        <div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3>
+            <p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p>
+            <p style="margin: 4px 0; font-size: 13px;">(+) Taxa de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p>
+            <hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;">
+            <p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p>
+        </div>
+        """
+    else:
+        secao_tabela = ""
+        secao_memoria = f"""
+        <div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3>
+            <p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido e inserido manualmente pelo administrador financeiro.</p>
+        </div>
+        """
+
+    html_content = f"""
+    <html>
+    <head><meta charset='utf-8'></head>
+    <body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2>
+            <p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p>
+            <p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p>
+        </div>
+        <hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;">
+        
+        <div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p>
+            <p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #7B2CBF; color: white;">
+                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th>
+                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {linhas_os_html}
+                </tbody>
+            </table>
+        </div>
+
+        {secao_tabela}
+        {secao_memoria}
         
         <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS COBRADAS</h3>
+            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3>
             <p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p>
             <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                 <thead>
@@ -1265,7 +1377,7 @@ if st.session_state.perfil == "Admin":
             
             c_v1, c_v2, c_v3 = st.columns(3)
             stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0)
-            modo_fat_e = c_v2.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=0)
+            modo_fat_e = c_v2.selectbox("Modo de Faturamento:", MODOS_FATURAMENTO, index=0)
             dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=OPCOES_DIAS_VENC.index("30"))
 
             if st.button("Salvar Nova Empresa"):
@@ -1299,8 +1411,8 @@ if st.session_state.perfil == "Admin":
                     
                     c_v1, c_v2, c_v3 = st.columns(3)
                     stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_e_ant['status'])))
-                    idx_modo_fat = ["Tradicional", "Performance (Escalonado)"].index(str(dados_e_ant.get('modo_faturamento', 'Tradicional'))) if str(dados_e_ant.get('modo_faturamento', 'Tradicional')) in ["Tradicional", "Performance (Escalonado)"] else 0
-                    modo_fat_e = c_v2.selectbox("Modo de Faturamento:", ["Tradicional", "Performance (Escalonado)"], index=idx_modo_fat)
+                    idx_modo_fat = MODOS_FATURAMENTO.index(str(dados_e_ant.get('modo_faturamento', 'Tradicional'))) if str(dados_e_ant.get('modo_faturamento', 'Tradicional')) in MODOS_FATURAMENTO else 0
+                    modo_fat_e = c_v2.selectbox("Modo de Faturamento:", MODOS_FATURAMENTO, index=idx_modo_fat)
                     
                     venc_ant = str(dados_e_ant.get('dia_vencimento', '30')).strip()
                     if not venc_ant or venc_ant == 'nan': venc_ant = "30"
@@ -1611,7 +1723,8 @@ if st.session_state.perfil == "Admin":
                     except: mes_s, ano_s = datetime.now().month, datetime.now().year
                     dados_fatura = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os, df_empresas)
                     taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
-                    if modo_fat == 'Performance (Escalonado)':
+                    
+                    if modo_fat != 'Tradicional':
                         df_fin_mes.at[idx, 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
                         df_financeiro.loc[df_financeiro['id'] == r_fin['id'], 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
                 else: taxas_exibicao.append("0.0%")
@@ -1642,11 +1755,11 @@ if st.session_state.perfil == "Admin":
             
             st.write("---")
             st.markdown("### 🖨️ Emitir Extrato Detalhado por Empresa (PDF)")
-            empresas_escalonadas = empresas_ativas[empresas_ativas['modo_faturamento'] == 'Performance (Escalonado)']['nome'].str.upper().tolist()
+            empresas_escalonadas = empresas_ativas[empresas_ativas['modo_faturamento'] != 'Tradicional']['nome'].str.upper().tolist()
             if not empresas_escalonadas:
-                st.info("Nenhuma empresa ativa cadastrada no modo Performance (Escalonado).")
+                st.info("Nenhuma empresa ativa cadastrada nos modos de faturamento automáticos.")
             else:
-                emp_pdf_sel = st.selectbox("Selecione a Empresa (Modo Escalonado) para Gerar o Extrato Detalhado:", empresas_escalonadas)
+                emp_pdf_sel = st.selectbox("Selecione a Empresa (Modos Automáticos) para Gerar o Extrato Detalhado:", empresas_escalonadas)
                 if emp_pdf_sel:
                     try: mes_p, ano_p = mes_filtro.split('/')
                     except: mes_p, ano_p = datetime.now().month, datetime.now().year
@@ -1664,7 +1777,7 @@ if st.session_state.perfil == "Admin":
                 with st.form("form_financeiro"):
                     st.write(f"**Empresa:** {emp_edit} | **Mês:** {mes_filtro}")
                     c_f1, c_f2, c_f3 = st.columns(3)
-                    if modo_fat_edit == 'Performance (Escalonado)':
+                    if modo_fat_edit != 'Tradicional':
                         v_fat_atual = str(row_edit['valor_faturado'])
                         c_f1.text_input("Valor Calculado pelo Sistema (R$):", value=v_fat_atual, disabled=True)
                         val_fat_final = v_fat_atual
@@ -1700,8 +1813,8 @@ elif st.session_state.perfil == "Parceiro":
 
         dados_fat_resumo = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os, df_empresas)
 
-        if modo_fat_p0 == 'Performance (Escalonado)':
-            st.markdown(f"📊 **Base de {dados_fat_resumo['total_v']} veículos | Taxa de acionamento: {dados_fat_resumo['taxa']:.1f}% | 💰 Fatura Estimada (Mês Atual): R$ {dados_fat_resumo['fatura_total']:.2f}**")
+        if modo_fat_p0 != 'Tradicional':
+            st.markdown(f"📊 **Plano Atual:** {dados_fat_resumo['modo_fat']} | **Base de {dados_fat_resumo['total_v']} veículos** | 💰 Fatura Estimada (Mês Atual): R$ {dados_fat_resumo['fatura_total']:.2f}")
         else:
             st.markdown(f"📊 **De acordo com a base de {dados_fat_resumo['total_v']} veículos, a taxa de acionamento neste mês é de {dados_fat_resumo['taxa']:.1f}%.**")
         
@@ -2004,7 +2117,7 @@ elif st.session_state.perfil == "Parceiro":
             bg_cor = "#e8f5e9" if status_f == "Pago" else "#ffebee" if status_f == "Atrasado" else "#fff8e1"
             c_f3.markdown(f'<div class="metric-card" style="border: 2px solid {cor_borda}; background-color: {bg_cor};"><div style="color: #666; font-size: 16px;">Status no Sistema Central</div><div class="metric-value" style="color: {cor_borda}; font-size: 28px;">{status_f.upper()}</div></div>', unsafe_allow_html=True)
 
-            if modo_fat_p == 'Performance (Escalonado)':
+            if modo_fat_p != 'Tradicional':
                 st.write("---")
                 try: mes_sp, ano_sp = mes_filtro_p.split('/')
                 except: mes_sp, ano_sp = datetime.now().month, datetime.now().year
@@ -2013,11 +2126,13 @@ elif st.session_state.perfil == "Parceiro":
                     st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período de Referência:** {mes_filtro_p}")
                     dados_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas)
                     st.write(f"- **Ciclo de Apuração (30 dias):** {dados_det['dt_inicio'].strftime('%d/%m/%Y')} até {dados_det['dt_fim'].strftime('%d/%m/%Y')}")
+                    st.write(f"- **Plano Contratado:** {dados_det['modo_fat']}")
                     st.write(f"- **Total Exato de Veículos na Base (Ativos):** {dados_det['total_v']}")
                     st.write(f"- **Total de Chamados Encerrados no Ciclo:** {dados_det['total_os']}")
-                    st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
+                    if dados_det['modo_fat'] == "Performance (Escalonado)":
+                        st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
                     st.write(f"- **Valor Final Calculado:** R$ {dados_det['fatura_total']:.2f}")
-                    st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a Tabela de Porcentagens e a auditoria com todas as placas cobradas.")
+                    st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a auditoria com todas as placas cobradas.")
 
                 st.write("")
                 st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
@@ -2026,7 +2141,6 @@ elif st.session_state.perfil == "Parceiro":
         st.subheader("🕵️ Auditoria e Histórico de Atividades")
         st.write("Verifique com transparência as ações realizadas no sistema que envolvem a sua empresa.")
         
-        # CORREÇÃO DA AUDITORIA DO PARCEIRO: Agora ele vê o que ele fez E o que o Admin fez pela empresa dele
         empresa_upper = st.session_state.empresa_vinculada.upper()
         user_upper = st.session_state.user.upper()
         
