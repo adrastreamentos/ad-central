@@ -1,5 +1,3 @@
-def fix_code():
-    code = """
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta, timezone
@@ -13,9 +11,6 @@ from PIL import Image
 import numpy as np
 import calendar
 from streamlit_drawable_canvas import st_canvas
-import streamlit.components.v1 as components
-
-st.set_page_config(page_title="Central 24h - AD Rastreamento", layout="wide", page_icon="🔒")
 
 # ===================================================================================
 # CONSTANTES DE NEGÓCIO E PLANOS
@@ -36,9 +31,139 @@ MODOS_FATURAMENTO = [
 ]
 
 # ===================================================================================
-# ESTILIZAÇÃO CSS
+# FUNÇÕES GLOBAIS E ESTILIZAÇÃO
 # ===================================================================================
-st.markdown(\"\"\"
+
+def buscar_endereco_por_cep(cep):
+    cep_limpo = apenas_numeros_letras(str(cep))
+    if len(cep_limpo) == 8:
+        try:
+            res = requests.get(f"https://viacep.com.br/ws/{cep_limpo}/json/", timeout=5)
+            if res.status_code == 200:
+                dados = res.json()
+                if "erro" not in dados:
+                    rua = dados.get("logradouro", "")
+                    bairro = dados.get("bairro", "")
+                    cidade = dados.get("localidade", "")
+                    uf = dados.get("uf", "")
+                    return f"{rua}, Bairro {bairro}, {cidade}-{uf} | Número/Ref: "
+        except: pass
+    return None
+
+def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
+    if df_os.empty: return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
+    r = df_os.iloc[0]
+    html = f"""
+    <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Relatório de OS #{r['id']}</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
+                h2 {{ color: #7B2CBF; border-bottom: 2px solid #E53935; padding-bottom: 5px; }}
+                .info-box {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #7B2CBF; }}
+                .info-box p {{ margin: 8px 0; font-size: 14px; }}
+                .destaque {{ font-weight: bold; color: #E53935; }}
+            </style>
+        </head>
+        <body>
+            <h2>Relatório Oficial de Ordem de Serviço - AD Rastreamento Veicular</h2>
+            <div class="info-box">
+                <p><strong>Número da OS:</strong> #{r['id']}</p>
+                <p><strong>Data e Hora do Chamado:</strong> {r['data_hora']}</p>
+                <p><strong>Cliente:</strong> {r['cliente_nome']}</p>
+                <p><strong>Placa do Veículo:</strong> <span class="destaque">{r['placa']}</span></p>
+                <p><strong>Tipo de Serviço:</strong> {r['tipo_servico']} ({r.get('motivo','N/D')})</p>
+                <p><strong>Origem (Localização):</strong> {r.get('localizacao','N/D')}</p>
+                <p><strong>Destino:</strong> {r.get('destino','N/D')}</p>
+                <p><strong>Observações:</strong> {r.get('obs','N/D')}</p>
+                <p><strong>Prestador Acionado:</strong> {r['prestador']}</p>
+            </div>
+            <br>
+            <p style="font-size: 12px; color: #666;"><em>Documento gerado automaticamente pelo sistema operacional Central AD 24h.</em></p>
+        </body>
+    </html>
+    """
+    b64 = base64.b64encode(html.encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 8px; font-weight: bold;">📥 Baixar Extrato de OS (PDF/HTML)</a>'
+
+def colorir_status(val):
+    return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
+
+def formatar_status_financeiro(val):
+    if str(val).strip() == 'Pago': return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;'
+    elif str(val).strip() == 'Atrasado': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
+    else: return 'background-color: #fff8e1; color: #f57f17; font-weight: bold;'
+
+def get_ultimos_3_meses():
+    hoje = datetime.now()
+    meses = []
+    for i in range(3):
+        m = hoje.month - i
+        y = hoje.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        meses.append(f"{m:02d}/{y}")
+    return meses
+
+def calcular_datas_ciclo(mes, ano, dia_venc_str):
+    mes, ano = int(mes), int(ano)
+    try: dia_venc = int(dia_venc_str)
+    except: dia_venc = 30
+    
+    try: dt_venc_atual = datetime(ano, mes, dia_venc)
+    except ValueError: dt_venc_atual = datetime(ano, mes, calendar.monthrange(ano, mes)[1])
+        
+    dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
+    
+    mes_ant = mes - 1 if mes > 1 else 12
+    ano_ant = ano if mes > 1 else ano - 1
+    try: dt_venc_ant = datetime(ano_ant, mes_ant, dia_venc)
+    except ValueError: dt_venc_ant = datetime(ano_ant, mes_ant, calendar.monthrange(ano_ant, mes_ant)[1])
+        
+    dt_fim_ant = (dt_venc_ant - timedelta(days=2)).replace(hour=23, minute=59, second=59)
+    dt_inicio = (dt_fim_ant + timedelta(days=1)).replace(hour=0, minute=0, second=0)
+    
+    return dt_inicio, dt_fim
+
+def obter_mes_ano_vigente(dia_venc_str):
+    try: dia_venc = int(dia_venc_str)
+    except: dia_venc = 30
+    hoje = datetime.now()
+    
+    try: dt_venc_este_mes = datetime(hoje.year, hoje.month, dia_venc)
+    except ValueError: dt_venc_este_mes = datetime(hoje.year, hoje.month, calendar.monthrange(hoje.year, hoje.month)[1])
+        
+    dt_fechamento_este_mes = (dt_venc_este_mes - timedelta(days=2)).replace(hour=23, minute=59, second=59)
+    
+    if hoje <= dt_fechamento_este_mes: return hoje.month, hoje.year
+    else:
+        m = hoje.month + 1
+        y = hoje.year
+        if m > 12: m, y = 1, y + 1
+        return m, y
+
+def obter_ciclo_contrato_anual(data_cad_str):
+    try: dt_cad = datetime.strptime(str(data_cad_str)[:10], "%Y-%m-%d")
+    except: dt_cad = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    hoje = datetime.now()
+    try: aniv_este_ano = dt_cad.replace(year=hoje.year)
+    except ValueError: aniv_este_ano = dt_cad.replace(year=hoje.year, day=28)
+    
+    if hoje < aniv_este_ano:
+        try: inicio = dt_cad.replace(year=hoje.year - 1)
+        except ValueError: inicio = dt_cad.replace(year=hoje.year - 1, day=28)
+        fim = aniv_este_ano - timedelta(seconds=1)
+    else:
+        inicio = aniv_este_ano
+        try: fim = dt_cad.replace(year=hoje.year + 1)
+        except ValueError: fim = dt_cad.replace(year=hoje.year + 1, day=28)
+        fim = fim - timedelta(seconds=1)
+    return inicio, fim
+
+st.set_page_config(page_title="Central 24h - AD Rastreamento", layout="wide", page_icon="🔒")
+st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -58,30 +183,20 @@ st.markdown(\"\"\"
     .metric-value { font-size: 32px; font-weight: 800; margin-top: 12px; }
     .val-pago { color: #2e7d32; } .val-atrasado { color: #E53935; }
     </style>
-\"\"\", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# ===================================================================================
-# FUNÇÕES GLOBAIS
-# ===================================================================================
+FOLDER = "AD_Assistencia"
+os.makedirs(FOLDER, exist_ok=True)
+FILE_CLIENTES = os.path.join(FOLDER, "banco_clientes.csv")
+FILE_EMPRESAS = os.path.join(FOLDER, "banco_empresas.csv")
+FILE_PRESTADORES = os.path.join(FOLDER, "banco_prestadores.csv")
+FILE_OS = os.path.join(FOLDER, "banco_os.csv")
+FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
+FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
+
 def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
 def apenas_numeros_letras(texto): return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
-
-def buscar_endereco_por_cep(cep):
-    cep_limpo = apenas_numeros_letras(str(cep))
-    if len(cep_limpo) == 8:
-        try:
-            res = requests.get(f"https://viacep.com.br/ws/{cep_limpo}/json/", timeout=5)
-            if res.status_code == 200:
-                dados = res.json()
-                if "erro" not in dados:
-                    rua = dados.get("logradouro", "")
-                    bairro = dados.get("bairro", "")
-                    cidade = dados.get("localidade", "")
-                    uf = dados.get("uf", "")
-                    return f"{rua}, Bairro {bairro}, {cidade}-{uf} | Número/Ref: "
-        except: pass
-    return None
 
 def salvar_no_github(caminho_local):
     token = st.secrets.get("GITHUB_TOKEN", None)
@@ -113,9 +228,13 @@ def carregar_dados(caminho, col_obr):
         for col in col_obr:
             if col not in df.columns: 
                 df[col] = datetime.now().strftime("%Y-%m-%d") if col == 'data_cadastro' else "" 
-        for col in df.columns: df[col] = df[col].fillna("").astype(str).str.strip().str.replace(r'\\.0$', '', regex=True)
+        for col in df.columns: df[col] = df[col].fillna("").astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
         return df
     except: return pd.DataFrame(columns=col_obr)
+
+col_logs = ['data_hora', 'usuario', 'acao', 'detalhes']
+if not os.path.exists(FILE_LOGS): pd.DataFrame(columns=col_logs).to_csv(FILE_LOGS, index=False)
+df_logs = carregar_dados(FILE_LOGS, col_logs)
 
 def registrar_atividade(usuario, acao, detalhes):
     global df_logs
@@ -124,72 +243,9 @@ def registrar_atividade(usuario, acao, detalhes):
     df_logs.to_csv(FILE_LOGS, index=False)
     salvar_no_github(FILE_LOGS)
 
-def colorir_status(val):
-    return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
-
-def formatar_status_financeiro(val):
-    if str(val).strip() == 'Pago': return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;'
-    elif str(val).strip() == 'Atrasado': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
-    else: return 'background-color: #fff8e1; color: #f57f17; font-weight: bold;'
-
-def get_ultimos_3_meses():
-    hoje = datetime.now()
-    meses = []
-    for i in range(3):
-        m = hoje.month - i
-        y = hoje.year
-        while m <= 0:
-            m += 12
-            y -= 1
-        meses.append(f"{m:02d}/{y}")
-    return meses
-
-def calcular_datas_ciclo(mes, ano, dia_venc_str):
-    mes, ano = int(mes), int(ano)
-    try: dia_venc = int(dia_venc_str)
-    except: dia_venc = 30
-    try: dt_venc_atual = datetime(ano, mes, dia_venc)
-    except ValueError: dt_venc_atual = datetime(ano, mes, calendar.monthrange(ano, mes)[1])
-    dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
-    mes_ant = mes - 1 if mes > 1 else 12
-    ano_ant = ano if mes > 1 else ano - 1
-    try: dt_venc_ant = datetime(ano_ant, mes_ant, dia_venc)
-    except ValueError: dt_venc_ant = datetime(ano_ant, mes_ant, calendar.monthrange(ano_ant, mes_ant)[1])
-    dt_fim_ant = (dt_venc_ant - timedelta(days=2)).replace(hour=23, minute=59, second=59)
-    dt_inicio = (dt_fim_ant + timedelta(days=1)).replace(hour=0, minute=0, second=0)
-    return dt_inicio, dt_fim
-
-def obter_mes_ano_vigente(dia_venc_str):
-    try: dia_venc = int(dia_venc_str)
-    except: dia_venc = 30
-    hoje = datetime.now()
-    try: dt_venc_este_mes = datetime(hoje.year, hoje.month, dia_venc)
-    except ValueError: dt_venc_este_mes = datetime(hoje.year, hoje.month, calendar.monthrange(hoje.year, hoje.month)[1])
-    dt_fechamento_este_mes = (dt_venc_este_mes - timedelta(days=2)).replace(hour=23, minute=59, second=59)
-    if hoje <= dt_fechamento_este_mes: return hoje.month, hoje.year
-    else:
-        m = hoje.month + 1
-        y = hoje.year
-        if m > 12: m, y = 1, y + 1
-        return m, y
-
-def obter_ciclo_contrato_anual(data_cad_str):
-    try: dt_cad = datetime.strptime(str(data_cad_str)[:10], "%Y-%m-%d")
-    except: dt_cad = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    hoje = datetime.now()
-    try: aniv_este_ano = dt_cad.replace(year=hoje.year)
-    except ValueError: aniv_este_ano = dt_cad.replace(year=hoje.year, day=28)
-    if hoje < aniv_este_ano:
-        try: inicio = dt_cad.replace(year=hoje.year - 1)
-        except ValueError: inicio = dt_cad.replace(year=hoje.year - 1, day=28)
-        fim = aniv_este_ano - timedelta(seconds=1)
-    else:
-        inicio = aniv_este_ano
-        try: fim = dt_cad.replace(year=hoje.year + 1)
-        except ValueError: fim = dt_cad.replace(year=hoje.year + 1, day=28)
-        fim = fim - timedelta(seconds=1)
-    return inicio, fim
-
+# ===================================================================================
+# MOTOR DE CÁLCULO FINANCEIRO (V8.5 - BUSCA CEP + FRANQUIAS)
+# ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
         "Enquadramento Base (Até 3%)":   {"50km": 6.90,   "100km": 8.90,   "200km": 11.20,  "Sem Limite": 11.20},
@@ -383,8 +439,10 @@ def gerar_texto_resumo_plano(dados_fat):
     elif "Frota Pequena" in modo or "Até 40" in modo:
         tot_ac = dados_fat.get('total_ac', 0)
         isentos = dados_fat.get('acionamentos_isentos', 0)
+        
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
         texto += f"🎟️ <b>Franquia Utilizada:</b> {tot_ac} de {isentos} guinchos<br>"
+        
         if exc > 0:
             detalhe_exc = []
             if dados_fat.get('qtd_exc_50', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_50']}x excedente(s) de 50km")
@@ -418,141 +476,42 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
 
     if modo_pdf == "Performance (Escalonado)":
-        secao_tabela = f\"\"\"<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso. Enquadramento atual de fechamento do cliente: <b>{dados_fat['faixa']}</b>.</p></div>\"\"\"
-        secao_memoria = f\"\"\"<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Regra Suavizada para <=20): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (A partir do 21º): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>\"\"\"
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso. Enquadramento atual de fechamento do cliente: <b>{dados_fat['faixa']}</b>.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Regra Suavizada para <=20): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (A partir do 21º): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
     elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
         franquia_qtd = f"{dados_fat.get('acionamentos_isentos', 2)} guinchos"
         uso_qtd = f"{dados_fat.get('total_ac', 0)} de {dados_fat.get('acionamentos_isentos', 2)}"
-        secao_tabela = f\"\"\"<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Consumo no Ciclo:</strong> {uso_qtd} utilizados.</p></div>\"\"\"
-        secao_memoria = f\"\"\"<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>\"\"\"
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Consumo no Ciclo:</strong> {uso_qtd} utilizados.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
     else:
         secao_tabela = ""
-        secao_memoria = f\"\"\"<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>\"\"\"
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>"""
 
-    html_content = f\"\"\"<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>\"\"\"
+    html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
-# ===================================================================================
-# CARREGAMENTO DOS BANCOS DE DADOS
-# ===================================================================================
-FOLDER = "AD_Assistencia"
-os.makedirs(FOLDER, exist_ok=True)
-FILE_CLIENTES = os.path.join(FOLDER, "banco_clientes.csv")
-FILE_EMPRESAS = os.path.join(FOLDER, "banco_empresas.csv")
-FILE_PRESTADORES = os.path.join(FOLDER, "banco_prestadores.csv")
-FILE_OS = os.path.join(FOLDER, "banco_os.csv")
-FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
-FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
-FILE_LOC = os.path.join(FOLDER, "banco_loc.csv")
-
+# INICIALIZAÇÃO DE DADOS
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','cidade','cep','est','status','homologado','senha','frota']
 col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
 col_fin = ['id', 'mes_ano', 'empresa', 'valor_faturado', 'valor_pago', 'status']
-col_logs = ['data_hora', 'usuario', 'acao', 'detalhes']
-col_loc = ['placa', 'data_hora', 'link_maps']
 
 if not os.path.exists(FILE_CLIENTES): pd.DataFrame(columns=col_cli).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS): pd.DataFrame(columns=col_emp).to_csv(FILE_EMPRESAS, index=False)
 if not os.path.exists(FILE_PRESTADORES): pd.DataFrame(columns=col_pre).to_csv(FILE_PRESTADORES, index=False)
 if not os.path.exists(FILE_OS): pd.DataFrame(columns=col_os).to_csv(FILE_OS, index=False)
 if not os.path.exists(FILE_FINANCEIRO): pd.DataFrame(columns=col_fin).to_csv(FILE_FINANCEIRO, index=False)
-if not os.path.exists(FILE_LOGS): pd.DataFrame(columns=col_logs).to_csv(FILE_LOGS, index=False)
-if not os.path.exists(FILE_LOC): pd.DataFrame(columns=col_loc).to_csv(FILE_LOC, index=False)
 
 df_clientes = carregar_dados(FILE_CLIENTES, col_cli)
 df_empresas = carregar_dados(FILE_EMPRESAS, col_emp)
 df_prestadores = carregar_dados(FILE_PRESTADORES, col_pre)
 df_os = carregar_dados(FILE_OS, col_os)
 df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
-df_logs = carregar_dados(FILE_LOGS, col_logs)
-df_loc = carregar_dados(FILE_LOC, col_loc)
 
 # ===================================================================================
-# PORTAL DO CLIENTE (CAPTURA DE GPS SEM APP) - RODA ANTES DO LOGIN
-# ===================================================================================
-portal_atual = st.query_params.get("portal", "")
-if portal_atual == "cliente":
-    st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
-    placa_param = st.query_params.get("placa", "N/D")
-    
-    html_code = f\"\"\"
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-    body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f8f9fa; }}
-    .btn {{ background-color: #E53935; color: white; padding: 20px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; width: 100%; max-width: 300px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-top: 20px; }}
-    .btn:active {{ background-color: #b71c1c; }}
-    #msg {{ margin-top: 20px; font-size: 16px; color: #555; font-weight: bold; }}
-    </style>
-    </head>
-    <body>
-    <h3 style="color: #7B2CBF; margin-top:0;">Localização de Emergência</h3>
-    <p>Precisamos saber onde você está para enviar o guincho exato até o veículo placa <b>{placa_param}</b>.</p>
-    <button class="btn" onclick="getLocation()">📍 ENVIAR MINHA LOCALIZAÇÃO</button>
-    <p id="msg"></p>
-    <script>
-    function getLocation() {{
-        document.getElementById("msg").innerHTML = "Aguardando GPS... Clique em 'Permitir' se o seu celular pedir.";
-        if (navigator.geolocation) {{
-            navigator.geolocation.getCurrentPosition(showPosition, showError, {{enableHighAccuracy: true}});
-        }} else {{
-            document.getElementById("msg").innerHTML = "Seu navegador não suporta GPS.";
-        }}
-    }}
-    function showPosition(position) {{
-        var lat = position.coords.latitude;
-        var lon = position.coords.longitude;
-        document.getElementById("msg").innerHTML = "Sinal capturado! Enviando para a Central... 🚀";
-        window.parent.location.href = "?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon;
-    }}
-    function showError(error) {{
-        switch(error.code) {{
-            case error.PERMISSION_DENIED:
-                document.getElementById("msg").innerHTML = "Você negou o acesso ao GPS. Libere a permissão e tente novamente.";
-                break;
-            case error.POSITION_UNAVAILABLE:
-                document.getElementById("msg").innerHTML = "Sinal de GPS indisponível no momento.";
-                break;
-            case error.TIMEOUT:
-                document.getElementById("msg").innerHTML = "Tempo esgotado para buscar o GPS.";
-                break;
-            default:
-                document.getElementById("msg").innerHTML = "Erro desconhecido ao tentar localizar.";
-                break;
-        }}
-    }}
-    </script>
-    </body>
-    </html>
-    \"\"\"
-    components.html(html_code, height=500)
-    st.stop()
-
-elif portal_atual == "cliente_salvo":
-    st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
-    placa_cliente = st.query_params.get("placa", "N/D")
-    lat = st.query_params.get("lat", "")
-    lon = st.query_params.get("lon", "")
-    
-    if lat and lon:
-        link_maps = f"https://www.google.com/maps?q={lat},{lon}"
-        novo_loc = pd.DataFrame([{'placa': placa_cliente, 'data_hora': obter_hora_str(), 'link_maps': link_maps}])
-        df_loc = pd.concat([df_loc, novo_loc], ignore_index=True)
-        salvar_dados(df_loc, FILE_LOC)
-        st.success("✅ Localização recebida com sucesso pela Central! O socorro já está sendo acionado. Você já pode fechar esta tela e aguardar.")
-    else:
-        st.error("Erro ao receber as coordenadas. Tente novamente.")
-    st.stop()
-
-# ===================================================================================
-# CONTROLE DE SESSÃO E LOGIN
+# LOGIN E CADASTRO INICIAL
 # ===================================================================================
 if "logado" not in st.session_state:
     st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
@@ -569,16 +528,17 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.6.1</span></div>', unsafe_allow_html=True)
+    portal = st.query_params.get("portal", "")
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.5</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
-        if portal_atual == "prestador":
+        if portal == "prestador":
             st.markdown('<div class="subtitle">🚛 Portal Exclusivo do Prestador</div>', unsafe_allow_html=True)
             tab_login, tab_cadastro = st.tabs(["🔐 Entrar", "📝 Quero me Cadastrar"])
             with tab_login:
                 usuario_input = apenas_numeros_letras(st.text_input("Seu Nome (Usuário):"))
                 senha_input = apenas_numeros_letras(st.text_input("Sua Senha (ou CPF):", type="password"))
-                if st.button("Acessar Meu Painel", use_container_width=True, key="btn_login_prest"):
+                if st.button("Acessar Meu Painel", use_container_width=True):
                     df_prestadores_login = df_prestadores.copy()
                     df_prestadores_login['cpf_comparar'] = df_prestadores_login['cpf'].astype(str).apply(apenas_numeros_letras)
                     df_prestadores_login['nome_comparar'] = df_prestadores_login['nome'].astype(str).apply(apenas_numeros_letras)
@@ -614,7 +574,7 @@ if not st.session_state.logado:
             st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
             usuario_input = apenas_numeros_letras(st.text_input("Usuário (Nome da Empresa ou Central):"))
             senha_input = apenas_numeros_letras(st.text_input("Senha (CNPJ):", type="password"))
-            if st.button("Entrar no Sistema", use_container_width=True, key="btn_login_geral"):
+            if st.button("Entrar no Sistema", use_container_width=True):
                 if usuario_input == "adrastreamentoveicular" and senha_input == "00000000000000":
                     st.session_state.update({"logado": True, "user": "AD Rastreamento Veicular (ADMIN)", "perfil": "Admin"})
                     st.query_params["session"] = "admin_ad"
@@ -631,19 +591,16 @@ if not st.session_state.logado:
                     else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# ===================================================================================
-# HEADER DO SISTEMA (QUANDO LOGADO)
-# ===================================================================================
 col_user, col_logout = st.columns([5, 1])
 with col_user: st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
 with col_logout:
-    if st.button("Sair / Logoff", key="btn_logout_master"):
+    if st.button("Sair / Logoff"):
         st.session_state.logado = False
         st.query_params.clear()
         st.rerun()
 
 # ===================================================================================
-# INTERFACE 1: ADMIN MASTER
+# TELA ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     menu = st.tabs(["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "💾 Backup", "🕵️ Auditoria", "💰 Financeiro"])
@@ -662,8 +619,8 @@ if st.session_state.perfil == "Admin":
         pronto_para_prosseguir = False
         is_excecao_flag = False
         valor_excecao_val = "0,00"
+        
         cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os, uf_cliente, cidade_cliente, valor_cobrado_os = "", "", "", "", "", "", "RN", "", "0,00"
-        tel_envio_link = ""
 
         if tipo_atendimento == "Cliente Cadastrado":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado no sistema para busca.")
@@ -700,6 +657,7 @@ if st.session_state.perfil == "Admin":
                             if not lista_frota_opcoes: st.error("Este cliente não possui veículos cadastrados com placa válida.")
                             else:
                                 veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
+                                
                                 tipo_servico = st.selectbox("Tipo de Serviço Solicitado:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"])
                                 motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
                                 
@@ -707,16 +665,18 @@ if st.session_state.perfil == "Admin":
                                 veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
                                 uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
                                 plano_km_os, cidade_cliente, cliente_id_os, cliente_nome_os, empresa_os = str(cliente_dados.get('plano_km', 'N/D')), str(cliente_dados.get('cidade', '')).strip().upper(), str(c_target_os), str(cliente_dados['nome']), str(cliente_dados['emp_name'])
-                                tel_envio_link = apenas_numeros_letras(cliente_dados.get('tel', ''))
-
+                                
                                 st.info(f"📍 Cliente: **{empresa_os.upper()}** | UF do Veículo: **{uf_cliente}**")
+                                
                                 dt_cad_str = str(cliente_dados.get('data_cadastro', ''))
                                 inicio_ciclo, fim_ciclo = obter_ciclo_contrato_anual(dt_cad_str)
+                                
                                 st.markdown(f'<div class="info-box" style="padding: 10px;">🛣️ PLANO CONTRATADO: <b>{plano_km_os}</b><br>📅 CICLO DE CONTRATO DA PLACA: <b>{inicio_ciclo.strftime("%d/%m/%Y")} a {fim_ciclo.strftime("%d/%m/%Y")}</b></div>', unsafe_allow_html=True)
                                 
                                 df_os_carencia = df_os.copy()
                                 df_os_carencia['data_hora'] = pd.to_datetime(df_os_carencia['data_hora'], errors='coerce')
                                 df_os_carencia = df_os_carencia.dropna(subset=['data_hora'])
+                                
                                 placa_alvo_limpa = apenas_numeros_letras(placa_alvo).upper()
                                 
                                 os_placa_ano = df_os_carencia[
@@ -766,11 +726,15 @@ if st.session_state.perfil == "Admin":
 
                                 if cliente_inativo or bloqueio_60 or limite_excedido:
                                     st.write("---")
-                                    if cliente_inativo: st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento.</span></div>', unsafe_allow_html=True)
-                                    if bloqueio_60: st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: REGRA DOS 60 DIAS ATIVA 🚫<br><span style="font-size: 14px; font-weight: bold;">{msg_bloqueio_60}</span></div>', unsafe_allow_html=True)
-                                    if limite_excedido: st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: LIMITE ANUAL ESTOURADO 🚫<br><span style="font-size: 14px; font-weight: bold;">Esta placa já utilizou o limite máximo de {tipo_servico} no ciclo de contrato atual.</span></div>', unsafe_allow_html=True)
+                                    if cliente_inativo:
+                                        st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento.</span></div>', unsafe_allow_html=True)
+                                    if bloqueio_60:
+                                        st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: REGRA DOS 60 DIAS ATIVA 🚫<br><span style="font-size: 14px; font-weight: bold;">{msg_bloqueio_60}</span></div>', unsafe_allow_html=True)
+                                    if limite_excedido:
+                                        st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: LIMITE ANUAL ESTOURADO 🚫<br><span style="font-size: 14px; font-weight: bold;">Esta placa já utilizou o limite máximo de {tipo_servico} no ciclo de contrato atual.</span></div>', unsafe_allow_html=True)
                                         
-                                    liberar_excecao = st.checkbox("⚠️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção")
+                                    liberar_excecao = st.checkbox("⚠️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção (Autorização manual / Pagamento Extra da Central)")
+                                    
                                     if liberar_excecao: 
                                         valor_excecao_val = st.text_input("Valor do Serviço Extra a ser Cobrado (R$):", value="0,00")
                                         valor_cobrado_os = valor_excecao_val
@@ -788,8 +752,6 @@ if st.session_state.perfil == "Admin":
             tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"])
             motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
             cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os = "AVULSO", nome_avulso, placa_avulso.upper().strip(), veiculo_avulso, "CLIENTE PARTICULAR (AVULSO)", "Particular"
-            tel_envio_link = apenas_numeros_letras(tel_avulso)
-            
             if nome_avulso and placa_alvo: pronto_para_prosseguir = True
             else: st.warning("⚠️ Nome do Cliente e Placa são obrigatórios para liberar o atendimento avulso.")
 
@@ -821,29 +783,9 @@ if st.session_state.perfil == "Admin":
                 tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
             
             st.markdown("##### 📍 Endereços de Origem e Destino")
-            st.info("Caso o cliente não saiba explicar onde está, use o botão verde abaixo para enviar o link de captura de GPS. Quando ele clicar, o endereço de origem será preenchido sozinho.")
-            link_captura = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente&placa={placa_alvo}"
-            col_loc1, col_loc2 = st.columns([1, 1])
-            texto_zap_loc = f"Olá! Aqui é da *Central AD Assistência 24h*.\\n\\nPara despacharmos o seu socorro rápido, precisamos da sua localização exata. Por favor, clique no link abaixo, permita o uso do GPS e aperte no botão 'ENVIAR MINHA LOCALIZAÇÃO':\\n\\n{link_captura}"
-            link_w_loc = f"https://api.whatsapp.com/send?phone=55{tel_envio_link}&text={urllib.parse.quote(texto_zap_loc)}"
-            
-            with col_loc1:
-                st.markdown(f'<a href="{link_w_loc}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">📲 1. Enviar Link no WhatsApp do Cliente</button></a>', unsafe_allow_html=True)
-            with col_loc2:
-                if st.button("🔄 2. Puxar Localização Recebida do Cliente", use_container_width=True, key="btn_puxar_loc_admin"):
-                    df_loc_temp = carregar_dados(FILE_LOC, ['placa', 'data_hora', 'link_maps'])
-                    loc_cliente = df_loc_temp[df_loc_temp['placa'] == placa_alvo]
-                    if not loc_cliente.empty:
-                        ultima_loc = loc_cliente.iloc[-1]['link_maps']
-                        st.session_state.os_loc_val = ultima_loc
-                        st.success("✅ GPS recebido com sucesso! O campo 'Origem' foi preenchido.")
-                        time.sleep(2); st.rerun()
-                    else: st.warning("⏳ O cliente ainda não enviou a localização. Aguarde alguns segundos e clique novamente.")
-
-            st.write("")
             c_orig1, c_orig2 = st.columns([1, 4])
-            cep_orig = c_orig1.text_input("CEP Origem (Opcional):", placeholder="Somente números")
-            if c_orig1.button("🔍 Buscar Origem", use_container_width=True, key="btn_cep_orig_admin"):
+            cep_orig = c_orig1.text_input("CEP Origem:", placeholder="Somente números")
+            if c_orig1.button("🔍 Buscar Origem", use_container_width=True):
                 end_orig = buscar_endereco_por_cep(cep_orig)
                 if end_orig:
                     st.session_state.os_loc_val = end_orig
@@ -853,8 +795,8 @@ if st.session_state.perfil == "Admin":
             st.session_state.os_loc_val = localizacao
 
             c_dest1, c_dest2 = st.columns([1, 4])
-            cep_dest = c_dest1.text_input("CEP Destino (Opcional):", placeholder="Somente números")
-            if c_dest1.button("🔍 Buscar Destino", use_container_width=True, key="btn_cep_dest_admin"):
+            cep_dest = c_dest1.text_input("CEP Destino:", placeholder="Somente números")
+            if c_dest1.button("🔍 Buscar Destino", use_container_width=True):
                 end_dest = buscar_endereco_por_cep(cep_dest)
                 if end_dest:
                     st.session_state.os_dest_val = end_dest
@@ -865,23 +807,38 @@ if st.session_state.perfil == "Admin":
             
             obs = st.text_area("Observações Extras para o Guincheiro:", value=st.session_state.os_obs_val)
             st.session_state.os_obs_val = obs
+            
             st.write("---")
             
             if is_excecao_flag:
                 emp_match = df_empresas[df_empresas['nome'].str.upper() == empresa_os.upper()]
                 resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
                 tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
-                if not tel_responsavel: tel_responsavel = tel_envio_link
+                if not tel_responsavel: tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
 
-                texto_pix = (f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\\n\\nOlá *{resp_empresa}* (Empresa: *{empresa_os}*),\\n\\nO acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\\n\\n📋 *Detalhes completos do Atendimento:*\\n• Serviço: {tipo_servico} ({motivo_servico})\\n• Onde pegar (Origem): {localizacao if localizacao else 'A informar'}\\n• Onde deixar (Destino): {destino if destino else 'A informar'}\\n• Motivo da Exceção: Limite Anual ou Carência de 60 dias atingida\\n\\n💰 *Valor do Serviço Extra:* R$ {valor_excecao_val}\\n\\n⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\\n\\n📲 *DADOS PARA PAGAMENTO (PIX):*\\nChave PIX (CNPJ): *55496449000184*\\nNome: *AD Rastreamento Veicular LTDA*\\n\\nEnvie o comprovante nesta conversa para despacharmos o socorro imediatamente!")
+                texto_pix = (
+                    f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\n"
+                    f"Olá *{resp_empresa}* (Empresa: *{empresa_os}*),\n\n"
+                    f"O acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\n\n"
+                    f"📋 *Detalhes completos do Atendimento:*\n"
+                    f"• Serviço: {tipo_servico} ({motivo_servico})\n"
+                    f"• Onde pegar (Origem): {localizacao if localizacao else 'A informar'}\n"
+                    f"• Onde deixar (Destino): {destino if destino else 'A informar'}\n"
+                    f"• Motivo da Exceção: Limite Anual ou Carência de 60 dias atingida\n\n"
+                    f"💰 *Valor do Serviço Extra:* R$ {valor_excecao_val}\n\n"
+                    f"⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\n\n"
+                    f"📲 *DADOS PARA PAGAMENTO (PIX):*\n"
+                    f"Chave PIX (CNPJ): *55496449000184*\n"
+                    f"Nome: *AD Rastreamento Veicular LTDA*\n\n"
+                    f"Envie o comprovante nesta conversa para despacharmos o socorro imediatamente!"
+                )
                 link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
                 if not tel_responsavel: st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
-                st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%;">💬 PASSO EXTRA: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%;">💬 1º PASSO: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
 
-            texto_btn_os = "🚀 Finalizar e Gerar OS do Guincho"
-            if st.button(texto_btn_os, type="primary", key="btn_gerar_os_admin"):
+            texto_btn_os = "🚀 2º PASSO: Iniciar Atendimento / Gerar OS" if is_excecao_flag else "🚀 Iniciar Atendimento / Gerar OS"
+            if st.button(texto_btn_os):
                 if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
-                elif not localizacao: st.error("O Endereço de Origem é obrigatório!")
                 else:
                     with st.spinner("Registrando OS e sincronizando com a nuvem..."):
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
@@ -920,11 +877,11 @@ if st.session_state.perfil == "Admin":
                 
                 if "os_del_confirm" not in st.session_state: st.session_state.os_del_confirm = None
                 if st.session_state.os_del_confirm != os_id_edit:
-                    if st.button("🗑️ Excluir esta OS permanentemente", key="btn_del_os"): st.session_state.os_del_confirm = os_id_edit; st.rerun()
+                    if st.button("🗑️ Excluir esta OS permanentemente"): st.session_state.os_del_confirm = os_id_edit; st.rerun()
                 if st.session_state.get("os_del_confirm") == os_id_edit:
                     st.error(f"⚠️ Atenção: Deseja realmente excluir a OS {os_id_edit}?")
                     col_s, col_n = st.columns(2)
-                    if col_s.button("✅ Sim, excluir OS", key="btn_sim_del_os"):
+                    if col_s.button("✅ Sim, excluir OS"):
                         with st.spinner("Excluindo..."):
                             os_apagada = df_os[df_os['id'].astype(str) == str(os_id_edit)].iloc[0]
                             detalhes_exclusao_os = f"Apagou OS ID: {os_id_edit} | Cliente: {os_apagada['cliente_nome']} | Placa: {os_apagada['placa']} | Empresa: {os_apagada['empresa']}"
@@ -934,7 +891,7 @@ if st.session_state.perfil == "Admin":
                                 registrar_atividade(st.session_state.user, "EXCLUSÃO OS", detalhes_exclusao_os)
                                 st.success("🗑️ OS excluída! Taxa de acionamento atualizada."); st.session_state.os_del_confirm = None; time.sleep(1.5); st.rerun()
                             else: st.error(f"Erro: {erro}")
-                    if col_n.button("❌ Não, cancelar", key="btn_nao_del_os"): st.session_state.os_del_confirm = None; st.rerun()
+                    if col_n.button("❌ Não, cancelar"): st.session_state.os_del_confirm = None; st.rerun()
             else: st.warning("Nenhuma OS encontrada com esse ID.")
 
         st.write("---")
@@ -960,14 +917,14 @@ if st.session_state.perfil == "Admin":
                 else: st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
                 
                 link_app_prestador = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=prestador&session=prest_{urllib.parse.quote(prestador_nome_puro)}"
-                texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\\n-----------------------------------------\\n*Chamado Nº:* {row_os['id']}\\n*Data/Hora:* {row_os['data_hora']}\\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\\n\\n*Cliente:* {str(row_os['cliente_nome']).upper()}\\n*Telefone do Cliente:* {tel_cliente_os}\\n\\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\\n\\n*Origem:* {row_os['localizacao']}\\n*Destino:* {row_os['destino']}\\n\\n*Obs:* {row_os['obs']}\\n\\n🔗 *Acesse seu painel para Vistoria:* {link_app_prestador}")
+                texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}\n\n🔗 *Acesse seu painel para Vistoria:* {link_app_prestador}")
                 link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
                 
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
                 with col_btn2:
                     texto_botao = "🔒 Confirmar Entrega e Dar Baixa Definitiva (Encerrar OS)" if status_dessa_os == 'FINALIZADO PELO PRESTADOR' else "🔒 Forçar Encerramento da OS Manualmente"
-                    if st.button(texto_botao, key="btn_encerrar_os"):
+                    if st.button(texto_botao):
                         with st.spinner("Encerrando OS..."):
                             df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
@@ -1670,13 +1627,14 @@ if st.session_state.perfil == "Admin":
                             else: st.error(f"Falha na nuvem: {erro}")
 
 # ===================================================================================
-# INTERFACE 2: PARCEIROS
+# INTERFACE DE PARCEIROS RESTRITA
 # ===================================================================================
 elif st.session_state.perfil == "Parceiro":
     menu_parceiro = st.tabs(["👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"])
     
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
+        
         dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         dia_v_p0 = "30"
         if not dados_emp_base_p0.empty:
@@ -1686,6 +1644,7 @@ elif st.session_state.perfil == "Parceiro":
         dados_fat_resumo = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os, df_empresas)
 
         st.markdown(f'<div class="info-box" style="padding:10px;">{gerar_texto_resumo_plano(dados_fat_resumo)}</div>', unsafe_allow_html=True)
+        
         st.write("---")
         
         if "aba_part" not in st.session_state: st.session_state.aba_part = "Visualizar"
@@ -2041,9 +2000,7 @@ elif st.session_state.perfil == "Parceiro":
             st.write("---")
             st.dataframe(df_logs_parc[['data_hora', 'acao', 'detalhes']], use_container_width=True)
 
-# ===================================================================================
-# INTERFACE 3: PRESTADOR (GUINCHO)
-# ===================================================================================
+# --- INTERFACE DE PRESTADOR (GUINCHO) RESTRITA ---
 elif st.session_state.perfil == "Prestador":
     st.subheader(f"🚛 Meu Painel de Atendimento | Prestador: {st.session_state.user}")
     st.write("---")
@@ -2130,16 +2087,3 @@ elif st.session_state.perfil == "Prestador":
                                 st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
                                 time.sleep(2); st.rerun()
                             else: st.error(f"Erro ao avisar central: {erro}")
-"""
-    with open("app.py", "w", encoding="utf-8") as f:
-        f.write(code)
-    
-    # We should run a quick syntax check to be absolutely sure.
-    import ast
-    try:
-        ast.parse(code)
-        print("Syntax check passed!")
-    except SyntaxError as e:
-        print(f"SyntaxError detected: {e}")
-
-fix_code()
