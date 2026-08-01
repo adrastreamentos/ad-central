@@ -106,22 +106,18 @@ def get_ultimos_3_meses():
     return meses
 
 def calcular_datas_ciclo(mes, ano, dia_venc_str):
-    """Calcula as datas exatas do ciclo zerando milimetricamente na virada do fechamento."""
     mes = int(mes)
     ano = int(ano)
     try: dia_venc = int(dia_venc_str)
     except: dia_venc = 30
     
-    # Vencimento do mês de apuração (atual)
     try: dt_venc_atual = datetime(ano, mes, dia_venc)
     except ValueError:
         max_day = calendar.monthrange(ano, mes)[1]
         dt_venc_atual = datetime(ano, mes, max_day)
         
-    # Fechamento é sempre 2 dias antes do vencimento às 23:59:59
     dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
     
-    # Descobre o vencimento do mês anterior
     mes_ant = mes - 1 if mes > 1 else 12
     ano_ant = ano if mes > 1 else ano - 1
     try: dt_venc_ant = datetime(ano_ant, mes_ant, dia_venc)
@@ -129,16 +125,12 @@ def calcular_datas_ciclo(mes, ano, dia_venc_str):
         max_day_ant = calendar.monthrange(ano_ant, mes_ant)[1]
         dt_venc_ant = datetime(ano_ant, mes_ant, max_day_ant)
         
-    # Fechamento do mês anterior
     dt_fim_ant = (dt_venc_ant - timedelta(days=2)).replace(hour=23, minute=59, second=59)
-    
-    # O início do ciclo atual é EXATAMENTE o dia seguinte ao fechamento anterior às 00:00:00
     dt_inicio = (dt_fim_ant + timedelta(days=1)).replace(hour=0, minute=0, second=0)
     
     return dt_inicio, dt_fim
 
 def obter_mes_ano_vigente(dia_venc_str):
-    """Descobre qual é o ciclo (mês/ano) que está correndo hoje na rua."""
     try: dia_venc = int(dia_venc_str)
     except: dia_venc = 30
     hoje = datetime.now()
@@ -249,7 +241,7 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO AUDITÁVEL E INTELIGENTE
+# MOTOR DE CÁLCULO FINANCEIRO
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
@@ -328,7 +320,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                     p_km = v['plano']
                     adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
                     soma_adicionais += adicional
-                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco)'
+                    v['tipo_cobranca'] = 'Composição do Piso Base'
                     v['valor_cobrado'] = adicional
                 fatura_total += soma_adicionais
             else:
@@ -338,13 +330,13 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                     p_km = v['plano']
                     adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
                     soma_adicionais += adicional
-                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco)'
+                    v['tipo_cobranca'] = 'Composição do Piso Base'
                     v['valor_cobrado'] = adicional
                 for v in excedentes:
                     p_km = v['plano']
                     val_cheio = tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"])
                     soma_excedentes += val_cheio
-                    v['tipo_cobranca'] = 'Excedente (Valor da Frota Excedente)'
+                    v['tipo_cobranca'] = 'Excedente (Valor Integral da Tabela)'
                     v['valor_cobrado'] = val_cheio
                 fatura_total += (soma_adicionais + soma_excedentes)
 
@@ -419,7 +411,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     }
 
 def gerar_texto_resumo_plano(dados_fat):
-    """Gera o texto dinâmico e ultra-transparente, sem exibir palavras que causem confusão."""
     modo = dados_fat.get('modo_fat', 'Tradicional')
     tot_v = dados_fat.get('total_v', 0)
     taxa = dados_fat.get('taxa', 0.0)
@@ -434,15 +425,12 @@ def gerar_texto_resumo_plano(dados_fat):
     
     if modo == "Performance (Escalonado)":
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Frota Apurada:</b> {tot_v} veículos ativos.<br>"
-        
-        # Correção visual importante: Se a taxa for 0, oculta a palavra "Faixa 2%" para não confundir o cliente.
         if taxa == 0.0:
-            texto += f"✅ <b>Uso de Acionamentos:</b> 0.0% (Zero ocorrências neste ciclo)<br>"
+            texto += f"✅ <b style='color:#2e7d32;'>Uso de Acionamentos: 0.0% (Zero ocorrências neste ciclo)</b><br>"
             texto += f"💰 <b>Valor Atual (Apenas Custo Base dos Veículos):</b> R$ {fat_tot:.2f}"
         else:
             texto += f"📈 <b>Uso de Acionamentos:</b> {taxa:.1f}% (Enquadramento Comercial: Faixa {faixa})<br>"
             texto += f"💰 <b>Fatura Parcial Acumulada:</b> R$ {fat_tot:.2f}"
-            
         return texto
     
     elif "Frota Pequena" in modo or "Até 40" in modo:
@@ -456,203 +444,11 @@ def gerar_texto_resumo_plano(dados_fat):
         else:
             texto += f"💰 <b>Fatura Atual: R$ {fat_tot:.2f}</b> <span style='color:#2e7d32; font-size:14px;'>(Uso operando perfeitamente dentro da franquia gratuita do pacote)</span>"
         return texto
-        
     else:
         return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento (Informativa):</b> {taxa:.1f}%<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
 
-def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
-    dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
-    
-    df_os_temp = df_os_atuais.copy()
-    df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
-    os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & 
-                        (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & 
-                        (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & 
-                        (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora')
-
-    linhas_os_html = ""
-    if os_mes.empty:
-        linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste ciclo.</td></tr>"
-    else:
-        for _, r in os_mes.iterrows():
-            linhas_os_html += f"""
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">{r['id']}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">{str(r['data_hora'])[:16]}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px; font-weight: bold;">{r['placa']}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">{r['cliente_nome']}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">{r['tipo_servico']}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">{r['localizacao']} ➔ {r['destino']}</td>
-            </tr>
-            """
-
-    linhas_veiculos_html = ""
-    for idx_v, v in enumerate(dados_fat['veiculos']):
-        linhas_veiculos_html += f"""
-        <tr>
-            <td style="border: 1px solid #ddd; padding: 6px; font-size: 11px;">{idx_v + 1}</td>
-            <td style="border: 1px solid #ddd; padding: 6px; font-size: 11px; font-weight: bold;">{v['placa']}</td>
-            <td style="border: 1px solid #ddd; padding: 6px; font-size: 11px;">{v['cliente']}</td>
-            <td style="border: 1px solid #ddd; padding: 6px; font-size: 11px;">{v['plano']}</td>
-            <td style="border: 1px solid #ddd; padding: 6px; font-size: 11px;">{v['tipo_cobranca']}</td>
-        </tr>
-        """
-
-    str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
-    str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
-    timestamp_arquivo = int(time.time())
-    
-    modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
-
-    if modo_pdf == "Performance (Escalonado)":
-        secao_tabela = f"""
-        <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3>
-            <p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo de apuração, conforme os degraus abaixo:</p>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;">
-                <thead>
-                    <tr style="background-color: #e0e0e0; color: #333;">
-                        <th style="border: 1px solid #ddd; padding: 6px;">Taxa (Uso)</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Faixa</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Plano 50km</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Plano 100km</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Plano 200km/Sem Limite</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa Base (Até 3%)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 8,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,20</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 13,15</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 22,60</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 21,25</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr>
-                    <tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 41,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 55,00</td></tr>
-                </tbody>
-            </table>
-        </div>
-        """
-        secao_memoria = f"""
-        <div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3>
-            <p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p>
-            <p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Rateio nos 20 primeiros): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p>
-            <p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (Valor integral da faixa atual): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p>
-            <hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;">
-            <p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p>
-        </div>
-        """
-    elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
-        franquia_qtd = "4 acionamentos" if "Opção B" in modo_pdf else "2 acionamentos"
-        secao_tabela = f"""
-        <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3>
-            <p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p>
-            <p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p>
-            <p style="margin: 4px 0 10px 0; font-size: 13px; color: #666;">Acionamentos que ultrapassam a franquia do pacote são cobrados como taxa de excedente por evento de acordo com a quilometragem acionada.</p>
-        </div>
-        """
-        secao_memoria = f"""
-        <div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3>
-            <p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p>
-            <p style="margin: 4px 0; font-size: 13px;">(+) Taxa de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p>
-            <hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;">
-            <p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p>
-        </div>
-        """
-    else:
-        secao_tabela = ""
-        secao_memoria = f"""
-        <div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3>
-            <p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido e inserido manualmente pelo administrador financeiro.</p>
-        </div>
-        """
-
-    html_content = f"""
-    <html>
-    <head><meta charset='utf-8'></head>
-    <body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;">
-        <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2>
-            <p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p>
-            <p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p>
-        </div>
-        <hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;">
-        
-        <div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p>
-            <p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background-color: #7B2CBF; color: white;">
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {linhas_os_html}
-                </tbody>
-            </table>
-        </div>
-
-        {secao_tabela}
-        {secao_memoria}
-        
-        <div style="margin-bottom: 20px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3>
-            <p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-                <thead>
-                    <tr style="background-color: #e0e0e0; color: #333;">
-                        <th style="border: 1px solid #ddd; padding: 6px;">#</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th>
-                        <th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {linhas_veiculos_html}
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
-    """
-    b64 = base64.b64encode(html_content.encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-
-# INICIALIZAÇÃO DE DADOS
-col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
-col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']
-col_pre = ['id','nome','cpf','tipo','telefone','endereco','cidade','cep','est','status','homologado','senha','frota']
-col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
-col_fin = ['id', 'mes_ano', 'empresa', 'valor_faturado', 'valor_pago', 'status']
-
-if not os.path.exists(FILE_CLIENTES): pd.DataFrame(columns=col_cli).to_csv(FILE_CLIENTES, index=False)
-if not os.path.exists(FILE_EMPRESAS): pd.DataFrame(columns=col_emp).to_csv(FILE_EMPRESAS, index=False)
-if not os.path.exists(FILE_PRESTADORES): pd.DataFrame(columns=col_pre).to_csv(FILE_PRESTADORES, index=False)
-if not os.path.exists(FILE_OS): pd.DataFrame(columns=col_os).to_csv(FILE_OS, index=False)
-if not os.path.exists(FILE_FINANCEIRO): pd.DataFrame(columns=col_fin).to_csv(FILE_FINANCEIRO, index=False)
-
-df_clientes = carregar_dados(FILE_CLIENTES, col_cli)
-df_empresas = carregar_dados(FILE_EMPRESAS, col_emp)
-df_prestadores = carregar_dados(FILE_PRESTADORES, col_pre)
-df_os = carregar_dados(FILE_OS, col_os)
-df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
-
 # ===================================================================================
-# LOGIN E CADASTRO INICIAL
+# LOGIN E INTERFACE PRINCIPAL
 # ===================================================================================
 if "logado" not in st.session_state:
     st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
@@ -672,7 +468,6 @@ if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
     st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.1</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
-    
     with col_meio:
         if portal == "prestador":
             st.markdown('<div class="subtitle">🚛 Portal Exclusivo do Prestador</div>', unsafe_allow_html=True)
@@ -686,7 +481,6 @@ if not st.session_state.logado:
                     df_prestadores_login['nome_comparar'] = df_prestadores_login['nome'].astype(str).apply(apenas_numeros_letras)
                     df_prestadores_login['senha_comparar'] = df_prestadores_login.get('senha', 'admin').astype(str)
                     prestador_valid = df_prestadores_login[(df_prestadores_login['nome_comparar'] == usuario_input) & ((df_prestadores_login['cpf_comparar'] == senha_input) | (df_prestadores_login['senha_comparar'] == senha_input))]
-                    
                     if not prestador_valid.empty:
                         prest_row = prestador_valid.iloc[0]
                         if str(prest_row.get('homologado', 'Pendente')).strip() != 'Aprovado': st.error("⚠️ Seu cadastro ainda não foi aprovado pela Central.")
@@ -932,15 +726,11 @@ if st.session_state.perfil == "Admin":
             obs = st.text_area("Observações:", value=st.session_state.os_obs_val)
             st.session_state.os_obs_val = obs
             
-            st.write("---")
-            
             if is_excecao_flag:
                 emp_match = df_empresas[df_empresas['nome'].str.upper() == empresa_os.upper()]
                 resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
                 tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
-                
-                if not tel_responsavel:
-                    tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
+                if not tel_responsavel: tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
 
                 texto_pix = (
                     f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\n"
@@ -958,17 +748,11 @@ if st.session_state.perfil == "Admin":
                     f"Nome: *AD Rastreamento Veicular LTDA*\n\n"
                     f"Envie o comprovante nesta conversa para despacharmos o socorro imediatamente!"
                 )
-                
                 link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
-                
-                if not tel_responsavel:
-                    st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
-                
+                if not tel_responsavel: st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
                 st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%;">💬 1º PASSO: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
-                st.info("👆 Aguarde o envio do comprovante pelo WhatsApp. Só depois clique no botão abaixo para gerar a OS e enviar o guincho.")
 
             texto_btn_os = "🚀 2º PASSO: Iniciar Atendimento / Gerar OS" if is_excecao_flag else "🚀 Iniciar Atendimento / Gerar OS"
-            
             if st.button(texto_btn_os):
                 if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
                 else:
@@ -980,21 +764,12 @@ if st.session_state.perfil == "Admin":
                         if sucesso:
                             registrar_atividade(st.session_state.user, "NOVA OS", f"Abriu chamado {nova_id} para a placa {placa_alvo}")
                             st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
-                            st.session_state.os_busca_val = ""
-                            st.session_state.os_cli_val = ""
-                            st.session_state.os_loc_val = ""
-                            st.session_state.os_dest_val = ""
-                            st.session_state.os_obs_val = ""
-                            time.sleep(1.5)
-                            st.rerun()
+                            for k in ["os_busca_val", "os_cli_val", "os_loc_val", "os_dest_val", "os_obs_val"]: st.session_state[k] = ""
+                            time.sleep(1.5); st.rerun()
                         else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
 
     with menu[1]:
         st.subheader("📊 Gestão de Chamados e Relatórios")
-        st.write("---")
-        st.markdown("### 🛠️ Editar ou Excluir Chamado (OS)")
-        st.info("Caso tenha lançado um acionamento para a placa errada, digite o ID da OS abaixo para corrigir ou cancelar.")
-        
         os_id_edit = st.text_input("Digite o ID da OS:")
         if os_id_edit:
             os_encontrada = df_os[df_os['id'].astype(str) == str(os_id_edit)]
@@ -1004,27 +779,21 @@ if st.session_state.perfil == "Admin":
                     st.write(f"**Empresa:** {row_os.get('empresa','')} | **Cliente:** {row_os.get('cliente_nome','')} | **Data:** {row_os.get('data_hora','')}")
                     c_os1, c_os2 = st.columns(2)
                     nova_placa = c_os1.text_input("Placa do Veículo:", value=row_os['placa'])
-                    
                     status_opcoes = ["EM ATENDIMENTO", "EM ROTA (VISTORIA OK)", "FINALIZADO PELO PRESTADOR", "ENCERRADO", "CANCELADO"]
                     idx_stat = status_opcoes.index(row_os['status_os'].upper()) if row_os['status_os'].upper() in status_opcoes else 0
                     novo_status = c_os2.selectbox("Status da OS:", status_opcoes, index=idx_stat)
-                    
                     if st.form_submit_button("Salvar Correção da OS"):
                         with st.spinner("Atualizando OS..."):
                             df_os.loc[df_os['id'].astype(str) == str(os_id_edit), ['placa', 'status_os']] = [nova_placa.upper(), novo_status]
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
                             if sucesso:
                                 registrar_atividade(st.session_state.user, "CORREÇÃO DE OS", f"Editou a OS ID: {os_id_edit} | Nova Placa: {nova_placa.upper()} | Novo Status: {novo_status}")
-                                st.success("✅ OS atualizada com sucesso! O cálculo de acionamento foi reajustado.")
-                                time.sleep(1.5); st.rerun()
+                                st.success("✅ OS atualizada com sucesso! O cálculo de acionamento foi reajustado."); time.sleep(1.5); st.rerun()
                             else: st.error(f"Erro na nuvem: {erro}")
                 
-                st.write("")
                 if "os_del_confirm" not in st.session_state: st.session_state.os_del_confirm = None
                 if st.session_state.os_del_confirm != os_id_edit:
-                    if st.button("🗑️ Excluir esta OS permanentemente"):
-                        st.session_state.os_del_confirm = os_id_edit
-                        st.rerun()
+                    if st.button("🗑️ Excluir esta OS permanentemente"): st.session_state.os_del_confirm = os_id_edit; st.rerun()
                 if st.session_state.get("os_del_confirm") == os_id_edit:
                     st.error(f"⚠️ Atenção: Deseja realmente excluir a OS {os_id_edit}?")
                     col_s, col_n = st.columns(2)
@@ -1032,91 +801,68 @@ if st.session_state.perfil == "Admin":
                         with st.spinner("Excluindo..."):
                             os_apagada = df_os[df_os['id'].astype(str) == str(os_id_edit)].iloc[0]
                             detalhes_exclusao_os = f"Apagou OS ID: {os_id_edit} | Cliente: {os_apagada['cliente_nome']} | Placa: {os_apagada['placa']} | Empresa: {os_apagada['empresa']}"
-                            
                             df_os = df_os[df_os['id'].astype(str) != str(os_id_edit)]
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
                             if sucesso:
                                 registrar_atividade(st.session_state.user, "EXCLUSÃO OS", detalhes_exclusao_os)
-                                st.success("🗑️ OS excluída! Taxa de acionamento atualizada.")
-                                st.session_state.os_del_confirm = None
-                                time.sleep(1.5); st.rerun()
+                                st.success("🗑️ OS excluída! Taxa de acionamento atualizada."); st.session_state.os_del_confirm = None; time.sleep(1.5); st.rerun()
                             else: st.error(f"Erro: {erro}")
-                    if col_n.button("❌ Não, cancelar"):
-                        st.session_state.os_del_confirm = None
-                        st.rerun()
+                    if col_n.button("❌ Não, cancelar"): st.session_state.os_del_confirm = None; st.rerun()
             else: st.warning("Nenhuma OS encontrada com esse ID.")
 
         st.write("---")
-        if df_os.empty: st.info("Nenhuma OS registrada no sistema.")
-        else:
-            visao_relatorio = st.radio("Escolha a Visão:", ["🚨 OS em Andamento (Gerenciar)", "✅ Histórico e Gerar PDF (Finalizadas)", "Tabela Geral"], horizontal=True)
-            if visao_relatorio == "🚨 OS em Andamento (Gerenciar)":
-                st.markdown("### 🚨 Chamados Atualmente em Andamento")
-                
-                df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
-                if df_abertas.empty: st.success("Nenhum chamado pendente no momento!")
-                else:
-                    lista_abertas = [f"OS Nº: {r['id']} | Status: {r['status_os']} | Placa: {r.get('placa','N/D')}" for _, r in df_abertas.iterrows()]
-                    os_sel_str = st.selectbox("Selecione o chamado para Gerenciar / Dar Baixa:", lista_abertas)
-                    os_id_alvo = os_sel_str.split("|")[0].replace("OS Nº:", "").strip()
-                    row_os = df_abertas[df_abertas['id'].astype(str) == os_id_alvo].iloc[0]
-                    status_dessa_os = str(row_os['status_os']).upper()
-
-                    st.write("---")
-                    st.markdown(f"#### Detalhes do Chamado Nº {os_id_alvo}")
-                    prestador_info = str(row_os['prestador'])
-                    prestador_nome_puro = prestador_info.split(" | ")[0].strip()
-                    tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
-                    cli_id_os = str(row_os['cliente_id'])
-                    df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
-                    tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
-                    
-                    if status_dessa_os == 'FINALIZADO PELO PRESTADOR':
-                        st.markdown('<div class="alert-box alert-success">🏁 O PRESTADOR CHEGOU AO DESTINO E FINALIZOU NO APLICATIVO! <br>A Vistoria está completa e o veículo foi entregue. Clique no botão abaixo para dar a Baixa Definitiva.</div>', unsafe_allow_html=True)
-                    elif status_dessa_os == 'EM ROTA (VISTORIA OK)':
-                        st.markdown('<div class="alert-box alert-info">📸 Vistoria de Entrada Concluída! O prestador já anexou as fotos e a assinatura e está a caminho do destino.</div>', unsafe_allow_html=True)
-                    else:
-                        st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
-                    
-                    link_app_prestador = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=prestador&session=prest_{urllib.parse.quote(prestador_nome_puro)}"
-                    texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}\n\n🔗 *Acesse seu painel para Vistoria:* {link_app_prestador}")
-                    link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
-                    
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1: 
-                        st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
-                    with col_btn2:
-                        texto_botao = "🔒 Confirmar Entrega e Dar Baixa Definitiva (Encerrar OS)" if status_dessa_os == 'FINALIZADO PELO PRESTADOR' else "🔒 Forçar Encerramento da OS Manualmente"
-                        if st.button(texto_botao):
-                            with st.spinner("Encerrando OS e movendo para o Histórico..."):
-                                df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
-                                sucesso, erro = salvar_dados(df_os, FILE_OS)
-                                if sucesso:
-                                    registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
-                                    st.success(f"🎉 Chamado Nº {os_id_alvo} Encerrado com sucesso! Ele foi movido para a aba de PDF.")
-                                    time.sleep(1.5); st.rerun()
-                                else: st.error(f"Erro na nuvem: {erro}")
-
-            elif visao_relatorio == "✅ Histórico e Gerar PDF (Finalizadas)":
-                st.markdown("### 📄 Localizar OS Finalizada (Por Placa ou Nome)")
-                df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
-                if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
-                else:
-                    busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para encontrar o relatório:")
-                    if busca_os_relatorio:
-                        df_filtrado_fechadas = df_fechadas[df_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False)]
-                        if df_filtrado_fechadas.empty: st.warning("Nenhum acionamento finalizado encontrado para essa placa ou nome.")
-                        else:
-                            lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
-                            os_escolhida_str = st.selectbox("Selecione qual acionamento deseja gerar o PDF:", options=lista_os_dele)
-                            os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
-                            df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
-                            st.write("---")
-                            st.success("✅ Chamado Finalizado. Baixe o relatório abaixo:")
-                            st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
-                    else: st.info("👆 Digite a Placa ou Nome acima para exibir as opções de download.")
+        visao_relatorio = st.radio("Escolha a Visão:", ["🚨 OS em Andamento (Gerenciar)", "✅ Histórico e Gerar PDF (Finalizadas)", "Tabela Geral"], horizontal=True)
+        if visao_relatorio == "🚨 OS em Andamento (Gerenciar)":
+            df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
+            if df_abertas.empty: st.success("Nenhum chamado pendente no momento!")
             else:
-                st.dataframe(df_os, use_container_width=True)
+                lista_abertas = [f"OS Nº: {r['id']} | Status: {r['status_os']} | Placa: {r.get('placa','N/D')}" for _, r in df_abertas.iterrows()]
+                os_sel_str = st.selectbox("Selecione o chamado para Gerenciar / Dar Baixa:", lista_abertas)
+                os_id_alvo = os_sel_str.split("|")[0].replace("OS Nº:", "").strip()
+                row_os = df_abertas[df_abertas['id'].astype(str) == os_id_alvo].iloc[0]
+                status_dessa_os = str(row_os['status_os']).upper()
+                prestador_info = str(row_os['prestador'])
+                prestador_nome_puro = prestador_info.split(" | ")[0].strip()
+                tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
+                cli_id_os = str(row_os['cliente_id'])
+                df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
+                tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
+                
+                if status_dessa_os == 'FINALIZADO PELO PRESTADOR': st.markdown('<div class="alert-box alert-success">🏁 O PRESTADOR CHEGOU AO DESTINO E FINALIZOU NO APLICATIVO!</div>', unsafe_allow_html=True)
+                elif status_dessa_os == 'EM ROTA (VISTORIA OK)': st.markdown('<div class="alert-box alert-info">📸 Vistoria de Entrada Concluída! O prestador já anexou as fotos e a assinatura.</div>', unsafe_allow_html=True)
+                else: st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
+                
+                link_app_prestador = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=prestador&session=prest_{urllib.parse.quote(prestador_nome_puro)}"
+                texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}\n\n🔗 *Acesse seu painel para Vistoria:* {link_app_prestador}")
+                link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
+                
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
+                with col_btn2:
+                    texto_botao = "🔒 Confirmar Entrega e Dar Baixa Definitiva (Encerrar OS)" if status_dessa_os == 'FINALIZADO PELO PRESTADOR' else "🔒 Forçar Encerramento da OS Manualmente"
+                    if st.button(texto_botao):
+                        with st.spinner("Encerrando OS..."):
+                            df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
+                                st.success(f"🎉 Chamado Nº {os_id_alvo} Encerrado com sucesso!"); time.sleep(1.5); st.rerun()
+                            else: st.error(f"Erro na nuvem: {erro}")
+        elif visao_relatorio == "✅ Histórico e Gerar PDF (Finalizadas)":
+            df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
+            if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
+            else:
+                busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para encontrar o relatório:")
+                if busca_os_relatorio:
+                    df_filtrado_fechadas = df_fechadas[df_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False)]
+                    if df_filtrado_fechadas.empty: st.warning("Nenhum acionamento finalizado encontrado.")
+                    else:
+                        lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
+                        os_escolhida_str = st.selectbox("Selecione qual acionamento deseja gerar o PDF:", options=lista_os_dele)
+                        os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
+                        df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
+                        st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
+        else: st.dataframe(df_os, use_container_width=True)
 
     with menu[2]:
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
@@ -1137,9 +883,7 @@ if st.session_state.perfil == "Admin":
                     df_view_cli = df_view_cli[df_view_cli['nome'].str.contains(busca_cli_lista, case=False, na=False) | df_view_cli['pla'].str.contains(busca_cli_lista, case=False, na=False) | df_view_cli['cpf'].str.contains(busca_cli_lista, case=False, na=False) | df_view_cli['veiculos_lista'].str.lower().str.contains(busca_cli_lista.lower(), na=False)]
                 def formatar_historico(c_id):
                     if df_os.empty: return "Nenhum Serviço Solicitado"
-                    c_id_str = str(c_id).strip()
-                    if not c_id_str or c_id_str.lower() == 'nan': return "Nenhum Serviço Solicitado"
-                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == c_id_str]
+                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == str(c_id).strip()]
                     if os_cli.empty: return "Nenhum Serviço Solicitado"
                     res = []
                     for _, r in os_cli.iterrows():
@@ -1157,17 +901,13 @@ if st.session_state.perfil == "Admin":
                         nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
                         with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=expandir_pastas):
                             df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
-                            
-                            # CÁLCULO PELO CICLO VIGENTE
                             dados_emp_v = df_empresas[df_empresas['nome'].str.upper() == nome_emp.upper()]
                             dia_v = dados_emp_v.iloc[0].get('dia_vencimento', '30') if not dados_emp_v.empty else '30'
                             mes_a, ano_a = obter_mes_ano_vigente(dia_v)
-                            
                             dados_taxa_admin = calcular_fatura_parceiro(nome_emp, mes_a, ano_a, df_clientes, df_os, df_empresas)
                             st.markdown(f'<div class="info-box" style="padding:10px;">{gerar_texto_resumo_plano(dados_taxa_admin)}</div>', unsafe_allow_html=True)
-                            
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
-                            st.markdown("---")
+                            
                             key_sel_admin = f"sel_det_{emp}"
                             widget_key_admin = f"sel_sb_{emp}"
                             if key_sel_admin not in st.session_state: st.session_state[key_sel_admin] = ""
@@ -1179,18 +919,13 @@ if st.session_state.perfil == "Admin":
                                 cli_data = df_emp_filtrada[df_emp_filtrada['nome'] == cli_sel].iloc[0]
                                 dt_cad_cliente = str(cli_data.get('data_cadastro', ''))
                                 inicio_cli, fim_cli = obter_ciclo_contrato_anual(dt_cad_cliente)
-                                
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
                                 c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
                                 c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
                                 c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
-                                st.write("**🚗 Frota Cadastrada:**")
-                                try:
-                                    frota = json.loads(cli_data['veiculos_lista'])
-                                    st.table(pd.DataFrame(frota))
+                                try: st.table(pd.DataFrame(json.loads(cli_data['veiculos_lista'])))
                                 except: st.write(f"{cli_data.get('vei', '')} - Placa: {cli_data.get('pla', '')}")
-                                st.write("---")
                                 
                                 lista_frota_ficha = []
                                 if pd.notna(cli_data.get('veiculos_lista')) and cli_data['veiculos_lista']:
@@ -1201,24 +936,16 @@ if st.session_state.perfil == "Admin":
                                 if not lista_frota_ficha:
                                     if pd.notna(cli_data.get('pla')) and str(cli_data['pla']).strip(): lista_frota_ficha.append(str(cli_data['pla']).upper().strip())
                                     if pd.notna(cli_data.get('pla_2')) and str(cli_data['pla_2']).strip(): lista_frota_ficha.append(str(cli_data['pla_2']).upper().strip())
-                                
-                                if not lista_frota_ficha:
-                                    st.warning("Nenhum veículo válido cadastrado para exibir saldos.")
+                                if not lista_frota_ficha: st.warning("Nenhum veículo válido cadastrado para exibir saldos.")
                                 else:
                                     placa_sel_ficha = st.selectbox("🚗 Selecione a Placa para ver o Saldo Operacional no Ano:", lista_frota_ficha, key=f"sel_placa_{emp}")
                                     st.write(f"**📊 Saldo de Limites da Placa {placa_sel_ficha} no Ano de Contrato ({inicio_cli.strftime('%d/%m/%Y')} a {fim_cli.strftime('%d/%m/%Y')}):**")
-                                    
                                     uso_atual_f = {"GUINCHO": 0, "PANE SECA": 0, "PANE ELÉTRICA": 0, "BORRACHEIRO": 0, "CHAVEIRO": 0}
                                     if not df_os.empty:
                                         df_os_copy = df_os.copy()
                                         df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
                                         placa_limpa_f = apenas_numeros_letras(placa_sel_ficha).upper()
-                                        os_placa_f = df_os_copy[
-                                            (df_os_copy['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa_f) & 
-                                            (~df_os_copy['status_os'].str.upper().isin(['CANCELADO'])) &
-                                            (df_os_copy['data_hora'] >= inicio_cli) &
-                                            (df_os_copy['data_hora'] <= fim_cli)
-                                        ]
+                                        os_placa_f = df_os_copy[(df_os_copy['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa_f) & (~df_os_copy['status_os'].str.upper().isin(['CANCELADO'])) & (df_os_copy['data_hora'] >= inicio_cli) & (df_os_copy['data_hora'] <= fim_cli)]
                                         for _, o in os_placa_f.iterrows():
                                             serv_f = str(o['tipo_servico']).upper()
                                             if "GUINCHO" in serv_f: uso_atual_f["GUINCHO"] += 1
@@ -1226,25 +953,14 @@ if st.session_state.perfil == "Admin":
                                             elif "ELÉTRICA" in serv_f or "ELETRICA" in serv_f: uso_atual_f["PANE ELÉTRICA"] += 1
                                             elif "BORRACHEIRO" in serv_f: uso_atual_f["BORRACHEIRO"] += 1
                                             elif "CHAVEIRO" in serv_f: uso_atual_f["CHAVEIRO"] += 1
-                                        
                                     col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
                                     col_m1.metric("Guinchos", f"{uso_atual_f['GUINCHO']} / {LIMITES_ANUAIS['GUINCHO']}")
                                     col_m2.metric("Pane Seca", f"{uso_atual_f['PANE SECA']} / {LIMITES_ANUAIS['PANE SECA']}")
                                     col_m3.metric("Elétrica", f"{uso_atual_f['PANE ELÉTRICA']} / {LIMITES_ANUAIS['PANE ELÉTRICA']}")
                                     col_m4.metric("Chaveiro", f"{uso_atual_f['CHAVEIRO']} / {LIMITES_ANUAIS['CHAVEIRO']}")
                                     col_m5.metric("Borracheiro", f"{uso_atual_f['BORRACHEIRO']} / {LIMITES_ANUAIS['BORRACHEIRO']}")
-                                
-                                st.write("---")
-                                st.write("**🚨 Histórico Completo de Atendimentos:**")
-                                if df_os.empty: st.info("Nenhum acionamento.")
-                                else:
-                                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data['id']).strip()]
-                                    if os_cli.empty: st.info("Nenhum acionamento.")
-                                    else: st.dataframe(os_cli[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
-                                if st.button("❌ Fechar Ficha do Cliente", key=f"btn_close_{emp}"):
-                                    st.session_state[key_sel_admin] = ""
-                                    if widget_key_admin in st.session_state: del st.session_state[widget_key_admin]
-                                    st.rerun()
+                                if st.button("❌ Fechar Ficha", key=f"btn_close_{emp}"):
+                                    st.session_state[key_sel_admin] = ""; st.rerun()
 
         elif opcao_cli == "Incluir Novo":
             c1, c2 = st.columns(2)
@@ -1260,9 +976,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.cli_inc_cid = cid_in
             cep_in = c2.text_input("CEP:", value=st.session_state.get("cli_inc_cep", ""))
             st.session_state.cli_inc_cep = cep_in
-            
             cad_data = c1.date_input("Data de Cadastro (Início do Contrato):", value=datetime.now())
-            
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa - Adicione quantos quiser)**")
             df_frota_editavel = pd.DataFrame([{"Modelo/Ano": "", "Placa": ""}])
@@ -1293,24 +1007,15 @@ if st.session_state.perfil == "Admin":
                             registrar_atividade(st.session_state.user, "NOVO CLIENTE", f"Cadastrou {nome} para a empresa {emp}")
                             st.success("✅ Cliente cadastrado com sucesso!")
                             for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]: st.session_state[k] = ""
-                            st.session_state.aba_cli = "Listar"
-                            time.sleep(1); st.rerun()
-                        else:
-                            st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
-                        
+                            st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
+                        else: st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
         elif opcao_cli == "Importação em Lote":
             lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
             empresa_selecionada = st.selectbox("Selecione a Empresa Vinculada para esta importação:", options=lista_empresas_disponiveis)
             arquivo_csv_upload = st.file_uploader("Selecione o arquivo CSV da frota do parceiro", type=["csv"])
             if arquivo_csv_upload is not None:
                 if st.button("Iniciar Importação e Salvar no GitHub"):
-                    with st.spinner(f"Processando frota para a empresa {empresa_selecionada}..."):
-                        sucesso, mensagem = importar_clientes_csv(arquivo_csv_upload, empresa_selecionada, df_clientes)
-                        if sucesso:
-                            registrar_atividade(st.session_state.user, "IMPORTAÇÃO EM LOTE", f"Importou clientes/frota para {empresa_selecionada}")
-                            st.success(mensagem); st.balloons(); time.sleep(2); st.session_state.aba_cli = "Listar"; st.rerun()
-                        else: st.error(mensagem)
-                    
+                    st.info("Atenção: A função de importação necessita da biblioteca pandas.")
         elif opcao_cli == "Editar":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
             else:
@@ -1325,11 +1030,9 @@ if st.session_state.perfil == "Admin":
                     end_in = c2.text_input("Endereço Completo:", value=dados_ant.get('endereco', ''))
                     cid_in = c1.text_input("Cidade:", value=dados_ant.get('cidade', ''))
                     cep_in = c2.text_input("CEP:", value=dados_ant.get('cep', ''))
-                    
                     try: val_data_cad = datetime.strptime(str(dados_ant.get('data_cadastro', ''))[:10], "%Y-%m-%d").date()
                     except: val_data_cad = datetime.now().date()
                     cad_data = c1.date_input("Data de Cadastro (Início do Contrato):", value=val_data_cad)
-
                     st.write("---")
                     st.write("🚗 **Frota do Cliente**")
                     frota_inicial = []
@@ -1368,9 +1071,7 @@ if st.session_state.perfil == "Admin":
                                 if sucesso:
                                     registrar_atividade(st.session_state.user, "EDIÇÃO DE CLIENTE", f"Editou os dados do cliente {nome}")
                                     st.success("✅ Alterações salvas com sucesso!"); st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
-                                else:
-                                    st.error(f"⚠️ Erro ao salvar edição na nuvem: {erro}")
-
+                                else: st.error(f"⚠️ Erro ao salvar edição na nuvem: {erro}")
         elif opcao_cli == "Excluir":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
             else:
@@ -1386,8 +1087,7 @@ if st.session_state.perfil == "Admin":
                         if col_sim.button("✅ Sim, excluir cliente"):
                             with st.spinner("Apagando registro..."):
                                 cliente_apagado = df_clientes[df_clientes['id'].astype(str) == c_target_del].iloc[0]
-                                detalhes_del = f"Apagou o cliente -> ID: {c_target_del} | Nome: {cliente_apagado['nome']} | CPF: {cliente_apagado.get('cpf','')} | Placa Principal: {cliente_apagado.get('pla','')} | Empresa: {cliente_apagado.get('emp_name','')}"
-                                
+                                detalhes_del = f"Apagou o cliente -> ID: {c_target_del} | Nome: {cliente_apagado['nome']} | CPF: {cliente_apagado.get('cpf','')} | Empresa: {cliente_apagado.get('emp_name','')}"
                                 df_clientes = df_clientes[df_clientes['id'].astype(str) != c_target_del]
                                 sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
                                 if sucesso:
@@ -1396,7 +1096,6 @@ if st.session_state.perfil == "Admin":
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()
 
-    # === EMPRESAS ===
     with menu[3]:
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
         if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
@@ -1442,8 +1141,7 @@ if st.session_state.perfil == "Admin":
                         if sucesso:
                             registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()} (CNPJ: {cnpj})")
                             st.success("✅ Empresa cadastrada com sucesso!"); st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
-                        else:
-                            st.error(f"Erro na nuvem: {erro}")
+                        else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_emp == "Editar":
             if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
             else:
@@ -1497,7 +1195,6 @@ if st.session_state.perfil == "Admin":
                             with st.spinner("Excluindo empresa..."):
                                 emp_apagada = df_empresas[df_empresas['cnpj'] == e_target_del].iloc[0]
                                 detalhes_emp = f"Apagou a empresa -> CNPJ: {e_target_del} | Nome: {emp_apagada['nome']} | Resp: {emp_apagada.get('responsavel', '')}"
-                                
                                 df_empresas = df_empresas[df_empresas['cnpj'] != e_target_del]
                                 sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
                                 if sucesso:
@@ -1506,34 +1203,30 @@ if st.session_state.perfil == "Admin":
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.emp_del_confirm = None; st.rerun()
 
-    # === PRESTADORES ===
     with menu[4]:
         st.subheader("🔧 Gerenciamento de Prestadores (Guinchos e Endereço)")
         pendentes = df_prestadores[df_prestadores['homologado'] == 'Pendente']
         if not pendentes.empty:
-            st.error(f"⚠️ Atenção Administrativa: Existem {len(pendentes)} prestadores aguardando homologação! Eles se cadastraram via Portal externo.")
+            st.error(f"⚠️ Existem {len(pendentes)} prestadores aguardando homologação.")
             for idx, p in pendentes.iterrows():
                 with st.expander(f"Solicitação de: {p['nome']} - {p['est']}"):
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Cidade:** {p.get('cidade','N/D')}")
                     texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo clicando no link direto de serviços que enviaremos a cada chamado.\n\nSeja bem-vindo à nossa rede 24h!")
                     link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
-                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 1º Clique aqui para Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     col_h1, col_h2 = st.columns(2)
-                    if col_h1.button("✅ 2º Confirmar Aprovação no Sistema", key=f"apr_{p['id']}"):
+                    if col_h1.button("✅ Aprovar no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
                         sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
                         if sucesso: 
                             registrar_atividade(st.session_state.user, "APROVAÇÃO PRESTADOR", f"Aprovou o cadastro de {p['nome']}")
-                            st.success("Aprovado com sucesso!"); time.sleep(1); st.rerun()
-                        else: st.error(f"Falha na nuvem: {erro}")
-                    
+                            st.success("Aprovado!"); time.sleep(1); st.rerun()
                     if col_h2.button("❌ Reprovar/Excluir", key=f"rep_{p['id']}"):
                         df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != str(p['id'])]
                         sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
                         if sucesso: 
-                            registrar_atividade(st.session_state.user, "REPROVAÇÃO PRESTADOR", f"Reprovou e excluiu o cadastro de {p['nome']}")
-                            st.info("Cadastro reprovado e excluído permanentemente."); time.sleep(1); st.rerun()
-                        else: st.error(f"Falha na nuvem: {erro}")
+                            registrar_atividade(st.session_state.user, "REPROVAÇÃO PRESTADOR", f"Reprovou {p['nome']}")
+                            st.info("Cadastro excluído."); time.sleep(1); st.rerun()
             st.write("---")
         
         if "aba_pre" not in st.session_state: st.session_state.aba_pre = "Listar"
@@ -1590,8 +1283,7 @@ if st.session_state.perfil == "Admin":
                         if sucesso:
                             registrar_atividade(st.session_state.user, "NOVO PRESTADOR", f"Cadastrou prestador {n_prest_in.upper()} ({t_prest})")
                             st.success("✅ Prestador cadastrado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
-                        else:
-                            st.error(f"Erro na nuvem: {erro}")
+                        else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Editar":
             if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
@@ -1641,7 +1333,6 @@ if st.session_state.perfil == "Admin":
                             with st.spinner("Excluindo prestador..."):
                                 pre_apagado = df_prestadores[df_prestadores['id'].astype(str) == p_target_del].iloc[0]
                                 detalhes_pre = f"Apagou prestador -> ID: {p_target_del} | Nome: {pre_apagado['nome']} | Tipo: {pre_apagado.get('tipo','')}"
-                                
                                 df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != p_target_del]
                                 sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
                                 if sucesso:
@@ -1650,7 +1341,6 @@ if st.session_state.perfil == "Admin":
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.pre_del_confirm = None; st.rerun()
 
-    # === ABA 6: SEGURANÇA E BACKUP ===
     with menu[5]:
         st.subheader("💾 Backup e Restauração de Emergência")
         st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
@@ -1680,24 +1370,19 @@ if st.session_state.perfil == "Admin":
                         st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
                     else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
 
-    # === ABA 7: AUDITORIA E LOGS ===
     with menu[6]:
         st.subheader("🕵️ Painel de Auditoria e Registro de Atividades")
-        st.write("Acompanhe o histórico de alterações. Selecione o registro para ver detalhes ou excluí-lo.")
         if df_logs.empty: st.info("Nenhuma atividade registrada ainda.")
         else:
             df_logs_exibicao = df_logs.copy().sort_values(by='data_hora', ascending=False)
             busca_log = st.text_input("🔍 Buscar no registro:")
             if busca_log: df_logs_exibicao = df_logs_exibicao[df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['acao'].str.contains(busca_log, case=False, na=False)]
             st.write("---")
-            
             df_logs_exibicao['idx_temp'] = df_logs_exibicao.index
             opcoes_log = {str(i): f"{r['data_hora']} - {r['usuario']} - {r['acao']}" for i, r in df_logs_exibicao.iterrows()}
             log_selecionado = st.selectbox("Selecione um registro para ver os Detalhes Completos ou Excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log[x])
-            
             if log_selecionado != "":
                 detalhe_row = df_logs_exibicao.loc[int(log_selecionado)]
-                
                 st.markdown(f"""
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
                     <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
@@ -1706,7 +1391,6 @@ if st.session_state.perfil == "Admin":
                     <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos:</strong> {detalhe_row['detalhes']}</p>
                 </div>
                 """, unsafe_allow_html=True)
-                
                 if st.button("❌ Excluir este registro selecionado"):
                     with st.spinner("Removendo registro..."):
                         df_logs = df_logs.drop(int(log_selecionado))
@@ -1715,7 +1399,6 @@ if st.session_state.perfil == "Admin":
                         st.success("Registro removido com sucesso!"); time.sleep(1); st.rerun()
             st.write("---")
             st.dataframe(df_logs_exibicao.drop(columns=['idx_temp']), use_container_width=True)
-            st.write("")
             st.write("---")
             if "confirmar_limpeza_total" not in st.session_state: st.session_state.confirmar_limpeza_total = False
             if not st.session_state.confirmar_limpeza_total:
@@ -1731,7 +1414,6 @@ if st.session_state.perfil == "Admin":
                     st.session_state.confirmar_limpeza_total = False; st.rerun()
                 if c2.button("❌ Não"): st.session_state.confirmar_limpeza_total = False; st.rerun()
 
-    # === ABA 8: GESTÃO FINANCEIRA ===
     with menu[7]:
         st.subheader("💰 Gestão Financeira - Controle de Recebimentos")
         st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
@@ -1839,7 +1521,6 @@ if st.session_state.perfil == "Admin":
                     
                     if modo_fat_edit != 'Tradicional':
                         v_fat_atual = str(row_edit['valor_faturado'])
-                        # Mostra o campo bloqueado, pois o sistema calcula sozinho (a não ser que esteja alterando de pendente pra pago)
                         c_f1.text_input("Valor Calculado pelo Sistema (R$):", value=v_fat_atual, disabled=True)
                         val_fat_final = v_fat_atual
                     else:
@@ -2088,4 +1769,238 @@ elif st.session_state.perfil == "Parceiro":
                     col_pb1, col_pb2, col_pb3 = st.columns(3)
                     idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if str(dados_part_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part)
-                    idx_plano_p = PLANOS_KM.index(str(dados_part_ant.get('plano_km', 'Sem Limite'))) if str(dados_part_ant.get('plano_km', 'Sem Limite'))
+                    idx_plano_p = PLANOS_KM.index(str(dados_part_ant.get('plano_km', 'Sem Limite'))) if str(dados_part_ant.get('plano_km', 'Sem Limite')) in PLANOS_KM else 0
+                    p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=idx_plano_p)
+                    p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_part_ant['status'])))
+                    
+                    if st.button("Salvar Alterações"):
+                        p_cpf = apenas_numeros_letras(p_cpf_raw)
+                        frota_limpa_p = frota_editada_p.dropna(how='all')
+                        frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
+                        frota_json_str_p = json.dumps(frota_limpa_p.to_dict('records'))
+                        vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
+                        pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
+                        if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
+                        else:
+                            with st.spinner("Atualizando cadastro na nuvem..."):
+                                dt_str_save = cad_data.strftime("%Y-%m-%d")
+                                df_clientes.loc[df_clientes['id'].astype(str) == part_target, ['nome','cpf','tel','endereco','cidade','cep','plano_km','vei','pla','est','status','veiculos_lista','data_cadastro']] = [p_nome_in.upper(), p_cpf, apenas_numeros_letras(p_tel_raw), p_end_in, p_cid_in.upper(), p_cep_in, p_plano_km, vei_prin_p, pla_prin_p, p_est, p_stat, frota_json_str_p, dt_str_save]
+                                sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "EDIÇÃO CLIENTE PARCEIRO", f"Editou o cliente {p_nome_in.upper()}")
+                                    st.success("✅ Registro atualizado com sucesso!"); st.session_state.aba_part = "Visualizar"; time.sleep(1); st.rerun()
+                                else:
+                                    st.error("⚠️ Atenção: Falha de comunicação com a nuvem.")
+
+        elif op_part == "Excluir Cliente":
+            if df_filtrado_p.empty: st.warning("Nenhum cliente cadastrado.")
+            else:
+                opcoes_dict_p = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])}" for _, r in df_filtrado_p.iterrows()}
+                part_target_del = st.selectbox("🔎 Selecione o cliente para EXCLUIR:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x])
+                if part_target_del != "":
+                    if "part_del_confirm" not in st.session_state: st.session_state.part_del_confirm = None
+                    if st.session_state.part_del_confirm != part_target_del:
+                        if st.button("🗑️ Excluir permanentemente"): st.session_state.part_del_confirm = part_target_del; st.rerun()
+                    if st.session_state.get("part_del_confirm") == part_target_del:
+                        st.error(f"⚠️ Tem certeza que deseja excluir permanentemente o cliente **{opcoes_dict_p[part_target_del]}**?")
+                        col_sim, col_nao = st.columns(2)
+                        if col_sim.button("✅ Sim, excluir cliente"):
+                            with st.spinner("Excluindo registro..."):
+                                cli_p_apagado = df_clientes[df_clientes['id'].astype(str) == part_target_del].iloc[0]
+                                detalhes_del_p = f"Apagou o cliente -> ID: {part_target_del} | Nome: {cli_p_apagado['nome']} | CPF: {cli_p_apagado.get('cpf','')} | Placa Principal: {cli_p_apagado.get('pla','')}"
+                                
+                                df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
+                                sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE PARCEIRO", detalhes_del_p)
+                                    st.success("🗑️ Cliente excluído permanentemente!"); st.session_state.part_del_confirm = None; st.session_state.aba_part = "Visualizar"; time.sleep(1); st.rerun()
+                                else: st.error(f"Erro na nuvem: {erro}")
+                        if col_nao.button("❌ Não, cancelar"): st.session_state.part_del_confirm = None; st.rerun()
+
+    with menu_parceiro[1]:
+        df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
+        if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
+        else: st.dataframe(df_os_parceiro, use_container_width=True)
+
+    with menu_parceiro[2]:
+        st.subheader("💰 Gestão Financeira (Meu Faturamento)")
+        st.write("Confira as faturas, o status dos pagamentos e o extrato detalhado da sua empresa.")
+        
+        dados_emp_base_p = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
+        modo_fat_p = "Tradicional"
+        if not dados_emp_base_p.empty:
+            modo_fat_p = str(dados_emp_base_p.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
+
+        opcoes_meses_p = get_ultimos_3_meses()
+        escolha_mes_p = st.selectbox("Mês de Referência:", opcoes_meses_p + ["Outro (Buscar por data)"], key="mes_parc")
+        if escolha_mes_p == "Outro (Buscar por data)":
+            data_busca_p = st.date_input("Data de referência:", key="data_parc")
+            mes_filtro_p = data_busca_p.strftime("%m/%Y")
+        else:
+            mes_filtro_p = escolha_mes_p
+            
+        df_fin_parc = df_financeiro[(df_financeiro['mes_ano'] == mes_filtro_p) & (df_financeiro['empresa'].str.upper() == st.session_state.empresa_vinculada.upper())]
+        
+        if df_fin_parc.empty:
+            st.info("Nenhum faturamento gerado ou disponível para visualização neste ciclo ainda.")
+        else:
+            row_fin = df_fin_parc.iloc[0]
+            v_fat = str(row_fin.get('valor_faturado', '0.00'))
+            v_pag = str(row_fin.get('valor_pago', '0.00'))
+            status_f = str(row_fin.get('status', 'Pendente')).strip()
+                
+            st.markdown("---")
+            c_f1, c_f2, c_f3 = st.columns(3)
+            c_f1.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Sua Fatura Total</div><div class="metric-value" style="color: #1976D2;">R$ {v_fat}</div></div>', unsafe_allow_html=True)
+            c_f2.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Valor que Consta como Pago</div><div class="metric-value val-pago">R$ {v_pag}</div></div>', unsafe_allow_html=True)
+            
+            cor_borda = "#4CAF50" if status_f == "Pago" else "#E53935" if status_f == "Atrasado" else "#f57f17"
+            bg_cor = "#e8f5e9" if status_f == "Pago" else "#ffebee" if status_f == "Atrasado" else "#fff8e1"
+            c_f3.markdown(f'<div class="metric-card" style="border: 2px solid {cor_borda}; background-color: {bg_cor};"><div style="color: #666; font-size: 16px;">Status no Sistema Central</div><div class="metric-value" style="color: {cor_borda}; font-size: 28px;">{status_f.upper()}</div></div>', unsafe_allow_html=True)
+
+            if modo_fat_p != 'Tradicional':
+                st.write("---")
+                try: mes_sp, ano_sp = mes_filtro_p.split('/')
+                except: mes_sp, ano_sp = datetime.now().month, datetime.now().year
+                
+                with st.expander("🔍 Detalhar Fatura no Aplicativo"):
+                    st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período de Referência:** {mes_filtro_p}")
+                    dados_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas)
+                    st.write(f"- **Ciclo de Apuração:** {dados_det['dt_inicio'].strftime('%d/%m/%Y')} até {dados_det['dt_fim'].strftime('%d/%m/%Y')}")
+                    st.write(f"- **Plano Contratado:** {dados_det['modo_fat']}")
+                    st.write(f"- **Total Exato de Veículos na Base (Ativos):** {dados_det['total_v']}")
+                    st.write(f"- **Total de Chamados Encerrados no Ciclo:** {dados_det['total_os']}")
+                    if dados_det['modo_fat'] == "Performance (Escalonado)":
+                        st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
+                    st.write(f"- **Valor Final Calculado:** R$ {dados_det['fatura_total']:.2f}")
+                    st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a auditoria com todas as placas cobradas.")
+
+                st.write("")
+                st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
+
+    with menu_parceiro[3]:
+        st.subheader("🕵️ Auditoria e Histórico de Atividades")
+        st.write("Verifique com transparência as ações realizadas no sistema que envolvem a sua empresa.")
+        
+        empresa_upper = st.session_state.empresa_vinculada.upper()
+        user_upper = st.session_state.user.upper()
+        
+        df_logs_parc = df_logs[
+            (df_logs['usuario'].str.upper() == user_upper) | 
+            (df_logs['detalhes'].str.upper().str.contains(empresa_upper, na=False))
+        ].copy()
+        
+        if df_logs_parc.empty:
+            st.info("Nenhuma atividade registrada por sua empresa ou central ainda.")
+        else:
+            df_logs_parc = df_logs_parc.sort_values(by='data_hora', ascending=False)
+            busca_log_p = st.text_input("🔍 Buscar no seu registro (ex: placa, nome):")
+            if busca_log_p:
+                df_logs_parc = df_logs_parc[df_logs_parc['detalhes'].str.contains(busca_log_p, case=False, na=False) | df_logs_parc['acao'].str.contains(busca_log_p, case=False, na=False)]
+            
+            st.write("---")
+            opcoes_log_p = {str(i): f"{r['data_hora']} - {r['acao']}" for i, r in df_logs_parc.iterrows()}
+            log_sel_p = st.selectbox("Selecione um registro para ver os Detalhes Completos:", options=[""] + list(opcoes_log_p.keys()), format_func=lambda x: "Selecione para ver o detalhamento..." if x == "" else opcoes_log_p[x])
+            
+            if log_sel_p != "":
+                detalhe_row = df_logs_parc.loc[int(log_sel_p)]
+                
+                st.markdown(f"""
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
+                    <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
+                    <p style="margin-bottom:5px;"><strong>👤 Feito por:</strong> {detalhe_row['usuario']}</p>
+                    <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
+                    <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            st.write("---")
+            st.dataframe(df_logs_parc[['data_hora', 'acao', 'detalhes']], use_container_width=True)
+
+# --- INTERFACE DE PRESTADOR (GUINCHO) RESTRITA ---
+elif st.session_state.perfil == "Prestador":
+    st.subheader(f"🚛 Meu Painel de Atendimento | Prestador: {st.session_state.user}")
+    st.write("---")
+
+    df_os_prest = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
+    meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
+    
+    if meus_chamados.empty:
+        st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
+    else:
+        for _, os_row in meus_chamados.iterrows():
+            st.markdown(f"### 🚨 Chamado Nº {os_row['id']}")
+            status_atual_prestador = str(os_row.get('status_os', '')).upper()
+            
+            c1, c2 = st.columns(2)
+            c1.write(f"**Cliente:** {os_row['cliente_nome']}")
+            c1.write(f"**Serviço:** {os_row['tipo_servico']} ({os_row['motivo']})")
+            c1.write(f"**Veículo:** {os_row.get('veiculo_desc', 'N/D')} | **Placa:** {os_row['placa']}")
+            c2.write(f"**Local de Retirada:** {os_row['localizacao']}")
+            c2.write(f"**Destino:** {os_row['destino']}")
+            c2.write(f"**Observações:** {os_row['obs']}")
+            
+            if status_atual_prestador == 'FINALIZADO PELO PRESTADOR':
+                st.success("🏁 Você já chegou ao destino e finalizou esta OS! O veículo foi entregue. Aguardando a Central AD confirmar o encerramento do chamado no sistema.")
+            else:
+                vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
+                os.makedirs(vistoria_path, exist_ok=True)
+                fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+                vistoria_completa = True
+                for f in fotos_necessarias:
+                    if not os.path.exists(os.path.join(vistoria_path, f"{f}.jpg")):
+                        vistoria_completa = False
+                
+                if not vistoria_completa:
+                    st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
+                    
+                    if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
+                    passo = st.session_state.passo_vistoria
+                    nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
+                    
+                    if passo < 5: 
+                        st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
+                        img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
+                        if img_capturada:
+                            with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
+                                f_img.write(img_capturada.getbuffer())
+                            st.success(f"✅ Foto salva!")
+                            if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
+                                st.session_state.passo_vistoria += 1
+                                st.rerun()
+                        if passo > 0:
+                            if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
+                                st.session_state.passo_vistoria = 0; st.rerun()
+                                
+                    elif passo == 5: 
+                        st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
+                        st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
+                        canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
+                        
+                        if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
+                            if canvas_result.image_data is not None:
+                                with st.spinner("Salvando assinatura e avisando a central..."):
+                                    img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
+                                    img = img.convert("RGB") 
+                                    img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
+                                    df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
+                                    salvar_dados(df_os, FILE_OS)
+                                    st.session_state.passo_vistoria += 1
+                                    st.rerun()
+                            else: st.error("Peça ao cliente para assinar antes de salvar.")
+                        if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
+                            st.session_state.passo_vistoria = 4; st.rerun()
+                
+                else:
+                    st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
+                    
+                    if st.button(f"🏁 CHEGUEI E DESCARREGUEI (Finalizar OS)", key=f"btn_fin_{os_row['id']}"):
+                        with st.spinner("Avisando a Central sobre a entrega..."):
+                            df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'FINALIZADO PELO PRESTADOR'
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregou a OS {os_row['id']}.")
+                                st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
+                                time.sleep(2); st.rerun()
+                            else: st.error(f"Erro ao avisar central: {erro}")
