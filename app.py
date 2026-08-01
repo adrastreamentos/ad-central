@@ -31,11 +31,10 @@ MODOS_FATURAMENTO = [
 ]
 
 # ===================================================================================
-# FUNÇÕES GLOBAIS E ESTILIZAÇÃO (NOVO VISUAL) E CORREÇÃO PDF
+# FUNÇÕES GLOBAIS E ESTILIZAÇÃO
 # ===================================================================================
 
 def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
-    """Gera o código HTML para o PDF de uma OS específica e retorna o botão de download."""
     if df_os.empty:
         return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
     
@@ -112,8 +111,7 @@ def calcular_datas_ciclo(mes, ano, dia_venc_str):
     try: dia_venc = int(dia_venc_str)
     except: dia_venc = 30
     
-    try:
-        dt_venc_atual = datetime(ano, mes, dia_venc)
+    try: dt_venc_atual = datetime(ano, mes, dia_venc)
     except ValueError:
         max_day = calendar.monthrange(ano, mes)[1]
         dt_venc_atual = datetime(ano, mes, max_day)
@@ -142,7 +140,6 @@ def obter_ciclo_contrato_anual(data_cad_str):
         
     return inicio, fim
 
-# V8.1 INDICATOR
 st.set_page_config(page_title="Central 24h - AD Rastreamento Veicular", layout="wide", page_icon="🔒")
 
 st.markdown("""
@@ -165,7 +162,7 @@ st.markdown("""
     .alert-danger { background-color: #ffebee; color: #c62828; border-color: #E53935; }
     .alert-success { background-color: #e8f5e9; color: #2e7d32; border-color: #4CAF50; }
     .alert-info { background-color: #e3f2fd; color: #1565c0; border-color: #1976D2; }
-    .info-box { background-color: #f3e5f5; color: #4a148c; border-color: #7B2CBF; padding: 16px; border-radius: 8px; margin: 15px 0; border-left: 6px solid; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .info-box { background-color: #f3e5f5; color: #4a148c; border-color: #7B2CBF; padding: 16px; border-radius: 8px; margin: 15px 0; border-left: 6px solid; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05); line-height: 1.6; }
     .metric-card { background-color: #ffffff; border-radius: 12px; padding: 25px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #f0f0f0; transition: transform 0.2s ease, box-shadow 0.2s ease; }
     .metric-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
     .metric-value { font-size: 32px; font-weight: 800; margin-top: 12px; letter-spacing: -0.5px;}
@@ -213,12 +210,6 @@ def salvar_dados(df, caminho):
     df.to_csv(caminho, index=False)
     return salvar_no_github(caminho)
 
-def gerar_botao_whatsapp(dados_dict):
-    texto = "🚨 *ERRO DE SINCRONIZAÇÃO - LANÇAMENTO MANUAL* 🚨\nOlá, Central AD!\nTentei salvar dados na plataforma, mas falhou. Seguem os dados:\n\n"
-    for k, v in dados_dict.items(): texto += f"*{k}:* {v}\n"
-    link = f"https://api.whatsapp.com/send?phone=5584999305771&text={urllib.parse.quote(texto)}"
-    st.markdown(f'<a href="{link}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 12px 24px; border: none; border-radius: 6px; width: 100%; margin-top: 10px;">📲 Informar Falha via WhatsApp</button></a>', unsafe_allow_html=True)
-
 def carregar_dados(caminho, colunas_obrigatorias):
     try:
         df = pd.read_csv(caminho, dtype=str)
@@ -245,7 +236,7 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO AUDITÁVEL E INTELIGENTE
+# MOTOR DE CÁLCULO FINANCEIRO AUDITÁVEL
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
@@ -301,7 +292,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                            (df_os_temp['data_hora'] >= dt_inicio) & 
                            (df_os_temp['data_hora'] <= dt_fim)]
     total_os = len(os_filtro)
-    
     taxa = (total_os / total_v * 100) if total_v > 0 else 0
     
     if taxa > 10.0: faixa = "10%"
@@ -311,6 +301,8 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     else: faixa = "2%"
 
     fatura_total, soma_adicionais, soma_excedentes, valor_base = 0.0, 0.0, 0.0, 0.0
+    qtd_exc_50 = 0
+    qtd_exc_100 = 0
     
     if modo_fat_calc == "Performance (Escalonado)":
         if total_v > 0:
@@ -321,27 +313,24 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                     p_km = v['plano']
                     adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
                     soma_adicionais += adicional
-                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco se houver)'
+                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco)'
                     v['valor_cobrado'] = adicional
                 fatura_total += soma_adicionais
             else:
                 primeiros_20 = lista_veiculos_emp[:20]
                 excedentes = lista_veiculos_emp[20:]
-                
                 for v in primeiros_20:
                     p_km = v['plano']
                     adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
                     soma_adicionais += adicional
-                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco se houver)'
+                    v['tipo_cobranca'] = 'Composição do Piso Base (+ Risco)'
                     v['valor_cobrado'] = adicional
-                    
                 for v in excedentes:
                     p_km = v['plano']
                     val_cheio = tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"])
                     soma_excedentes += val_cheio
                     v['tipo_cobranca'] = 'Excedente (Valor Integral da Tabela)'
                     v['valor_cobrado'] = val_cheio
-                    
                 fatura_total += (soma_adicionais + soma_excedentes)
 
     elif "Frota Pequena" in modo_fat_calc or "Até 40 Veículos" in modo_fat_calc:
@@ -361,7 +350,8 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             taxa_50 = 80.00
             taxa_100 = 130.00
 
-        fatura_total = valor_base
+        if total_v > 0:
+            fatura_total = valor_base
         
         acionamentos_50 = 0
         acionamentos_100 = 0
@@ -377,7 +367,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             pagantes_50 = 0
             pagantes_100 = 0
             
-            # Prioriza consumir os de 50km como gratuitos, deixando os de 100km (mais caros) para faturar
             if acionamentos_50 >= isentos_restantes:
                 pagantes_50 = acionamentos_50 - isentos_restantes
                 pagantes_100 = acionamentos_100
@@ -390,13 +379,14 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             valor_exc_100 = pagantes_100 * taxa_100
             soma_excedentes = valor_exc_50 + valor_exc_100
             fatura_total += soma_excedentes
+            qtd_exc_50 = pagantes_50
+            qtd_exc_100 = pagantes_100
             
         for v in lista_veiculos_emp:
             v['tipo_cobranca'] = 'Incluso no Pacote (Plano Fixo)'
             v['valor_cobrado'] = 0.0
 
     else:
-        # Tradicional / Manual
         valor_base = 0.0
         fatura_total = 0.0
         for v in lista_veiculos_emp:
@@ -409,8 +399,40 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         'valor_base': valor_base,
         'soma_adicionais': soma_adicionais, 'soma_excedentes': soma_excedentes,
         'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str,
-        'modo_fat': modo_fat_calc
+        'modo_fat': modo_fat_calc,
+        'qtd_exc_50': qtd_exc_50, 'qtd_exc_100': qtd_exc_100
     }
+
+def gerar_texto_resumo_plano(dados_fat):
+    """Gera o texto dinâmico e transparente com base no plano exato da empresa"""
+    modo = dados_fat.get('modo_fat', 'Tradicional')
+    tot_v = dados_fat.get('total_v', 0)
+    taxa = dados_fat.get('taxa', 0.0)
+    faixa = dados_fat.get('faixa', '2%')
+    fat_tot = dados_fat.get('fatura_total', 0.0)
+    base = dados_fat.get('valor_base', 0.0)
+    exc = dados_fat.get('soma_excedentes', 0.0)
+    
+    if modo == "Performance (Escalonado)":
+        return f"📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento:</b> {taxa:.1f}% (Enquadramento: Faixa {faixa})<br>💰 <b>Fatura Estimada Atual:</b> R$ {fat_tot:.2f}"
+    
+    elif "Frota Pequena" in modo or "Até 40" in modo:
+        texto = f"📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
+        if exc > 0:
+            detalhe_exc = []
+            if dados_fat.get('qtd_exc_50', 0) > 0:
+                detalhe_exc.append(f"{dados_fat['qtd_exc_50']}x excedente(s) de 50km")
+            if dados_fat.get('qtd_exc_100', 0) > 0:
+                detalhe_exc.append(f"{dados_fat['qtd_exc_100']}x excedente(s) de 100km")
+            
+            str_detalhe = " e ".join(detalhe_exc)
+            texto += f"💰 <b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:#E53935; font-size:14px;'>(Sendo R$ {base:.2f} Fixo + R$ {exc:.2f} referente a {str_detalhe})</span>"
+        else:
+            texto += f"💰 <b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:#2e7d32; font-size:14px;'>(Uso operando dentro da franquia gratuita do pacote)</span>"
+        return texto
+        
+    else:
+        return f"📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento (Informativa):</b> {taxa:.1f}%<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
 
 def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
@@ -604,7 +626,7 @@ df_os = carregar_dados(FILE_OS, col_os)
 df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
 
 # ===================================================================================
-# LOGIN E CADASTRO INICIAL (COM AUTO-LOGIN PARA PRESTADOR)
+# LOGIN E CADASTRO INICIAL
 # ===================================================================================
 if "logado" not in st.session_state:
     st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
@@ -1113,7 +1135,7 @@ if st.session_state.perfil == "Admin":
                             ano_a = datetime.now().year
                             
                             dados_taxa_admin = calcular_fatura_parceiro(nome_emp, mes_a, ano_a, df_clientes, df_os, df_empresas)
-                            st.markdown(f"📊 **Base Apurada: {dados_taxa_admin['total_v']} veículos ativos | Taxa de Acionamento Atual: {dados_taxa_admin['taxa']:.1f}% (Faixa {dados_taxa_admin['faixa']})**")
+                            st.markdown(f'<div class="info-box" style="padding:10px;">{gerar_texto_resumo_plano(dados_taxa_admin)}</div>', unsafe_allow_html=True)
                             
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                             st.markdown("---")
@@ -1722,7 +1744,13 @@ if st.session_state.perfil == "Admin":
                     try: mes_s, ano_s = mes_filtro.split('/')
                     except: mes_s, ano_s = datetime.now().month, datetime.now().year
                     dados_fatura = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os, df_empresas)
-                    taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
+                    
+                    if modo_fat == "Performance (Escalonado)":
+                        taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
+                    elif "Frota Pequena" in modo_fat or "Até 40" in modo_fat:
+                        taxas_exibicao.append("Plano Fixo")
+                    else:
+                        taxas_exibicao.append("Manual")
                     
                     if modo_fat != 'Tradicional':
                         df_fin_mes.at[idx, 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
@@ -1806,17 +1834,9 @@ elif st.session_state.perfil == "Parceiro":
         mes_atual_taxa_p = datetime.now().month
         ano_atual_taxa_p = datetime.now().year
         
-        dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
-        modo_fat_p0 = "Tradicional"
-        if not dados_emp_base_p0.empty:
-            modo_fat_p0 = str(dados_emp_base_p0.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
-
         dados_fat_resumo = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os, df_empresas)
 
-        if modo_fat_p0 != 'Tradicional':
-            st.markdown(f"📊 **Plano Atual:** {dados_fat_resumo['modo_fat']} | **Base de {dados_fat_resumo['total_v']} veículos** | 💰 Fatura Estimada (Mês Atual): R$ {dados_fat_resumo['fatura_total']:.2f}")
-        else:
-            st.markdown(f"📊 **De acordo com a base de {dados_fat_resumo['total_v']} veículos, a taxa de acionamento neste mês é de {dados_fat_resumo['taxa']:.1f}%.**")
+        st.markdown(f'<div class="info-box" style="padding:10px;">{gerar_texto_resumo_plano(dados_fat_resumo)}</div>', unsafe_allow_html=True)
         
         st.write("---")
         
