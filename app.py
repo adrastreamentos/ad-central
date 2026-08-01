@@ -34,6 +34,22 @@ MODOS_FATURAMENTO = [
 # FUNÇÕES GLOBAIS E ESTILIZAÇÃO
 # ===================================================================================
 
+def buscar_endereco_por_cep(cep):
+    cep_limpo = apenas_numeros_letras(str(cep))
+    if len(cep_limpo) == 8:
+        try:
+            res = requests.get(f"https://viacep.com.br/ws/{cep_limpo}/json/", timeout=5)
+            if res.status_code == 200:
+                dados = res.json()
+                if "erro" not in dados:
+                    rua = dados.get("logradouro", "")
+                    bairro = dados.get("bairro", "")
+                    cidade = dados.get("localidade", "")
+                    uf = dados.get("uf", "")
+                    return f"{rua}, Bairro {bairro}, {cidade}-{uf} | Número/Ref: "
+        except: pass
+    return None
+
 def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
     if df_os.empty: return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
     r = df_os.iloc[0]
@@ -228,7 +244,7 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO (V8.4 - TETO 70% + REGRA SUAVIZADA + FRANQUIAS)
+# MOTOR DE CÁLCULO FINANCEIRO (V8.5 - BUSCA CEP + FRANQUIAS)
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
@@ -313,7 +329,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             valor_base = 300.00
             fatura_total = valor_base 
             if total_v <= 20:
-                # Regra Suavizada (por uso) para frotas até 20
                 adic_50 = tb_precos[faixa]['50km'] - tb_precos["Enquadramento Base (Até 3%)"]['50km']
                 adic_100 = tb_precos[faixa]['100km'] - tb_precos["Enquadramento Base (Até 3%)"]['100km']
                 adic_200 = tb_precos[faixa]['200km'] - tb_precos["Enquadramento Base (Até 3%)"]['200km']
@@ -330,7 +345,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
 
                 soma_adicionais += (cobrancas_50 * adic_50)
                 soma_adicionais += (cobrancas_100 * adic_100)
-                soma_adicionais += (qtd_veic_200 * adic_200) # 200km = Regra Coletiva
+                soma_adicionais += (qtd_veic_200 * adic_200)
 
                 fatura_total += soma_adicionais
             else:
@@ -514,7 +529,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.4</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.5</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal == "prestador":
@@ -767,11 +782,30 @@ if st.session_state.perfil == "Admin":
                 prestador_final = prestador_limpo.split(" - Tel:")[0]
                 tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
             
-            localizacao = st.text_input("Endereço de Origem (Onde pegar o veículo):", value=st.session_state.os_loc_val)
+            st.markdown("##### 📍 Endereços de Origem e Destino")
+            c_orig1, c_orig2 = st.columns([1, 4])
+            cep_orig = c_orig1.text_input("CEP Origem:", placeholder="Somente números")
+            if c_orig1.button("🔍 Buscar Origem", use_container_width=True):
+                end_orig = buscar_endereco_por_cep(cep_orig)
+                if end_orig:
+                    st.session_state.os_loc_val = end_orig
+                    st.rerun()
+                else: st.error("CEP inválido ou não encontrado.")
+            localizacao = c_orig2.text_input("Endereço de Origem Completo (Onde pegar o veículo):", value=st.session_state.os_loc_val)
             st.session_state.os_loc_val = localizacao
-            destino = st.text_input("Endereço de Destino (Onde deixar o veículo):", value=st.session_state.os_dest_val)
+
+            c_dest1, c_dest2 = st.columns([1, 4])
+            cep_dest = c_dest1.text_input("CEP Destino:", placeholder="Somente números")
+            if c_dest1.button("🔍 Buscar Destino", use_container_width=True):
+                end_dest = buscar_endereco_por_cep(cep_dest)
+                if end_dest:
+                    st.session_state.os_dest_val = end_dest
+                    st.rerun()
+                else: st.error("CEP inválido ou não encontrado.")
+            destino = c_dest2.text_input("Endereço de Destino Completo (Onde deixar o veículo):", value=st.session_state.os_dest_val)
             st.session_state.os_dest_val = destino
-            obs = st.text_area("Observações:", value=st.session_state.os_obs_val)
+            
+            obs = st.text_area("Observações Extras para o Guincheiro:", value=st.session_state.os_obs_val)
             st.session_state.os_obs_val = obs
             
             st.write("---")
