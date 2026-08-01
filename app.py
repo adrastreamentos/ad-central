@@ -120,6 +120,29 @@ def calcular_datas_ciclo(mes, ano, dia_venc_str):
     dt_inicio = (dt_fim - timedelta(days=29)).replace(hour=0, minute=0, second=0)
     return dt_inicio, dt_fim
 
+def obter_mes_ano_vigente(dia_venc_str):
+    """Descobre o ciclo financeiro ATUAL (mês/ano) com base na data de hoje x data de fechamento."""
+    try: dia_venc = int(dia_venc_str)
+    except: dia_venc = 30
+    hoje = datetime.now()
+    
+    try: dt_venc_este_mes = datetime(hoje.year, hoje.month, dia_venc)
+    except ValueError:
+        max_day = calendar.monthrange(hoje.year, hoje.month)[1]
+        dt_venc_este_mes = datetime(hoje.year, hoje.month, max_day)
+        
+    dt_fechamento_este_mes = (dt_venc_este_mes - timedelta(days=2)).replace(hour=23, minute=59, second=59)
+    
+    if hoje <= dt_fechamento_este_mes:
+        return hoje.month, hoje.year
+    else:
+        m = hoje.month + 1
+        y = hoje.year
+        if m > 12:
+            m = 1
+            y += 1
+        return m, y
+
 def obter_ciclo_contrato_anual(data_cad_str):
     try: dt_cad = datetime.strptime(str(data_cad_str)[:10], "%Y-%m-%d")
     except: dt_cad = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -404,7 +427,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     }
 
 def gerar_texto_resumo_plano(dados_fat):
-    """Gera o texto dinâmico e transparente com base no plano exato da empresa"""
+    """Gera o texto dinâmico e transparente com base no plano exato e no ciclo da empresa"""
     modo = dados_fat.get('modo_fat', 'Tradicional')
     tot_v = dados_fat.get('total_v', 0)
     taxa = dados_fat.get('taxa', 0.0)
@@ -412,12 +435,16 @@ def gerar_texto_resumo_plano(dados_fat):
     fat_tot = dados_fat.get('fatura_total', 0.0)
     base = dados_fat.get('valor_base', 0.0)
     exc = dados_fat.get('soma_excedentes', 0.0)
+    dt_ini = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
+    dt_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
+    
+    periodo_str = f"📅 <b>Ciclo Vigente:</b> {dt_ini} a {dt_fim}"
     
     if modo == "Performance (Escalonado)":
-        return f"📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento:</b> {taxa:.1f}% (Enquadramento: Faixa {faixa})<br>💰 <b>Fatura Estimada Atual:</b> R$ {fat_tot:.2f}"
+        return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento:</b> {taxa:.1f}% (Enquadramento: Faixa {faixa})<br>💰 <b>Fatura Estimada Atual:</b> R$ {fat_tot:.2f}"
     
     elif "Frota Pequena" in modo or "Até 40" in modo:
-        texto = f"📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
+        texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
         if exc > 0:
             detalhe_exc = []
             if dados_fat.get('qtd_exc_50', 0) > 0:
@@ -432,7 +459,7 @@ def gerar_texto_resumo_plano(dados_fat):
         return texto
         
     else:
-        return f"📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento (Informativa):</b> {taxa:.1f}%<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
+        return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento (Informativa):</b> {taxa:.1f}%<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
 
 def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
@@ -1131,8 +1158,11 @@ if st.session_state.perfil == "Admin":
                         nome_emp = str(emp).upper() if pd.notna(emp) and str(emp).strip() != "" else "SEM EMPRESA VINCULADA"
                         with st.expander(f"📁 Clientes da Empresa: {nome_emp}", expanded=expandir_pastas):
                             df_emp_filtrada = df_view_cli[df_view_cli['emp_name'] == emp]
-                            mes_a = datetime.now().month
-                            ano_a = datetime.now().year
+                            
+                            # CÁLCULO PELO CICLO VIGENTE
+                            dados_emp_v = df_empresas[df_empresas['nome'].str.upper() == nome_emp.upper()]
+                            dia_v = dados_emp_v.iloc[0].get('dia_vencimento', '30') if not dados_emp_v.empty else '30'
+                            mes_a, ano_a = obter_mes_ano_vigente(dia_v)
                             
                             dados_taxa_admin = calcular_fatura_parceiro(nome_emp, mes_a, ano_a, df_clientes, df_os, df_empresas)
                             st.markdown(f'<div class="info-box" style="padding:10px;">{gerar_texto_resumo_plano(dados_taxa_admin)}</div>', unsafe_allow_html=True)
@@ -1831,9 +1861,14 @@ elif st.session_state.perfil == "Parceiro":
     
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
-        mes_atual_taxa_p = datetime.now().month
-        ano_atual_taxa_p = datetime.now().year
         
+        # CÁLCULO PELO CICLO VIGENTE DA EMPRESA
+        dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
+        dia_v_p0 = "30"
+        if not dados_emp_base_p0.empty:
+            dia_v_p0 = str(dados_emp_base_p0.iloc[0].get('dia_vencimento', '30')).strip()
+
+        mes_atual_taxa_p, ano_atual_taxa_p = obter_mes_ano_vigente(dia_v_p0)
         dados_fat_resumo = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os, df_empresas)
 
         st.markdown(f'<div class="info-box" style="padding:10px;">{gerar_texto_resumo_plano(dados_fat_resumo)}</div>', unsafe_allow_html=True)
