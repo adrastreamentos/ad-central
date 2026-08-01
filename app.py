@@ -382,11 +382,12 @@ def gerar_texto_resumo_plano(dados_fat):
     if modo == "Performance (Escalonado)":
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Frota Apurada:</b> {tot_v} veículos ativos.<br>"
         if taxa == 0.0:
-            texto += f"✅ <b style='color:#2e7d32;'>Uso de Acionamentos: 0.0% (Mês Zerado - Nenhuma ocorrência neste ciclo)</b><br>"
-            texto += f"💰 <b>Valor Atual (Apenas Custo Base dos Veículos):</b> R$ {fat_tot:.2f}"
+            texto += f"🎯 <b style='color:#2e7d32;'>Taxa de Acionamentos neste Ciclo: 0.0% (Mês zerado, sem ocorrências)</b><br>"
         else:
-            texto += f"📈 <b>Uso de Acionamentos:</b> {taxa:.1f}% (Enquadramento Comercial: Faixa {faixa})<br>"
-            texto += f"💰 <b>Fatura Parcial Acumulada:</b> R$ {fat_tot:.2f}"
+            texto += f"🎯 <b>Taxa de Acionamentos neste Ciclo:</b> {taxa:.1f}%<br>"
+            
+        texto += f"📈 <b>Enquadramento Comercial:</b> Faixa {faixa}<br>"
+        texto += f"💰 <b>Valor Base da Frota (S/ Extras):</b> R$ {fat_tot:.2f}"
         return texto
     elif "Frota Pequena" in modo or "Até 40" in modo:
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
@@ -423,7 +424,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
 
     if modo_pdf == "Performance (Escalonado)":
-        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo de apuração, conforme os degraus abaixo:</p><table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">Taxa (Uso)</th><th style="border: 1px solid #ddd; padding: 6px;">Faixa</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 50km</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 100km</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 200km/Sem Limite</th></tr></thead><tbody><tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa Base (Até 3%)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 8,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,20</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 13,15</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 22,60</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 21,25</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 41,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 55,00</td></tr></tbody></table></div>"""
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo de apuração, conforme os degraus abaixo:</p><table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">Taxa (Uso)</th><th style="border: 1px solid #ddd; padding: 6px;">Faixa</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 50km</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 100km</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 200km/Sem Limite</th></tr></thead><tbody><tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 8,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,20</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 13,15</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 22,60</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 21,25</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 41,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 55,00</td></tr></tbody></table></div>"""
         secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Rateio nos 20 primeiros): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (Valor integral da faixa atual): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
     elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
         franquia_qtd = "4 acionamentos" if "Opção B" in modo_pdf else "2 acionamentos"
@@ -1564,7 +1565,6 @@ elif st.session_state.perfil == "Parceiro":
     with menu_parceiro[0]:
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         
-        # CÁLCULO PELO CICLO VIGENTE DA EMPRESA
         dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         dia_v_p0 = "30"
         if not dados_emp_base_p0.empty:
@@ -1624,7 +1624,8 @@ elif st.session_state.perfil == "Parceiro":
                     
                     st.markdown(f"### 📋 Ficha do Cliente: {cli_data_p['nome']}")
                     c1, c2 = st.columns(2)
-                    c1.write(f"**CPF:** {cli_data_p['cpf']}"); c1.write(f"**Telefone:** {cli_data_p['tel']}")
+                    c1.write(f"**CPF:** {cli_data_p['cpf']}")
+                    c1.write(f"**Telefone:** {cli_data_p['tel']}")
                     c1.write(f"**Plano Contratado:** {cli_data_p.get('plano_km', 'N/D')}")
                     c2.write(f"**Endereço:** {cli_data_p.get('endereco', 'N/D')} - {cli_data_p.get('cidade', 'N/D')}/{cli_data_p.get('est', 'N/D')}")
                     c2.write(f"**Status:** {'🟢 Ativo' if cli_data_p['status'] == 'Ativo' else '🔴 Inativo'}")
@@ -1644,7 +1645,8 @@ elif st.session_state.perfil == "Parceiro":
                         if pd.notna(cli_data_p.get('pla')) and str(cli_data_p['pla']).strip(): lista_frota_ficha.append(str(cli_data_p['pla']).upper().strip())
                         if pd.notna(cli_data_p.get('pla_2')) and str(cli_data_p['pla_2']).strip(): lista_frota_ficha.append(str(cli_data_p['pla_2']).upper().strip())
                     
-                    if not lista_frota_ficha: st.warning("Nenhum veículo válido cadastrado para exibir saldos.")
+                    if not lista_frota_ficha:
+                        st.warning("Nenhum veículo válido cadastrado para exibir saldos.")
                     else:
                         placa_sel_ficha = st.selectbox("🚗 Selecione a Placa para ver o Saldo Operacional no Ano:", lista_frota_ficha, key=f"sel_placa_part_{cli_sel_part}")
                         st.write(f"**📊 Saldo de Limites da Placa {placa_sel_ficha} no Ano de Contrato ({inicio_cli.strftime('%d/%m/%Y')} a {fim_cli.strftime('%d/%m/%Y')}):**")
@@ -1654,7 +1656,12 @@ elif st.session_state.perfil == "Parceiro":
                             df_os_copy = df_os.copy()
                             df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
                             placa_limpa_f = apenas_numeros_letras(placa_sel_ficha).upper()
-                            os_placa_f = df_os_copy[(df_os_copy['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa_f) & (~df_os_copy['status_os'].str.upper().isin(['CANCELADO'])) & (df_os_copy['data_hora'] >= inicio_cli) & (df_os_copy['data_hora'] <= fim_cli)]
+                            os_placa_f = df_os_copy[
+                                (df_os_copy['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa_f) & 
+                                (~df_os_copy['status_os'].str.upper().isin(['CANCELADO'])) &
+                                (df_os_copy['data_hora'] >= inicio_cli) &
+                                (df_os_copy['data_hora'] <= fim_cli)
+                            ]
                             for _, o in os_placa_f.iterrows():
                                 serv_f = str(o['tipo_servico']).upper()
                                 if "GUINCHO" in serv_f: uso_atual_f["GUINCHO"] += 1
@@ -1697,6 +1704,7 @@ elif st.session_state.perfil == "Parceiro":
             st.session_state.part_inc_cid = p_cid_in
             p_cep_in = c2.text_input("CEP:", value=st.session_state.get("part_inc_cep", ""))
             st.session_state.part_inc_cep = p_cep_in
+            
             cad_data = c1.date_input("Data de Cadastro (Início do Contrato):", value=datetime.now())
             
             st.write("---")
@@ -1813,6 +1821,7 @@ elif st.session_state.perfil == "Parceiro":
                             with st.spinner("Excluindo registro..."):
                                 cli_p_apagado = df_clientes[df_clientes['id'].astype(str) == part_target_del].iloc[0]
                                 detalhes_del_p = f"Apagou o cliente -> ID: {part_target_del} | Nome: {cli_p_apagado['nome']} | CPF: {cli_p_apagado.get('cpf','')} | Placa Principal: {cli_p_apagado.get('pla','')}"
+                                
                                 df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
                                 sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
                                 if sucesso:
