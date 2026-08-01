@@ -228,15 +228,23 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO
+# MOTOR DE CÁLCULO FINANCEIRO (V8.2 - TETO 70% + REGRA SUAVIZADA + FIX BUG 0%)
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
-        "2%": {"50km": 6.90, "100km": 8.90, "200km": 11.20, "Sem Limite": 11.20},
-        "3%": {"50km": 9.10, "100km": 13.15, "200km": 17.20, "Sem Limite": 17.20},
-        "4%": {"50km": 11.80, "100km": 17.20, "200km": 22.60, "Sem Limite": 22.60},
-        "5%": {"50km": 14.50, "100km": 21.25, "200km": 28.00, "Sem Limite": 28.00},
-        "10%": {"50km": 28.00, "100km": 41.50, "200km": 55.00, "Sem Limite": 55.00},
+        "Degrau 1 (Até 3%)":   {"50km": 6.90,   "100km": 8.90,   "200km": 11.20,  "Sem Limite": 11.20},
+        "Degrau 2 (3% a 5%)":  {"50km": 9.10,   "100km": 13.15,  "200km": 17.20,  "Sem Limite": 17.20},
+        "Degrau 3 (5% a 7%)":  {"50km": 11.80,  "100km": 17.20,  "200km": 22.60,  "Sem Limite": 22.60},
+        "Degrau 4 (7% a 10%)": {"50km": 14.50,  "100km": 21.25,  "200km": 28.00,  "Sem Limite": 28.00},
+        "Degrau 5 (10% a 13%)":{"50km": 24.00,  "100km": 35.80,  "200km": 47.60,  "Sem Limite": 47.60},
+        "Degrau 6 (13% a 17%)":{"50km": 33.50,  "100km": 50.40,  "200km": 67.20,  "Sem Limite": 67.20},
+        "Degrau 7 (17% a 20%)":{"50km": 50.00,  "100km": 74.00,  "200km": 98.00,  "Sem Limite": 98.00},
+        "Degrau 8 (20% a 30%)":{"50km": 68.00,  "100km": 102.00, "200km": 135.00, "Sem Limite": 135.00},
+        "Degrau 9 (30% a 40%)":{"50km": 86.00,  "100km": 130.00, "200km": 172.00, "Sem Limite": 172.00},
+        "Degrau 10 (40% a 50%)":{"50km": 104.00, "100km": 158.00, "200km": 209.00, "Sem Limite": 209.00},
+        "Degrau 11 (50% a 60%)":{"50km": 122.00, "100km": 186.00, "200km": 246.00, "Sem Limite": 246.00},
+        "Degrau 12 (60% a 70%)":{"50km": 140.00, "100km": 214.00, "200km": 283.00, "Sem Limite": 283.00},
+        "Degrau 13 (Teto > 70%)":{"50km": 158.00, "100km": 242.00, "200km": 320.00, "Sem Limite": 320.00},
     }
     
     lista_veiculos_emp = []
@@ -281,11 +289,20 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     total_os = len(os_filtro)
     taxa = (total_os / total_v * 100) if total_v > 0 else 0.0
     
-    if taxa > 10.0: faixa = "10%"
-    elif taxa > 7.0: faixa = "5%"
-    elif taxa > 5.0: faixa = "4%"
-    elif taxa > 3.0: faixa = "3%"
-    else: faixa = "2%"
+    if taxa == 0.0: faixa = "Degrau 1 (Até 3%)"
+    elif taxa <= 3.0: faixa = "Degrau 1 (Até 3%)"
+    elif taxa <= 5.0: faixa = "Degrau 2 (3% a 5%)"
+    elif taxa <= 7.0: faixa = "Degrau 3 (5% a 7%)"
+    elif taxa <= 10.0: faixa = "Degrau 4 (7% a 10%)"
+    elif taxa <= 13.0: faixa = "Degrau 5 (10% a 13%)"
+    elif taxa <= 17.0: faixa = "Degrau 6 (13% a 17%)"
+    elif taxa <= 20.0: faixa = "Degrau 7 (17% a 20%)"
+    elif taxa <= 30.0: faixa = "Degrau 8 (20% a 30%)"
+    elif taxa <= 40.0: faixa = "Degrau 9 (30% a 40%)"
+    elif taxa <= 50.0: faixa = "Degrau 10 (40% a 50%)"
+    elif taxa <= 60.0: faixa = "Degrau 11 (50% a 60%)"
+    elif taxa <= 70.0: faixa = "Degrau 12 (60% a 70%)"
+    else: faixa = "Degrau 13 (Teto > 70%)"
 
     fatura_total, soma_adicionais, soma_excedentes, valor_base = 0.0, 0.0, 0.0, 0.0
     qtd_exc_50, qtd_exc_100 = 0, 0
@@ -295,19 +312,32 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             valor_base = 300.00
             fatura_total = valor_base 
             if total_v <= 20:
-                for v in lista_veiculos_emp:
-                    p_km = v['plano']
-                    adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
-                    soma_adicionais += adicional
-                    v['tipo_cobranca'] = 'Composição do Piso Base'
-                    v['valor_cobrado'] = adicional
+                # Regra Suavizada (por uso) para frotas até 20
+                adic_50 = tb_precos[faixa]['50km'] - tb_precos["Degrau 1 (Até 3%)"]['50km']
+                adic_100 = tb_precos[faixa]['100km'] - tb_precos["Degrau 1 (Até 3%)"]['100km']
+                adic_200 = tb_precos[faixa]['200km'] - tb_precos["Degrau 1 (Até 3%)"]['200km']
+
+                qtd_os_50 = sum(1 for _, o in os_filtro.iterrows() if '50' in str(o.get('plano_km', '')).strip())
+                qtd_os_100 = sum(1 for _, o in os_filtro.iterrows() if '100' in str(o.get('plano_km', '')).strip())
+
+                qtd_veic_50 = sum(1 for v in lista_veiculos_emp if v['plano'] == '50km')
+                qtd_veic_100 = sum(1 for v in lista_veiculos_emp if v['plano'] == '100km')
+                qtd_veic_200 = sum(1 for v in lista_veiculos_emp if v['plano'] in ['200km', 'Sem Limite'])
+
+                cobrancas_50 = min(qtd_os_50, qtd_veic_50)
+                cobrancas_100 = min(qtd_os_100, qtd_veic_100)
+
+                soma_adicionais += (cobrancas_50 * adic_50)
+                soma_adicionais += (cobrancas_100 * adic_100)
+                soma_adicionais += (qtd_veic_200 * adic_200) # 200km = Regra Coletiva
+
                 fatura_total += soma_adicionais
             else:
                 primeiros_20 = lista_veiculos_emp[:20]
                 excedentes = lista_veiculos_emp[20:]
                 for v in primeiros_20:
                     p_km = v['plano']
-                    adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["2%"].get(p_km, tb_precos["2%"]["50km"]))
+                    adicional = max(0.0, tb_precos[faixa].get(p_km, tb_precos[faixa]["50km"]) - tb_precos["Degrau 1 (Até 3%)"].get(p_km, tb_precos["Degrau 1 (Até 3%)"]["50km"]))
                     soma_adicionais += adicional
                     v['tipo_cobranca'] = 'Composição do Piso Base'
                     v['valor_cobrado'] = adicional
@@ -370,7 +400,7 @@ def gerar_texto_resumo_plano(dados_fat):
     modo = dados_fat.get('modo_fat', 'Tradicional')
     tot_v = dados_fat.get('total_v', 0)
     taxa = dados_fat.get('taxa', 0.0)
-    faixa = dados_fat.get('faixa', '2%')
+    faixa = dados_fat.get('faixa', 'Degrau 1 (Até 3%)')
     fat_tot = dados_fat.get('fatura_total', 0.0)
     base = dados_fat.get('valor_base', 0.0)
     exc = dados_fat.get('soma_excedentes', 0.0)
@@ -382,12 +412,12 @@ def gerar_texto_resumo_plano(dados_fat):
     if modo == "Performance (Escalonado)":
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Frota Apurada:</b> {tot_v} veículos ativos.<br>"
         if taxa == 0.0:
-            texto += f"🎯 <b style='color:#2e7d32;'>Taxa de Acionamentos neste Ciclo: 0.0% (Mês zerado, sem ocorrências)</b><br>"
+            texto += f"🎯 <b style='color:#2e7d32;'>Taxa Real de Acionamentos: 0.0% (Mês zerado)</b><br>"
         else:
-            texto += f"🎯 <b>Taxa de Acionamentos neste Ciclo:</b> {taxa:.1f}%<br>"
+            texto += f"🎯 <b>Taxa Real de Acionamentos:</b> {taxa:.1f}%<br>"
             
-        texto += f"📈 <b>Enquadramento Comercial:</b> Faixa {faixa}<br>"
-        texto += f"💰 <b>Valor Base da Frota (S/ Extras):</b> R$ {fat_tot:.2f}"
+        texto += f"📈 <b>Enquadramento Comercial:</b> {faixa}<br>"
+        texto += f"💰 <b>Fatura Mapeada:</b> R$ {fat_tot:.2f}"
         return texto
     elif "Frota Pequena" in modo or "Até 40" in modo:
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
@@ -424,8 +454,8 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
 
     if modo_pdf == "Performance (Escalonado)":
-        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA: REGRAS DE ESCALONAMENTO</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">O enquadramento da tarifa mensal é baseado na porcentagem de uso da frota no ciclo de apuração, conforme os degraus abaixo:</p><table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: center;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">Taxa (Uso)</th><th style="border: 1px solid #ddd; padding: 6px;">Faixa</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 50km</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 100km</th><th style="border: 1px solid #ddd; padding: 6px;">Plano 200km/Sem Limite</th></tr></thead><tbody><tr><td style="border: 1px solid #ddd; padding: 6px;">De 0,0% a 3,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 2% (Padrão)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 6,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 8,90</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,20</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 3,1% a 5,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 3%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 9,10</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 13,15</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 5,1% a 7,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 4%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 11,80</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 17,20</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 22,60</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">De 7,1% a 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 5%</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 14,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 21,25</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td></tr><tr><td style="border: 1px solid #ddd; padding: 6px;">Acima de 10,0%</td><td style="border: 1px solid #ddd; padding: 6px;">Faixa 10% (Teto)</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 28,00</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 41,50</td><td style="border: 1px solid #ddd; padding: 6px;">R$ 55,00</td></tr></tbody></table></div>"""
-        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Rateio nos 20 primeiros): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (Valor integral da faixa atual): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso. Faixa atual de fechamento do cliente: <b>{dados_fat['faixa']}</b>.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Regra Suavizada para <=20): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (A partir do 21º): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
     elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
         franquia_qtd = "4 acionamentos" if "Opção B" in modo_pdf else "2 acionamentos"
         secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p></div>"""
@@ -476,7 +506,7 @@ if not st.session_state.logado:
 
 if not st.session_state.logado:
     portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.1</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.2</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal == "prestador":
@@ -735,6 +765,8 @@ if st.session_state.perfil == "Admin":
             st.session_state.os_dest_val = destino
             obs = st.text_area("Observações:", value=st.session_state.os_obs_val)
             st.session_state.os_obs_val = obs
+            
+            st.write("---")
             
             if is_excecao_flag:
                 emp_match = df_empresas[df_empresas['nome'].str.upper() == empresa_os.upper()]
@@ -1440,8 +1472,7 @@ if st.session_state.perfil == "Admin":
         if escolha_mes_admin == "Outro (Buscar por data)":
             data_busca_admin = st.date_input("Escolha uma data para filtrar o mês/ano:")
             mes_filtro = data_busca_admin.strftime("%m/%Y")
-        else:
-            mes_filtro = escolha_mes_admin
+        else: mes_filtro = escolha_mes_admin
 
         empresas_ativas = df_empresas[df_empresas['status'].str.upper() == 'ATIVO']
         
@@ -1474,13 +1505,11 @@ if st.session_state.perfil == "Admin":
                     dados_fatura = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os, df_empresas)
                     
                     if modo_fat == "Performance (Escalonado)":
-                        taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
-                    elif "Frota Pequena" in modo_fat or "Até 40" in modo_fat:
-                        taxas_exibicao.append("Plano Fixo")
-                    else:
-                        taxas_exibicao.append("Manual")
+                        if dados_fatura['taxa'] == 0.0: taxas_exibicao.append("0.0%")
+                        else: taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
+                    elif "Frota Pequena" in modo_fat or "Até 40" in modo_fat: taxas_exibicao.append("Plano Fixo")
+                    else: taxas_exibicao.append("Manual")
                     
-                    # TRAVA FINANCEIRA: Se a fatura estiver "Pago", o sistema trava o valor faturado permanentemente.
                     if modo_fat != 'Tradicional':
                         if str(r_fin.get('status', '')).strip() != 'Pago':
                             df_fin_mes.at[idx, 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
@@ -1514,8 +1543,7 @@ if st.session_state.perfil == "Admin":
             st.write("---")
             st.markdown("### 🖨️ Emitir Extrato Detalhado por Empresa (PDF)")
             empresas_escalonadas = empresas_ativas[empresas_ativas['modo_faturamento'] != 'Tradicional']['nome'].str.upper().tolist()
-            if not empresas_escalonadas:
-                st.info("Nenhuma empresa ativa cadastrada nos modos de faturamento automáticos.")
+            if not empresas_escalonadas: st.info("Nenhuma empresa ativa cadastrada nos modos de faturamento automáticos.")
             else:
                 emp_pdf_sel = st.selectbox("Selecione a Empresa (Modos Automáticos) para Gerar o Extrato Detalhado:", empresas_escalonadas)
                 if emp_pdf_sel:
@@ -1684,7 +1712,7 @@ elif st.session_state.perfil == "Parceiro":
                         os_cli_p = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data_p['id']).strip()]
                         if os_cli_p.empty: st.info("Nenhum acionamento.")
                         else: st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
-                        
+                            
                     if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
                         st.session_state.sel_det_part = ""
                         if widget_key_part in st.session_state: del st.session_state[widget_key_part]
@@ -1821,7 +1849,6 @@ elif st.session_state.perfil == "Parceiro":
                             with st.spinner("Excluindo registro..."):
                                 cli_p_apagado = df_clientes[df_clientes['id'].astype(str) == part_target_del].iloc[0]
                                 detalhes_del_p = f"Apagou o cliente -> ID: {part_target_del} | Nome: {cli_p_apagado['nome']} | CPF: {cli_p_apagado.get('cpf','')} | Placa Principal: {cli_p_apagado.get('pla','')}"
-                                
                                 df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
                                 sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
                                 if sucesso:
@@ -1849,8 +1876,7 @@ elif st.session_state.perfil == "Parceiro":
         if escolha_mes_p == "Outro (Buscar por data)":
             data_busca_p = st.date_input("Data de referência:", key="data_parc")
             mes_filtro_p = data_busca_p.strftime("%m/%Y")
-        else:
-            mes_filtro_p = escolha_mes_p
+        else: mes_filtro_p = escolha_mes_p
             
         df_fin_parc = df_financeiro[(df_financeiro['mes_ano'] == mes_filtro_p) & (df_financeiro['empresa'].str.upper() == st.session_state.empresa_vinculada.upper())]
         
@@ -1884,7 +1910,8 @@ elif st.session_state.perfil == "Parceiro":
                     st.write(f"- **Total Exato de Veículos na Base (Ativos):** {dados_det['total_v']}")
                     st.write(f"- **Total de Chamados Encerrados no Ciclo:** {dados_det['total_os']}")
                     if dados_det['modo_fat'] == "Performance (Escalonado)":
-                        st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
+                        if dados_det['taxa'] == 0.0: st.write(f"- **Taxa de Acionamento Atingida:** 0.0% (Faixa: {dados_det['faixa']})")
+                        else: st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
                     st.write(f"- **Valor Final Calculado:** R$ {dados_det['fatura_total']:.2f}")
                     st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a auditoria com todas as placas cobradas.")
 
@@ -1898,18 +1925,13 @@ elif st.session_state.perfil == "Parceiro":
         empresa_upper = st.session_state.empresa_vinculada.upper()
         user_upper = st.session_state.user.upper()
         
-        df_logs_parc = df_logs[
-            (df_logs['usuario'].str.upper() == user_upper) | 
-            (df_logs['detalhes'].str.upper().str.contains(empresa_upper, na=False))
-        ].copy()
+        df_logs_parc = df_logs[(df_logs['usuario'].str.upper() == user_upper) | (df_logs['detalhes'].str.upper().str.contains(empresa_upper, na=False))].copy()
         
-        if df_logs_parc.empty:
-            st.info("Nenhuma atividade registrada por sua empresa ou central ainda.")
+        if df_logs_parc.empty: st.info("Nenhuma atividade registrada por sua empresa ou central ainda.")
         else:
             df_logs_parc = df_logs_parc.sort_values(by='data_hora', ascending=False)
             busca_log_p = st.text_input("🔍 Buscar no seu registro (ex: placa, nome):")
-            if busca_log_p:
-                df_logs_parc = df_logs_parc[df_logs_parc['detalhes'].str.contains(busca_log_p, case=False, na=False) | df_logs_parc['acao'].str.contains(busca_log_p, case=False, na=False)]
+            if busca_log_p: df_logs_parc = df_logs_parc[df_logs_parc['detalhes'].str.contains(busca_log_p, case=False, na=False) | df_logs_parc['acao'].str.contains(busca_log_p, case=False, na=False)]
             
             st.write("---")
             opcoes_log_p = {str(i): f"{r['data_hora']} - {r['acao']}" for i, r in df_logs_parc.iterrows()}
@@ -1917,7 +1939,6 @@ elif st.session_state.perfil == "Parceiro":
             
             if log_sel_p != "":
                 detalhe_row = df_logs_parc.loc[int(log_sel_p)]
-                
                 st.markdown(f"""
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
                     <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
@@ -1938,8 +1959,7 @@ elif st.session_state.perfil == "Prestador":
     df_os_prest = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
     meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
     
-    if meus_chamados.empty:
-        st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
+    if meus_chamados.empty: st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
     else:
         for _, os_row in meus_chamados.iterrows():
             st.markdown(f"### 🚨 Chamado Nº {os_row['id']}")
@@ -1966,7 +1986,6 @@ elif st.session_state.perfil == "Prestador":
                 
                 if not vistoria_completa:
                     st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
-                    
                     if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
                     passo = st.session_state.passo_vistoria
                     nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
