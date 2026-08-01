@@ -106,18 +106,33 @@ def get_ultimos_3_meses():
     return meses
 
 def calcular_datas_ciclo(mes, ano, dia_venc_str):
+    """Calcula as datas exatas do ciclo baseadas no fechamento do mês anterior."""
     mes = int(mes)
     ano = int(ano)
     try: dia_venc = int(dia_venc_str)
     except: dia_venc = 30
     
+    # Define o vencimento do mês atual e o fim do ciclo (2 dias antes)
     try: dt_venc_atual = datetime(ano, mes, dia_venc)
     except ValueError:
         max_day = calendar.monthrange(ano, mes)[1]
         dt_venc_atual = datetime(ano, mes, max_day)
         
     dt_fim = (dt_venc_atual - timedelta(days=2)).replace(hour=23, minute=59, second=59)
-    dt_inicio = (dt_fim - timedelta(days=29)).replace(hour=0, minute=0, second=0)
+    
+    # Encontra o vencimento e fechamento do mês anterior exato
+    mes_ant = mes - 1 if mes > 1 else 12
+    ano_ant = ano if mes > 1 else ano - 1
+    try: dt_venc_ant = datetime(ano_ant, mes_ant, dia_venc)
+    except ValueError:
+        max_day_ant = calendar.monthrange(ano_ant, mes_ant)[1]
+        dt_venc_ant = datetime(ano_ant, mes_ant, max_day_ant)
+        
+    dt_fim_ant = (dt_venc_ant - timedelta(days=2)).replace(hour=23, minute=59, second=59)
+    
+    # O início do ciclo atual é exatamente o 1º segundo após o fechamento do mês anterior
+    dt_inicio = (dt_fim_ant + timedelta(days=1)).replace(hour=0, minute=0, second=0)
+    
     return dt_inicio, dt_fim
 
 def obter_mes_ano_vigente(dia_venc_str):
@@ -438,7 +453,7 @@ def gerar_texto_resumo_plano(dados_fat):
     dt_ini = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
     dt_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
     
-    periodo_str = f"📅 <b>Ciclo Vigente:</b> {dt_ini} a {dt_fim}"
+    periodo_str = f"📅 <b>Ciclo Vigente:</b> {dt_ini} a {dt_fim} (Fechamento: {dt_fim[:5]})"
     
     if modo == "Performance (Escalonado)":
         return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento:</b> {taxa:.1f}% (Enquadramento: Faixa {faixa})<br>💰 <b>Fatura Estimada Atual:</b> R$ {fat_tot:.2f}"
@@ -1627,7 +1642,7 @@ if st.session_state.perfil == "Admin":
                                     st.success("✅ Prestador atualizado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Excluir":
-            if df_prestadores.empty: st.warning("Nenhum prestador cadastrado.")
+            if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
                 p_target_del = st.selectbox("🔎 Selecione o Prestador para EXCLUIR:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
@@ -1782,9 +1797,11 @@ if st.session_state.perfil == "Admin":
                     else:
                         taxas_exibicao.append("Manual")
                     
+                    # TRAVA INTELIGENTE DE FATURA PAGA: Se estiver pago, não recalcula o valor.
                     if modo_fat != 'Tradicional':
-                        df_fin_mes.at[idx, 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
-                        df_financeiro.loc[df_financeiro['id'] == r_fin['id'], 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
+                        if str(r_fin.get('status', '')).strip() != 'Pago':
+                            df_fin_mes.at[idx, 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
+                            df_financeiro.loc[df_financeiro['id'] == r_fin['id'], 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
                 else: taxas_exibicao.append("0.0%")
                 try: total_faturado_mes += float(str(df_fin_mes.at[idx, 'valor_faturado']).replace(',', '.'))
                 except: pass
@@ -1835,15 +1852,19 @@ if st.session_state.perfil == "Admin":
                 with st.form("form_financeiro"):
                     st.write(f"**Empresa:** {emp_edit} | **Mês:** {mes_filtro}")
                     c_f1, c_f2, c_f3 = st.columns(3)
+                    
                     if modo_fat_edit != 'Tradicional':
                         v_fat_atual = str(row_edit['valor_faturado'])
+                        # Mostra o campo bloqueado, pois o sistema calcula sozinho (a não ser que esteja alterando de pendente pra pago)
                         c_f1.text_input("Valor Calculado pelo Sistema (R$):", value=v_fat_atual, disabled=True)
                         val_fat_final = v_fat_atual
                     else:
                         v_fat_atual = str(row_edit['valor_faturado'])
                         val_fat_final = c_f1.text_input("Valor da Fatura Manual (R$):", value=v_fat_atual)
+                    
                     val_pago_final = c_f2.text_input("Valor Pago pelo Cliente (R$):", value=str(row_edit['valor_pago']))
                     status_final = c_f3.selectbox("Status:", ["Pendente", "Pago", "Atrasado"], index=["Pendente", "Pago", "Atrasado"].index(row_edit['status']))
+                    
                     if st.form_submit_button("Salvar Edição Financeira"):
                         with st.spinner("Atualizando registros financeiros..."):
                             df_financeiro.loc[df_financeiro['id'] == row_edit['id'], ['valor_faturado', 'valor_pago', 'status']] = [val_fat_final, val_pago_final, status_final]
@@ -2180,7 +2201,7 @@ elif st.session_state.perfil == "Parceiro":
                 with st.expander("🔍 Detalhar Fatura no Aplicativo"):
                     st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período de Referência:** {mes_filtro_p}")
                     dados_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas)
-                    st.write(f"- **Ciclo de Apuração (30 dias):** {dados_det['dt_inicio'].strftime('%d/%m/%Y')} até {dados_det['dt_fim'].strftime('%d/%m/%Y')}")
+                    st.write(f"- **Ciclo de Apuração:** {dados_det['dt_inicio'].strftime('%d/%m/%Y')} até {dados_det['dt_fim'].strftime('%d/%m/%Y')}")
                     st.write(f"- **Plano Contratado:** {dados_det['modo_fat']}")
                     st.write(f"- **Total Exato de Veículos na Base (Ativos):** {dados_det['total_v']}")
                     st.write(f"- **Total de Chamados Encerrados no Ciclo:** {dados_det['total_os']}")
