@@ -1,2 +1,1 @@
 id,data_hora,cliente_id,cliente_nome,placa,empresa,tipo_servico,motivo,prestador,localizacao,destino,obs,status_os,veiculo_desc,plano_km,valor_cobrado
-3,2026-07-31 16:43:08,AVULSO,RENATO VALE,******,CLIENTE PARTICULAR (AVULSO),Guincho,Outros,ZN REBOQUE 24H O QUERIDINHO | Telefone/Zap: 84991922112,EMPRESA ENVIPOL,"RUA DAS OLIVEIRAS, 389, LAGOA AZUL","VEICULO NA EMPRESA ENVIPOL, PROCURAR RENATO VALE.",ENCERRADO,ONIX,Particular,"180,00"
