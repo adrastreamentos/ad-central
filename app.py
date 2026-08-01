@@ -11,6 +11,7 @@ from PIL import Image
 import numpy as np
 import calendar
 from streamlit_drawable_canvas import st_canvas
+import streamlit.components.v1 as components
 
 # ===================================================================================
 # CONSTANTES DE NEGÓCIO E PLANOS
@@ -193,6 +194,7 @@ FILE_PRESTADORES = os.path.join(FOLDER, "banco_prestadores.csv")
 FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
 FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
+FILE_LOC = os.path.join(FOLDER, "banco_loc.csv")
 
 def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
@@ -236,6 +238,10 @@ col_logs = ['data_hora', 'usuario', 'acao', 'detalhes']
 if not os.path.exists(FILE_LOGS): pd.DataFrame(columns=col_logs).to_csv(FILE_LOGS, index=False)
 df_logs = carregar_dados(FILE_LOGS, col_logs)
 
+col_loc = ['placa', 'data_hora', 'link_maps']
+if not os.path.exists(FILE_LOC): pd.DataFrame(columns=col_loc).to_csv(FILE_LOC, index=False)
+df_loc = carregar_dados(FILE_LOC, col_loc)
+
 def registrar_atividade(usuario, acao, detalhes):
     global df_logs
     novo_log = pd.DataFrame([{'data_hora': obter_hora_str(), 'usuario': usuario, 'acao': acao, 'detalhes': detalhes}])
@@ -244,7 +250,88 @@ def registrar_atividade(usuario, acao, detalhes):
     salvar_no_github(FILE_LOGS)
 
 # ===================================================================================
-# MOTOR DE CÁLCULO FINANCEIRO (V8.5 - BUSCA CEP + FRANQUIAS)
+# PORTAL DO CLIENTE (CAPTURA DE GPS SEM APP) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
+# ===================================================================================
+portal_atual = st.query_params.get("portal", "")
+if portal_atual == "cliente":
+    st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
+    placa_param = st.query_params.get("placa", "N/D")
+    
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+    body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f8f9fa; }}
+    .btn {{ background-color: #E53935; color: white; padding: 20px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; width: 100%; max-width: 300px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-top: 20px; }}
+    .btn:active {{ background-color: #b71c1c; }}
+    #msg {{ margin-top: 20px; font-size: 16px; color: #555; font-weight: bold; }}
+    </style>
+    </head>
+    <body>
+    <h3 style="color: #7B2CBF; margin-top:0;">Localização de Emergência</h3>
+    <p>Precisamos saber onde você está para enviar o guincho exato até o veículo placa <b>{placa_param}</b>.</p>
+    <button class="btn" onclick="getLocation()">📍 ENVIAR MINHA LOCALIZAÇÃO</button>
+    <p id="msg"></p>
+    <script>
+    function getLocation() {{
+        document.getElementById("msg").innerHTML = "Aguardando GPS... Clique em 'Permitir' se o seu celular pedir.";
+        if (navigator.geolocation) {{
+            navigator.geolocation.getCurrentPosition(showPosition, showError, {{enableHighAccuracy: true}});
+        }} else {{
+            document.getElementById("msg").innerHTML = "Seu navegador não suporta GPS.";
+        }}
+    }}
+    function showPosition(position) {{
+        var lat = position.coords.latitude;
+        var lon = position.coords.longitude;
+        document.getElementById("msg").innerHTML = "Sinal capturado! Enviando para a Central... 🚀";
+        window.parent.location.href = "?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon;
+    }}
+    function showError(error) {{
+        switch(error.code) {{
+            case error.PERMISSION_DENIED:
+                document.getElementById("msg").innerHTML = "Você negou o acesso ao GPS. Libere a permissão e tente novamente.";
+                break;
+            case error.POSITION_UNAVAILABLE:
+                document.getElementById("msg").innerHTML = "Sinal de GPS indisponível no momento.";
+                break;
+            case error.TIMEOUT:
+                document.getElementById("msg").innerHTML = "Tempo esgotado para buscar o GPS.";
+                break;
+            default:
+                document.getElementById("msg").innerHTML = "Erro desconhecido ao tentar localizar.";
+                break;
+        }}
+    }}
+    </script>
+    </body>
+    </html>
+    """
+    components.html(html_code, height=500)
+    st.stop()
+
+elif portal_atual == "cliente_salvo":
+    st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
+    placa_cliente = st.query_params.get("placa", "N/D")
+    lat = st.query_params.get("lat", "")
+    lon = st.query_params.get("lon", "")
+    
+    if lat and lon:
+        link_maps = f"https://www.google.com/maps?q={lat},{lon}"
+        novo_loc = pd.DataFrame([{'placa': placa_cliente, 'data_hora': obter_hora_str(), 'link_maps': link_maps}])
+        df_loc = pd.concat([df_loc, novo_loc], ignore_index=True)
+        salvar_dados(df_loc, FILE_LOC)
+        st.success("✅ Localização recebida com sucesso pela Central! O socorro já está sendo acionado. Você já pode fechar esta tela e aguardar.")
+    else:
+        st.error("Erro ao receber as coordenadas. Tente novamente.")
+    st.stop()
+
+# ===================================================================================
+# MOTOR DE CÁLCULO FINANCEIRO (V8.6 - BUSCA CEP + FRANQUIAS)
 # ===================================================================================
 def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
     tb_precos = {
@@ -491,32 +578,10 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
-# INICIALIZAÇÃO DE DADOS
-col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
-col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']
-col_pre = ['id','nome','cpf','tipo','telefone','endereco','cidade','cep','est','status','homologado','senha','frota']
-col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
-col_fin = ['id', 'mes_ano', 'empresa', 'valor_faturado', 'valor_pago', 'status']
+# INICIALIZAÇÃO DE DADOS E LOGIN
+if "logado" not in st.session_state: st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
 
-if not os.path.exists(FILE_CLIENTES): pd.DataFrame(columns=col_cli).to_csv(FILE_CLIENTES, index=False)
-if not os.path.exists(FILE_EMPRESAS): pd.DataFrame(columns=col_emp).to_csv(FILE_EMPRESAS, index=False)
-if not os.path.exists(FILE_PRESTADORES): pd.DataFrame(columns=col_pre).to_csv(FILE_PRESTADORES, index=False)
-if not os.path.exists(FILE_OS): pd.DataFrame(columns=col_os).to_csv(FILE_OS, index=False)
-if not os.path.exists(FILE_FINANCEIRO): pd.DataFrame(columns=col_fin).to_csv(FILE_FINANCEIRO, index=False)
-
-df_clientes = carregar_dados(FILE_CLIENTES, col_cli)
-df_empresas = carregar_dados(FILE_EMPRESAS, col_emp)
-df_prestadores = carregar_dados(FILE_PRESTADORES, col_pre)
-df_os = carregar_dados(FILE_OS, col_os)
-df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
-
-# ===================================================================================
-# LOGIN E CADASTRO INICIAL
-# ===================================================================================
-if "logado" not in st.session_state:
-    st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
-
-if not st.session_state.logado:
+if not st.session_state.logado and portal_atual not in ["cliente", "cliente_salvo"]:
     sess_param = st.query_params.get("session")
     if sess_param == "admin_ad": 
         st.session_state.update({"logado": True, "user": "AD Rastreamento Veicular (ADMIN)", "perfil": "Admin"})
@@ -527,12 +592,11 @@ if not st.session_state.logado:
         nome_prest = urllib.parse.unquote(sess_param.split("prest_")[1])
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
-if not st.session_state.logado:
-    portal = st.query_params.get("portal", "")
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.5</span></div>', unsafe_allow_html=True)
+if not st.session_state.logado and portal_atual not in ["cliente", "cliente_salvo"]:
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.6</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
-        if portal == "prestador":
+        if portal_atual == "prestador":
             st.markdown('<div class="subtitle">🚛 Portal Exclusivo do Prestador</div>', unsafe_allow_html=True)
             tab_login, tab_cadastro = st.tabs(["🔐 Entrar", "📝 Quero me Cadastrar"])
             with tab_login:
@@ -591,13 +655,14 @@ if not st.session_state.logado:
                     else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
-col_user, col_logout = st.columns([5, 1])
-with col_user: st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
-with col_logout:
-    if st.button("Sair / Logoff"):
-        st.session_state.logado = False
-        st.query_params.clear()
-        st.rerun()
+if st.session_state.logado:
+    col_user, col_logout = st.columns([5, 1])
+    with col_user: st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
+    with col_logout:
+        if st.button("Sair / Logoff"):
+            st.session_state.logado = False
+            st.query_params.clear()
+            st.rerun()
 
 # ===================================================================================
 # TELA ADMIN MASTER
@@ -621,6 +686,7 @@ if st.session_state.perfil == "Admin":
         valor_excecao_val = "0,00"
         
         cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os, uf_cliente, cidade_cliente, valor_cobrado_os = "", "", "", "", "", "", "RN", "", "0,00"
+        tel_envio_link = ""
 
         if tipo_atendimento == "Cliente Cadastrado":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado no sistema para busca.")
@@ -665,7 +731,8 @@ if st.session_state.perfil == "Admin":
                                 veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
                                 uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
                                 plano_km_os, cidade_cliente, cliente_id_os, cliente_nome_os, empresa_os = str(cliente_dados.get('plano_km', 'N/D')), str(cliente_dados.get('cidade', '')).strip().upper(), str(c_target_os), str(cliente_dados['nome']), str(cliente_dados['emp_name'])
-                                
+                                tel_envio_link = apenas_numeros_letras(cliente_dados.get('tel', ''))
+
                                 st.info(f"📍 Cliente: **{empresa_os.upper()}** | UF do Veículo: **{uf_cliente}**")
                                 
                                 dt_cad_str = str(cliente_dados.get('data_cadastro', ''))
@@ -752,6 +819,8 @@ if st.session_state.perfil == "Admin":
             tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"])
             motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
             cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os = "AVULSO", nome_avulso, placa_avulso.upper().strip(), veiculo_avulso, "CLIENTE PARTICULAR (AVULSO)", "Particular"
+            tel_envio_link = apenas_numeros_letras(tel_avulso)
+            
             if nome_avulso and placa_alvo: pronto_para_prosseguir = True
             else: st.warning("⚠️ Nome do Cliente e Placa são obrigatórios para liberar o atendimento avulso.")
 
@@ -783,8 +852,30 @@ if st.session_state.perfil == "Admin":
                 tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
             
             st.markdown("##### 📍 Endereços de Origem e Destino")
+            
+            st.info("Caso o cliente não saiba explicar onde está, use o botão verde abaixo para enviar o link de captura de GPS. Quando ele clicar, o endereço de origem será preenchido sozinho.")
+            link_captura = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente&placa={placa_alvo}"
+            col_loc1, col_loc2 = st.columns([1, 1])
+            texto_zap_loc = f"Olá! Aqui é da *Central AD Assistência 24h*.\n\nPara despacharmos o seu socorro rápido, precisamos da sua localização exata. Por favor, clique no link abaixo, permita o uso do GPS e aperte no botão 'ENVIAR MINHA LOCALIZAÇÃO':\n\n{link_captura}"
+            link_w_loc = f"https://api.whatsapp.com/send?phone=55{tel_envio_link}&text={urllib.parse.quote(texto_zap_loc)}"
+            
+            with col_loc1:
+                st.markdown(f'<a href="{link_w_loc}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">📲 1. Enviar Link no WhatsApp do Cliente</button></a>', unsafe_allow_html=True)
+            with col_loc2:
+                if st.button("🔄 2. Puxar Localização Recebida do Cliente", use_container_width=True):
+                    df_loc_temp = carregar_dados(FILE_LOC, ['placa', 'data_hora', 'link_maps'])
+                    loc_cliente = df_loc_temp[df_loc_temp['placa'] == placa_alvo]
+                    if not loc_cliente.empty:
+                        ultima_loc = loc_cliente.iloc[-1]['link_maps']
+                        st.session_state.os_loc_val = ultima_loc
+                        st.success("✅ GPS recebido com sucesso! O campo 'Origem' foi preenchido.")
+                        time.sleep(2); st.rerun()
+                    else:
+                        st.warning("⏳ O cliente ainda não enviou a localização. Aguarde alguns segundos e clique novamente.")
+
+            st.write("")
             c_orig1, c_orig2 = st.columns([1, 4])
-            cep_orig = c_orig1.text_input("CEP Origem:", placeholder="Somente números")
+            cep_orig = c_orig1.text_input("CEP Origem (Opcional):", placeholder="Somente números")
             if c_orig1.button("🔍 Buscar Origem", use_container_width=True):
                 end_orig = buscar_endereco_por_cep(cep_orig)
                 if end_orig:
@@ -795,7 +886,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.os_loc_val = localizacao
 
             c_dest1, c_dest2 = st.columns([1, 4])
-            cep_dest = c_dest1.text_input("CEP Destino:", placeholder="Somente números")
+            cep_dest = c_dest1.text_input("CEP Destino (Opcional):", placeholder="Somente números")
             if c_dest1.button("🔍 Buscar Destino", use_container_width=True):
                 end_dest = buscar_endereco_por_cep(cep_dest)
                 if end_dest:
@@ -814,7 +905,7 @@ if st.session_state.perfil == "Admin":
                 emp_match = df_empresas[df_empresas['nome'].str.upper() == empresa_os.upper()]
                 resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
                 tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
-                if not tel_responsavel: tel_responsavel = apenas_numeros_letras(cliente_dados.get('tel', ''))
+                if not tel_responsavel: tel_responsavel = tel_envio_link
 
                 texto_pix = (
                     f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\n"
@@ -834,11 +925,12 @@ if st.session_state.perfil == "Admin":
                 )
                 link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
                 if not tel_responsavel: st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
-                st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%;">💬 1º PASSO: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%;">💬 PASSO EXTRA: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
 
-            texto_btn_os = "🚀 2º PASSO: Iniciar Atendimento / Gerar OS" if is_excecao_flag else "🚀 Iniciar Atendimento / Gerar OS"
-            if st.button(texto_btn_os):
+            texto_btn_os = "🚀 Finalizar e Gerar OS do Guincho"
+            if st.button(texto_btn_os, type="primary"):
                 if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
+                elif not localizacao: st.error("O Endereço de Origem é obrigatório!")
                 else:
                     with st.spinner("Registrando OS e sincronizando com a nuvem..."):
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
