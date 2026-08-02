@@ -59,7 +59,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===================================================================================
-# FUNÇÕES GLOBAIS
+# FUNÇÕES GLOBAIS E LEITURA DE DADOS
 # ===================================================================================
 def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
@@ -81,50 +81,6 @@ def buscar_endereco_por_cep(cep):
         except: pass
     return None
 
-def salvar_no_github(caminho_local):
-    token = st.secrets.get("GITHUB_TOKEN", None)
-    repo = "adrastreamentos/ad-central"
-    if not token: return False, "Token ausente"
-    url = f"https://api.github.com/repos/{repo}/contents/{caminho_local.replace(os.sep, '/')}"
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-    for _ in range(3):
-        try:
-            res = requests.get(url, headers=headers)
-            sha = res.json().get("sha", None) if res.status_code == 200 else None
-            with open(caminho_local, "rb") as f: content = base64.b64encode(f.read()).decode("utf-8")
-            data = {"message": f"🔥 Auto-salvamento: {caminho_local}", "content": content, "branch": "main"}
-            if sha: data["sha"] = sha
-            res_put = requests.put(url, headers=headers, json=data)
-            if res_put.status_code in [200, 201]: return True, "Sucesso"
-            else: time.sleep(2)
-        except: time.sleep(2)
-    return False, "Falha de conexão."
-
-def salvar_dados(df, caminho):
-    df.to_csv(caminho, index=False)
-    return salvar_no_github(caminho)
-
-def carregar_dados(caminho, col_obr):
-    try:
-        df = pd.read_csv(caminho, dtype=str)
-        df.columns = df.columns.str.strip().str.lower()
-        for col in col_obr:
-            if col not in df.columns: 
-                df[col] = datetime.now().strftime("%Y-%m-%d") if col == 'data_cadastro' else "" 
-        for col in df.columns: df[col] = df[col].fillna("").astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        return df
-    except: return pd.DataFrame(columns=col_obr)
-
-def registrar_atividade(usuario, acao, detalhes):
-    global df_logs
-    novo_log = pd.DataFrame([{'data_hora': obter_hora_str(), 'usuario': usuario, 'acao': acao, 'detalhes': detalhes}])
-    df_logs = pd.concat([df_logs, novo_log], ignore_index=True)
-    df_logs.to_csv(FILE_LOGS, index=False)
-    salvar_no_github(FILE_LOGS)
-
-# ===================================================================================
-# FUNÇÃO: PDF DA OS (COM FOTOS)
-# ===================================================================================
 def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
     if df_os.empty: return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
     r = df_os.iloc[0]
@@ -179,9 +135,47 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
     b64 = base64.b64encode(html.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 8px; font-weight: bold;">📥 Baixar Extrato de OS com Fotos (PDF/HTML)</a>'
 
-# ===================================================================================
-# CARREGAMENTO DOS BANCOS DE DADOS
-# ===================================================================================
+def salvar_no_github(caminho_local):
+    token = st.secrets.get("GITHUB_TOKEN", None)
+    repo = "adrastreamentos/ad-central"
+    if not token: return False, "Token ausente"
+    url = f"https://api.github.com/repos/{repo}/contents/{caminho_local.replace(os.sep, '/')}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    for _ in range(3):
+        try:
+            res = requests.get(url, headers=headers)
+            sha = res.json().get("sha", None) if res.status_code == 200 else None
+            with open(caminho_local, "rb") as f: content = base64.b64encode(f.read()).decode("utf-8")
+            data = {"message": f"🔥 Auto-salvamento: {caminho_local}", "content": content, "branch": "main"}
+            if sha: data["sha"] = sha
+            res_put = requests.put(url, headers=headers, json=data)
+            if res_put.status_code in [200, 201]: return True, "Sucesso"
+            else: time.sleep(2)
+        except: time.sleep(2)
+    return False, "Falha de conexão."
+
+def salvar_dados(df, caminho):
+    df.to_csv(caminho, index=False)
+    return salvar_no_github(caminho)
+
+def carregar_dados(caminho, col_obr):
+    try:
+        df = pd.read_csv(caminho, dtype=str)
+        df.columns = df.columns.str.strip().str.lower()
+        for col in col_obr:
+            if col not in df.columns: 
+                df[col] = datetime.now().strftime("%Y-%m-%d") if col == 'data_cadastro' else "" 
+        for col in df.columns: df[col] = df[col].fillna("").astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        return df
+    except: return pd.DataFrame(columns=col_obr)
+
+def registrar_atividade(usuario, acao, detalhes):
+    global df_logs
+    novo_log = pd.DataFrame([{'data_hora': obter_hora_str(), 'usuario': usuario, 'acao': acao, 'detalhes': detalhes}])
+    df_logs = pd.concat([df_logs, novo_log], ignore_index=True)
+    df_logs.to_csv(FILE_LOGS, index=False)
+    salvar_no_github(FILE_LOGS)
+
 FOLDER = "AD_Assistencia"
 os.makedirs(FOLDER, exist_ok=True)
 FILE_CLIENTES = os.path.join(FOLDER, "banco_clientes.csv")
@@ -365,7 +359,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     
     if modo_fat_calc == "Performance (Escalonado)":
         if total_v > 0:
-            valor_base = 300.00
+            valor_base = 200.00
             fatura_total = valor_base 
             if total_v <= 20:
                 adic_50 = tb_precos[faixa]['50km'] - tb_precos["Enquadramento Base (Até 3%)"]['50km']
@@ -1422,7 +1416,7 @@ if st.session_state.perfil == "Admin":
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Cidade:** {p.get('cidade','N/D')}")
                     texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo clicando no link direto de serviços que enviaremos a cada chamado.\n\nSeja bem-vindo à nossa rede 24h!")
                     link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
-                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: margin-bottom: 10px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     col_h1, col_h2 = st.columns(2)
                     if col_h1.button("✅ Aprovar no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
