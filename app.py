@@ -81,6 +81,44 @@ def buscar_endereco_por_cep(cep):
         except: pass
     return None
 
+def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
+    if df_os.empty: return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
+    r = df_os.iloc[0]
+    html = f"""
+    <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Relatório de OS #{r['id']}</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
+                h2 {{ color: #7B2CBF; border-bottom: 2px solid #E53935; padding-bottom: 5px; }}
+                .info-box {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #7B2CBF; }}
+                .info-box p {{ margin: 8px 0; font-size: 14px; }}
+                .destaque {{ font-weight: bold; color: #E53935; }}
+            </style>
+        </head>
+        <body>
+            <h2>Relatório Oficial de Ordem de Serviço - AD Rastreamento Veicular</h2>
+            <div class="info-box">
+                <p><strong>Número da OS:</strong> #{r['id']}</p>
+                <p><strong>Data e Hora do Chamado:</strong> {r['data_hora']}</p>
+                <p><strong>Cliente:</strong> {r['cliente_nome']}</p>
+                <p><strong>Placa do Veículo:</strong> <span class="destaque">{r['placa']}</span></p>
+                <p><strong>Tipo de Serviço:</strong> {r['tipo_servico']} ({r.get('motivo','N/D')})</p>
+                <p><strong>Origem (Localização):</strong> {r.get('localizacao','N/D')}</p>
+                <p><strong>Destino:</strong> {r.get('destino','N/D')}</p>
+                <p><strong>Observações:</strong> {r.get('obs','N/D')}</p>
+                <p><strong>Prestador Acionado:</strong> {r['prestador']}</p>
+            </div>
+            <br>
+            <p style="font-size: 12px; color: #666;"><em>Documento gerado automaticamente pelo sistema operacional Central AD 24h.</em></p>
+        </body>
+    </html>
+    """
+    b64 = base64.b64encode(html.encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 12px 24px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 8px; font-weight: bold;">📥 Baixar Extrato de OS (PDF/HTML)</a>'
+
+
 def salvar_no_github(caminho_local):
     token = st.secrets.get("GITHUB_TOKEN", None)
     repo = "adrastreamentos/ad-central"
@@ -470,7 +508,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
 # ===================================================================================
-# PORTAL DO CLIENTE (CAPTURA DE GPS SEM APP) - RODA ANTES DO LOGIN
+# PORTAL DO CLIENTE (CAPTURA DE GPS SEM APP) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
 if portal_atual == "cliente":
@@ -512,7 +550,6 @@ if portal_atual == "cliente":
         var lon = position.coords.longitude;
         document.getElementById("msg").innerHTML = "Sinal capturado! Salvando no sistema... 🚀";
         
-        // Fuga de Sandbox: Tenta redirecionar usando URL absoluta
         var urlFinal = "https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon;
         
         try {{
@@ -522,7 +559,7 @@ if portal_atual == "cliente":
         }}
         
         setTimeout(function() {{
-            window.location.href = urlFinal; // Se falhar, redireciona o próprio iframe
+            window.location.href = urlFinal; 
         }}, 500);
     }}
     function showError(error) {{
@@ -587,7 +624,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.7</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.7.1</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
