@@ -470,7 +470,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
 # ===================================================================================
-# PORTAL DO CLIENTE (CAPTURA DE GPS SEM APP) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
+# PORTAL DO CLIENTE (CAPTURA DE GPS SEM APP) - RODA ANTES DO LOGIN
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
 if portal_atual == "cliente":
@@ -484,7 +484,7 @@ if portal_atual == "cliente":
     <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-    body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f8f9fa; }}
+    body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f8f9fa; margin: 0; }}
     .btn {{ background-color: #E53935; color: white; padding: 20px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; width: 100%; max-width: 300px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-top: 20px; }}
     .btn:active {{ background-color: #b71c1c; }}
     #msg {{ margin-top: 20px; font-size: 16px; color: #555; font-weight: bold; }}
@@ -493,36 +493,52 @@ if portal_atual == "cliente":
     <body>
     <h3 style="color: #7B2CBF; margin-top:0;">Localização de Emergência</h3>
     <p>Precisamos saber onde você está para enviar o guincho exato até o veículo placa <b>{placa_param}</b>.</p>
-    <button class="btn" onclick="getLocation()">📍 ENVIAR MINHA LOCALIZAÇÃO</button>
+    <button id="btn-loc" class="btn" onclick="getLocation()">📍 ENVIAR MINHA LOCALIZAÇÃO</button>
     <p id="msg"></p>
     <script>
     function getLocation() {{
-        document.getElementById("msg").innerHTML = "Aguardando GPS... Clique em 'Permitir' se o seu celular pedir.";
+        document.getElementById("msg").innerHTML = "Aguardando GPS... Autorize se o celular pedir.";
+        document.getElementById("btn-loc").style.display = "none";
+        
         if (navigator.geolocation) {{
             navigator.geolocation.getCurrentPosition(showPosition, showError, {{enableHighAccuracy: true}});
         }} else {{
             document.getElementById("msg").innerHTML = "Seu navegador não suporta GPS.";
+            document.getElementById("btn-loc").style.display = "block";
         }}
     }}
     function showPosition(position) {{
         var lat = position.coords.latitude;
         var lon = position.coords.longitude;
-        document.getElementById("msg").innerHTML = "Sinal capturado! Enviando para a Central... 🚀";
-        window.parent.location.href = "?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon;
+        document.getElementById("msg").innerHTML = "Sinal capturado! Salvando no sistema... 🚀";
+        
+        // Fuga de Sandbox: Tenta redirecionar usando URL absoluta
+        var urlFinal = "https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon;
+        
+        try {{
+            window.top.location.href = urlFinal; 
+        }} catch(e) {{
+            console.log("Fallback acionado.");
+        }}
+        
+        setTimeout(function() {{
+            window.location.href = urlFinal; // Se falhar, redireciona o próprio iframe
+        }}, 500);
     }}
     function showError(error) {{
+        document.getElementById("btn-loc").style.display = "block";
         switch(error.code) {{
             case error.PERMISSION_DENIED:
-                document.getElementById("msg").innerHTML = "Você negou o acesso ao GPS. Libere a permissão e tente novamente.";
+                document.getElementById("msg").innerHTML = "❌ Você negou o acesso ao GPS. Libere a permissão e tente novamente.";
                 break;
             case error.POSITION_UNAVAILABLE:
-                document.getElementById("msg").innerHTML = "Sinal de GPS indisponível no momento.";
+                document.getElementById("msg").innerHTML = "❌ Sinal de GPS indisponível no momento.";
                 break;
             case error.TIMEOUT:
-                document.getElementById("msg").innerHTML = "Tempo esgotado para buscar o GPS.";
+                document.getElementById("msg").innerHTML = "❌ Tempo esgotado para buscar o GPS.";
                 break;
             default:
-                document.getElementById("msg").innerHTML = "Erro desconhecido ao tentar localizar.";
+                document.getElementById("msg").innerHTML = "❌ Erro desconhecido ao tentar localizar.";
                 break;
         }}
     }}
@@ -544,7 +560,6 @@ elif portal_atual == "cliente_salvo":
         link_maps = f"https://www.google.com/maps?q={lat},{lon}"
         novo_loc = pd.DataFrame([{'placa': placa_cliente, 'data_hora': obter_hora_str(), 'link_maps': link_maps}])
         
-        # Correção do Erro Global df_loc
         df_loc_atualizado = carregar_dados(FILE_LOC, col_loc)
         df_loc_atualizado = pd.concat([df_loc_atualizado, novo_loc], ignore_index=True)
         salvar_dados(df_loc_atualizado, FILE_LOC)
