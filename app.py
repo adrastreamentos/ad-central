@@ -667,7 +667,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.1</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.2</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -749,7 +749,7 @@ st.write("---")
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
-    opcoes_admin = ["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "💾 Dados"]
+    opcoes_admin = ["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
     
     aba_atual_admin = st.query_params.get("nav", opcoes_admin[0])
     if aba_atual_admin not in opcoes_admin: aba_atual_admin = opcoes_admin[0]
@@ -1751,38 +1751,7 @@ if st.session_state.perfil == "Admin":
                                 st.success("✅ Registro atualizado com sucesso!"); time.sleep(1); st.rerun()
                             else: st.error(f"Falha na nuvem: {erro}")
 
-    elif aba_selecionada == "💾 Dados":
-        st.subheader("💾 Bancos de Dados e Backup")
-        st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
-        c_b1, c_b2 = st.columns(2)
-        with c_b1:
-            st.markdown("### 📥 1. Baixar Backups Locais")
-            if os.path.exists(FILE_CLIENTES):
-                with open(FILE_CLIENTES, "rb") as f: st.download_button("Baixar Clientes (.csv)", f, file_name="banco_clientes.csv", use_container_width=True)
-            if os.path.exists(FILE_EMPRESAS):
-                with open(FILE_EMPRESAS, "rb") as f: st.download_button("Baixar Empresas (.csv)", f, file_name="banco_empresas.csv", use_container_width=True)
-            if os.path.exists(FILE_PRESTADORES):
-                with open(FILE_PRESTADORES, "rb") as f: st.download_button("Baixar Prestadores (.csv)", f, file_name="banco_prestadores.csv", use_container_width=True)
-            if os.path.exists(FILE_OS):
-                with open(FILE_OS, "rb") as f: st.download_button("Baixar Atendimentos / OS (.csv)", f, file_name="banco_os.csv", use_container_width=True)
-            if os.path.exists(FILE_FINANCEIRO):
-                with open(FILE_FINANCEIRO, "rb") as f: st.download_button("Baixar Relatório Financeiro (.csv)", f, file_name="banco_financeiro.csv", use_container_width=True)
-            if os.path.exists(FILE_NPS):
-                with open(FILE_NPS, "rb") as f: st.download_button("Baixar Avaliações NPS (.csv)", f, file_name="banco_nps.csv", use_container_width=True)
-        with c_b2:
-            st.markdown("### 📤 2. Restaurar Sistema")
-            uploaded_file = st.file_uploader("Arraste o arquivo de backup aqui para restaurar", type=['csv'])
-            if uploaded_file is not None:
-                if st.button(f"🚀 Restaurar dados de: {uploaded_file.name}"):
-                    caminho_salvar = os.path.join(FOLDER, uploaded_file.name)
-                    with open(caminho_salvar, "wb") as f: f.write(uploaded_file.getbuffer())
-                    sucesso, erro = salvar_no_github(caminho_salvar)
-                    if sucesso:
-                        registrar_atividade(st.session_state.user, "RESTAURAÇÃO BACKUP", f"Restaurou o arquivo {uploaded_file.name}")
-                        st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
-                    else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
-                    
-        st.write("---")
+    elif aba_selecionada == "🕵️ Auditoria":
         st.subheader("🕵️ Painel de Auditoria e Registro de Atividades")
         if df_logs.empty: st.info("Nenhuma atividade registrada ainda.")
         else:
@@ -1825,6 +1794,37 @@ if st.session_state.perfil == "Admin":
                     df_logs = df_logs_vazio
                     st.session_state.confirmar_limpeza_total = False; st.rerun()
                 if c2.button("❌ Não"): st.session_state.confirmar_limpeza_total = False; st.rerun()
+
+    elif aba_selecionada == "💾 Dados":
+        st.subheader("💾 Bancos de Dados e Backup")
+        st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
+        c_b1, c_b2 = st.columns(2)
+        with c_b1:
+            st.markdown("### 📥 1. Baixar Backups Locais")
+            if os.path.exists(FILE_CLIENTES):
+                with open(FILE_CLIENTES, "rb") as f: st.download_button("Baixar Clientes (.csv)", f, file_name="banco_clientes.csv", use_container_width=True)
+            if os.path.exists(FILE_EMPRESAS):
+                with open(FILE_EMPRESAS, "rb") as f: st.download_button("Baixar Empresas (.csv)", f, file_name="banco_empresas.csv", use_container_width=True)
+            if os.path.exists(FILE_PRESTADORES):
+                with open(FILE_PRESTADORES, "rb") as f: st.download_button("Baixar Prestadores (.csv)", f, file_name="banco_prestadores.csv", use_container_width=True)
+            if os.path.exists(FILE_OS):
+                with open(FILE_OS, "rb") as f: st.download_button("Baixar Atendimentos / OS (.csv)", f, file_name="banco_os.csv", use_container_width=True)
+            if os.path.exists(FILE_FINANCEIRO):
+                with open(FILE_FINANCEIRO, "rb") as f: st.download_button("Baixar Relatório Financeiro (.csv)", f, file_name="banco_financeiro.csv", use_container_width=True)
+            if os.path.exists(FILE_NPS):
+                with open(FILE_NPS, "rb") as f: st.download_button("Baixar Avaliações NPS (.csv)", f, file_name="banco_nps.csv", use_container_width=True)
+        with c_b2:
+            st.markdown("### 📤 2. Restaurar Sistema")
+            uploaded_file = st.file_uploader("Arraste o arquivo de backup aqui para restaurar", type=['csv'])
+            if uploaded_file is not None:
+                if st.button(f"🚀 Restaurar dados de: {uploaded_file.name}"):
+                    caminho_salvar = os.path.join(FOLDER, uploaded_file.name)
+                    with open(caminho_salvar, "wb") as f: f.write(uploaded_file.getbuffer())
+                    sucesso, erro = salvar_no_github(caminho_salvar)
+                    if sucesso:
+                        registrar_atividade(st.session_state.user, "RESTAURAÇÃO BACKUP", f"Restaurou o arquivo {uploaded_file.name}")
+                        st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
+                    else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
 
 
 # ===================================================================================
