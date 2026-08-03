@@ -489,43 +489,6 @@ def gerar_texto_resumo_plano(dados_fat):
     else:
         return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento (Informativa):</b> {taxa:.1f}%<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
 
-def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
-    dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
-    df_os_temp = df_os_atuais.copy()
-    df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
-    os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora')
-
-    linhas_os_html = ""
-    if os_mes.empty: linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste ciclo.</td></tr>"
-    else:
-        for _, r in os_mes.iterrows():
-            linhas_os_html += f"<tr><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['id']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{str(r['data_hora'])[:16]}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px; font-weight: bold;'>{r['placa']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['cliente_nome']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['tipo_servico']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['localizacao']} ➔ {r['destino']}</td></tr>"
-
-    linhas_veiculos_html = ""
-    for idx_v, v in enumerate(dados_fat['veiculos']):
-        linhas_veiculos_html += f"<tr><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{idx_v + 1}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px; font-weight: bold;'>{v['placa']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['cliente']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['plano']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['tipo_cobranca']}</td></tr>"
-
-    str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
-    str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
-    timestamp_arquivo = int(time.time())
-    modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
-
-    if modo_pdf == "Performance (Escalonado)":
-        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso. Enquadramento atual de fechamento do cliente: <b>{dados_fat['faixa']}</b>.</p></div>"""
-        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Regra Suavizada para <=20): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (A partir do 21º): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
-    elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
-        franquia_qtd = f"{dados_fat.get('acionamentos_isentos', 2)} guinchos"
-        uso_qtd = f"{dados_fat.get('total_ac', 0)} de {dados_fat.get('acionamentos_isentos', 2)}"
-        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Consumo no Ciclo:</strong> {uso_qtd} utilizados.</p></div>"""
-        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
-    else:
-        secao_tabela = ""
-        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>"""
-
-    html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
-    b64 = base64.b64encode(html_content.encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-
 # ===================================================================================
 # PORTAL DO CLIENTE (NPS E CAPTURA DE GPS) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
 # ===================================================================================
@@ -704,7 +667,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.1</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -769,21 +732,35 @@ if not st.session_state.logado:
 # ===================================================================================
 # HEADER DO SISTEMA (QUANDO LOGADO)
 # ===================================================================================
-col_user, col_logout = st.columns([5, 1])
-with col_user: st.write(f"**Central AD 24h | Operador:** `{st.session_state.user}`")
+col_user, col_refresh, col_logout = st.columns([6, 2, 2])
+with col_user: 
+    st.markdown(f"<div style='font-size: 18px; font-weight: bold; color: #4a148c; padding-top: 5px;'>Central AD 24h | Operador: <span style='color: #E53935;'>{st.session_state.user}</span></div>", unsafe_allow_html=True)
+with col_refresh:
+    if st.button("🔄 Atualizar Sistema", use_container_width=True):
+        st.rerun()
 with col_logout:
-    if st.button("Sair / Logoff", key="btn_logout_master"):
+    if st.button("Sair / Logoff", key="btn_logout_master", use_container_width=True):
         st.session_state.logado = False
         st.query_params.clear()
         st.rerun()
+st.write("---")
 
 # ===================================================================================
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
-    menu = st.tabs(["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "💾 Dados"])
+    opcoes_admin = ["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "💾 Dados"]
     
-    with menu[0]:
+    aba_atual_admin = st.query_params.get("nav", opcoes_admin[0])
+    if aba_atual_admin not in opcoes_admin: aba_atual_admin = opcoes_admin[0]
+    
+    aba_selecionada = st.radio("Navegação Principal:", opcoes_admin, index=opcoes_admin.index(aba_atual_admin), horizontal=True, label_visibility="collapsed")
+    
+    if aba_selecionada != aba_atual_admin:
+        st.query_params["nav"] = aba_selecionada
+        st.rerun()
+    
+    if aba_selecionada == "📋 Nova OS":
         st.subheader("🚀 Abertura de Chamado / Nova OS")
         tipo_atendimento = st.radio("Tipo de Atendimento:", ["Cliente Cadastrado", "Atendimento Avulso (Particular)"], horizontal=True)
         st.write("---")
@@ -1030,7 +1007,7 @@ if st.session_state.perfil == "Admin":
                             time.sleep(1.5); st.rerun()
                         else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
 
-    with menu[1]:
+    elif aba_selecionada == "📊 Relatórios & PDF":
         st.subheader("📊 Gestão de Chamados e Relatórios")
         os_id_edit = st.text_input("Digite o ID da OS:")
         if os_id_edit:
@@ -1132,7 +1109,7 @@ if st.session_state.perfil == "Admin":
                         st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
         else: st.dataframe(df_os, use_container_width=True)
 
-    with menu[2]:
+    elif aba_selecionada == "👤 Clientes":
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
         if "aba_cli" not in st.session_state: st.session_state.aba_cli = "Listar"
         opcoes_radio = ["Listar", "Incluir Novo", "Importação em Lote", "Editar", "Excluir"]
@@ -1369,7 +1346,7 @@ if st.session_state.perfil == "Admin":
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()
 
-    with menu[3]:
+    elif aba_selecionada == "🏢 Empresas":
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
         if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
         opcoes_radio_emp = ["Listar", "Incluir Nova", "Editar", "Excluir"]
@@ -1477,7 +1454,7 @@ if st.session_state.perfil == "Admin":
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.emp_del_confirm = None; st.rerun()
 
-    with menu[4]:
+    elif aba_selecionada == "🔧 Prestadores":
         st.subheader("🔧 Gerenciamento de Prestadores (Guinchos e Endereço)")
         pendentes = df_prestadores[df_prestadores['homologado'] == 'Pendente']
         if not pendentes.empty:
@@ -1616,7 +1593,7 @@ if st.session_state.perfil == "Admin":
                                 else: st.error(f"Falha na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.pre_del_confirm = None; st.rerun()
 
-    with menu[5]:
+    elif aba_selecionada == "⭐ Satisfação (NPS)":
         st.subheader("⭐ Painel de Satisfação do Cliente (NPS)")
         st.write("Acompanhe em tempo real a qualidade do atendimento da sua Central e dos Guinchos parceiros.")
         
@@ -1653,7 +1630,7 @@ if st.session_state.perfil == "Admin":
             df_nps_exibicao = df_nps[['data_hora', 'id_os', 'status_nps', 'nota_nps', 'nota_central', 'nota_guincho', 'comentario']].sort_values(by='data_hora', ascending=False)
             st.dataframe(df_nps_exibicao.style.map(cor_linha_nps, subset=['status_nps']), use_container_width=True)
 
-    with menu[6]:
+    elif aba_selecionada == "💰 Financeiro":
         st.subheader("💰 Gestão Financeira - Controle de Recebimentos")
         st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
         
@@ -1774,7 +1751,7 @@ if st.session_state.perfil == "Admin":
                                 st.success("✅ Registro atualizado com sucesso!"); time.sleep(1); st.rerun()
                             else: st.error(f"Falha na nuvem: {erro}")
 
-    with menu[7]:
+    elif aba_selecionada == "💾 Dados":
         st.subheader("💾 Bancos de Dados e Backup")
         st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
         c_b1, c_b2 = st.columns(2)
@@ -1804,15 +1781,67 @@ if st.session_state.perfil == "Admin":
                         registrar_atividade(st.session_state.user, "RESTAURAÇÃO BACKUP", f"Restaurou o arquivo {uploaded_file.name}")
                         st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
                     else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
+                    
+        st.write("---")
+        st.subheader("🕵️ Painel de Auditoria e Registro de Atividades")
+        if df_logs.empty: st.info("Nenhuma atividade registrada ainda.")
+        else:
+            df_logs_exibicao = df_logs.copy().sort_values(by='data_hora', ascending=False)
+            busca_log = st.text_input("🔍 Buscar no registro:")
+            if busca_log: df_logs_exibicao = df_logs_exibicao[df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['acao'].str.contains(busca_log, case=False, na=False)]
+            st.write("---")
+            df_logs_exibicao['idx_temp'] = df_logs_exibicao.index
+            opcoes_log = {str(i): f"{r['data_hora']} - {r['usuario']} - {r['acao']}" for i, r in df_logs_exibicao.iterrows()}
+            log_selecionado = st.selectbox("Selecione um registro para ver os Detalhes Completos ou Excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log[x])
+            if log_selecionado != "":
+                detalhe_row = df_logs_exibicao.loc[int(log_selecionado)]
+                st.markdown(f"""
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
+                    <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
+                    <p style="margin-bottom:5px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p>
+                    <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
+                    <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos:</strong> {detalhe_row['detalhes']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("❌ Excluir este registro selecionado"):
+                    with st.spinner("Removendo registro..."):
+                        df_logs = df_logs.drop(int(log_selecionado))
+                        df_logs.to_csv(FILE_LOGS, index=False)
+                        salvar_no_github(FILE_LOGS)
+                        st.success("Registro removido com sucesso!"); time.sleep(1); st.rerun()
+            st.write("---")
+            st.dataframe(df_logs_exibicao.drop(columns=['idx_temp']), use_container_width=True)
+            st.write("---")
+            if "confirmar_limpeza_total" not in st.session_state: st.session_state.confirmar_limpeza_total = False
+            if not st.session_state.confirmar_limpeza_total:
+                if st.button("🗑️ LIMPAR TODO O HISTÓRICO"): st.session_state.confirmar_limpeza_total = True; st.rerun()
+            if st.session_state.confirmar_limpeza_total:
+                st.warning("⚠️ Tem certeza? Isso apagará todos os logs irrecuperavelmente.")
+                c1, c2 = st.columns(2)
+                if c1.button("✅ Sim, apagar tudo"):
+                    df_logs_vazio = pd.DataFrame(columns=col_logs)
+                    df_logs_vazio.to_csv(FILE_LOGS, index=False)
+                    salvar_no_github(FILE_LOGS)
+                    df_logs = df_logs_vazio
+                    st.session_state.confirmar_limpeza_total = False; st.rerun()
+                if c2.button("❌ Não"): st.session_state.confirmar_limpeza_total = False; st.rerun()
 
 
 # ===================================================================================
 # INTERFACE 2: PARCEIROS
 # ===================================================================================
 elif st.session_state.perfil == "Parceiro":
-    menu_parceiro = st.tabs(["👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"])
+    opcoes_parc = ["👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"]
+    aba_atual_parc = st.query_params.get("nav", opcoes_parc[0])
+    if aba_atual_parc not in opcoes_parc: aba_atual_parc = opcoes_parc[0]
     
-    with menu_parceiro[0]:
+    aba_selecionada = st.radio("Navegação do Parceiro:", opcoes_parc, index=opcoes_parc.index(aba_atual_parc), horizontal=True, label_visibility="collapsed")
+    
+    if aba_selecionada != aba_atual_parc:
+        st.query_params["nav"] = aba_selecionada
+        st.rerun()
+    
+    if aba_selecionada == "👥 Cadastro de Clientes":
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         dia_v_p0 = "30"
@@ -2078,12 +2107,12 @@ elif st.session_state.perfil == "Parceiro":
                                 else: st.error(f"Erro na nuvem: {erro}")
                         if col_nao.button("❌ Não, cancelar"): st.session_state.part_del_confirm = None; st.rerun()
 
-    with menu_parceiro[1]:
+    elif aba_selecionada == "📋 Histórico de Chamados":
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
         if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
         else: st.dataframe(df_os_parceiro, use_container_width=True)
 
-    with menu_parceiro[2]:
+    elif aba_selecionada == "💰 Meu Financeiro":
         st.subheader("💰 Gestão Financeira (Meu Faturamento)")
         st.write("Confira as faturas, o status dos pagamentos e o extrato detalhado da sua empresa.")
         
@@ -2139,7 +2168,7 @@ elif st.session_state.perfil == "Parceiro":
                 st.write("")
                 st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
 
-    with menu_parceiro[3]:
+    elif aba_selecionada == "🕵️ Auditoria":
         st.subheader("🕵️ Auditoria e Histórico de Atividades")
         st.write("Verifique com transparência as ações realizadas no sistema que envolvem a sua empresa.")
         
@@ -2182,12 +2211,17 @@ elif st.session_state.perfil == "Parceiro":
 # INTERFACE 3: PRESTADOR (GUINCHO)
 # ===================================================================================
 elif st.session_state.perfil == "Prestador":
-    st.subheader(f"🚛 Meu Painel de Atendimento | Prestador: {st.session_state.user}")
-    st.write("---")
+    opcoes_prest = ["🚨 Chamados Ativos", "📋 Meu Histórico"]
+    aba_atual_prest = st.query_params.get("nav", opcoes_prest[0])
+    if aba_atual_prest not in opcoes_prest: aba_atual_prest = opcoes_prest[0]
+    
+    aba_selecionada = st.radio("Navegação do Prestador:", opcoes_prest, index=opcoes_prest.index(aba_atual_prest), horizontal=True, label_visibility="collapsed")
+    
+    if aba_selecionada != aba_atual_prest:
+        st.query_params["nav"] = aba_selecionada
+        st.rerun()
 
-    tab_ativos, tab_historico = st.tabs(["🚨 Chamados Ativos", "📋 Meu Histórico"])
-
-    with tab_ativos:
+    if aba_selecionada == "🚨 Chamados Ativos":
         df_os_prest = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
         meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
         
@@ -2271,7 +2305,7 @@ elif st.session_state.perfil == "Prestador":
                                     time.sleep(2); st.rerun()
                                 else: st.error(f"Erro ao avisar central: {erro}")
 
-    with tab_historico:
+    elif aba_selecionada == "📋 Meu Histórico":
         st.markdown("### 📋 Histórico de Serviços Concluídos")
         st.write("Abaixo estão todos os chamados que você já finalizou.")
         
