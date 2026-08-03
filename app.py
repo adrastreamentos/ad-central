@@ -185,6 +185,7 @@ FILE_OS = os.path.join(FOLDER, "banco_os.csv")
 FILE_LOGS = os.path.join(FOLDER, "banco_logs.csv")
 FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
 FILE_LOC = os.path.join(FOLDER, "banco_loc.csv")
+FILE_NPS = os.path.join(FOLDER, "banco_nps.csv")
 
 col_cli = ['id','nome','cpf','tel','endereco','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']
@@ -193,6 +194,7 @@ col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_s
 col_fin = ['id', 'mes_ano', 'empresa', 'valor_faturado', 'valor_pago', 'status']
 col_logs = ['data_hora', 'usuario', 'acao', 'detalhes']
 col_loc = ['placa', 'data_hora', 'link_maps']
+col_nps = ['id_os', 'data_hora', 'nota_nps', 'nota_central', 'nota_guincho', 'comentario', 'status_nps']
 
 if not os.path.exists(FILE_CLIENTES): pd.DataFrame(columns=col_cli).to_csv(FILE_CLIENTES, index=False)
 if not os.path.exists(FILE_EMPRESAS): pd.DataFrame(columns=col_emp).to_csv(FILE_EMPRESAS, index=False)
@@ -201,6 +203,7 @@ if not os.path.exists(FILE_OS): pd.DataFrame(columns=col_os).to_csv(FILE_OS, ind
 if not os.path.exists(FILE_FINANCEIRO): pd.DataFrame(columns=col_fin).to_csv(FILE_FINANCEIRO, index=False)
 if not os.path.exists(FILE_LOGS): pd.DataFrame(columns=col_logs).to_csv(FILE_LOGS, index=False)
 if not os.path.exists(FILE_LOC): pd.DataFrame(columns=col_loc).to_csv(FILE_LOC, index=False)
+if not os.path.exists(FILE_NPS): pd.DataFrame(columns=col_nps).to_csv(FILE_NPS, index=False)
 
 df_clientes = carregar_dados(FILE_CLIENTES, col_cli)
 df_empresas = carregar_dados(FILE_EMPRESAS, col_emp)
@@ -209,6 +212,7 @@ df_os = carregar_dados(FILE_OS, col_os)
 df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
 df_logs = carregar_dados(FILE_LOGS, col_logs)
 df_loc = carregar_dados(FILE_LOC, col_loc)
+df_nps = carregar_dados(FILE_NPS, col_nps)
 
 # ===================================================================================
 # FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO)
@@ -523,9 +527,70 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
 # ===================================================================================
-# PORTAL DO CLIENTE (CAPTURA DE GPS SEM APP) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
+# PORTAL DO CLIENTE (NPS E CAPTURA DE GPS) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
+
+if portal_atual == "nps":
+    st.markdown('<div class="main-title">Pesquisa de Qualidade</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Assistência 24h</div>', unsafe_allow_html=True)
+    os_param = st.query_params.get("os", "")
+    
+    if not os_param:
+        st.error("Número de atendimento não identificado.")
+        st.stop()
+        
+    os_relacionada = df_os[df_os['id'].astype(str) == str(os_param)]
+    if os_relacionada.empty:
+        st.error("Ordem de serviço não encontrada no sistema.")
+        st.stop()
+        
+    os_info = os_relacionada.iloc[0]
+    nps_existente = df_nps[df_nps['id_os'].astype(str) == str(os_param)]
+    
+    if not nps_existente.empty:
+        st.info("✅ Esta ordem de serviço já foi avaliada. Muito obrigado pelo seu tempo!")
+        st.stop()
+
+    st.write(f"**Veículo:** {os_info['placa']}")
+    st.write(f"**Data do Chamado:** {os_info['data_hora'][:10]}")
+    st.write("---")
+    
+    st.markdown("<h4 style='color: #7B2CBF;'>1. Em uma escala de 0 a 10, o quanto você recomendaria a assistência 24 horas para um amigo ou familiar?</h4>", unsafe_allow_html=True)
+    nota_nps = st.slider("Arraste para dar sua nota:", min_value=0, max_value=10, value=10)
+    
+    st.markdown("<h4 style='color: #7B2CBF; margin-top: 20px;'>2. Como você avalia a agilidade e educação do nosso Operador da Central?</h4>", unsafe_allow_html=True)
+    nota_central = st.feedback("stars", key="fb_central")
+    
+    st.markdown("<h4 style='color: #7B2CBF; margin-top: 20px;'>3. Como você avalia o atendimento presencial do Motorista do Guincho?</h4>", unsafe_allow_html=True)
+    nota_guincho = st.feedback("stars", key="fb_guincho")
+    
+    comentario = st.text_area("Gostaria de deixar um comentário, elogio ou sugestão? (Opcional)")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🚀 Enviar minha avaliação", use_container_width=True, type="primary"):
+        val_cen = nota_central + 1 if nota_central is not None else 5
+        val_gui = nota_guincho + 1 if nota_guincho is not None else 5
+        
+        status_calc = "Promotor" if nota_nps >= 9 else "Neutro" if nota_nps >= 7 else "Detrator"
+        
+        novo_nps = pd.DataFrame([{
+            'id_os': os_param,
+            'data_hora': obter_hora_str(),
+            'nota_nps': nota_nps,
+            'nota_central': val_cen,
+            'nota_guincho': val_gui,
+            'comentario': comentario.strip(),
+            'status_nps': status_calc
+        }])
+        
+        df_nps_atualizado = pd.concat([df_nps, novo_nps], ignore_index=True)
+        salvar_dados(df_nps_atualizado, FILE_NPS)
+        st.success("🎉 Avaliação enviada com sucesso! Muito obrigado por nos ajudar a melhorar.")
+        time.sleep(2)
+        st.rerun()
+    st.stop()
+
 if portal_atual == "cliente":
     st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
@@ -639,7 +704,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v8.9</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.0</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -716,7 +781,7 @@ with col_logout:
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
-    menu = st.tabs(["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "💾 Backup", "🕵️ Auditoria", "💰 Financeiro"])
+    menu = st.tabs(["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "💾 Dados"])
     
     with menu[0]:
         st.subheader("🚀 Abertura de Chamado / Nova OS")
@@ -1030,20 +1095,26 @@ if st.session_state.perfil == "Admin":
                 else: st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
                 
                 link_app_prestador = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=prestador&session=prest_{urllib.parse.quote(prestador_nome_puro)}"
+                
+                link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
+                texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
+                
                 texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}\n\n🔗 *Acesse seu painel para Vistoria:* {link_app_prestador}")
                 link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
+                link_w_cli_nps = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(tel_cliente_os)}&text={urllib.parse.quote(texto_w_nps)}"
                 
                 col_btn1, col_btn2 = st.columns(2)
-                with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
+                with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 1. Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
                 with col_btn2:
-                    texto_botao = "🔒 Confirmar Entrega e Dar Baixa Definitiva (Encerrar OS)" if status_dessa_os == 'FINALIZADO PELO PRESTADOR' else "🔒 Forçar Encerramento da OS Manualmente"
+                    texto_botao = "🔒 2. Encerrar OS no Sistema" if status_dessa_os == 'FINALIZADO PELO PRESTADOR' else "🔒 2. Forçar Encerramento da OS Manualmente"
                     if st.button(texto_botao, key="btn_encerrar_os_adm"):
                         with st.spinner("Encerrando OS..."):
                             df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
                             if sucesso:
                                 registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
-                                st.success(f"🎉 Chamado Nº {os_id_alvo} Encerrado com sucesso!"); time.sleep(1.5); st.rerun()
+                                st.success(f"🎉 Chamado Nº {os_id_alvo} Encerrado com sucesso!")
+                                st.markdown(f'<a href="{link_w_cli_nps}" target="_blank"><button style="background-color: #1E88E5; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px;">⭐ 3. Disparar Pesquisa de Satisfação (NPS) para o Cliente</button></a>', unsafe_allow_html=True)
                             else: st.error(f"Erro na nuvem: {erro}")
         elif visao_relatorio == "✅ Histórico e Gerar PDF (Finalizadas)":
             df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
@@ -1546,79 +1617,43 @@ if st.session_state.perfil == "Admin":
                         if col_nao.button("❌ Não, cancelar"): st.session_state.pre_del_confirm = None; st.rerun()
 
     with menu[5]:
-        st.subheader("💾 Backup e Restauração de Emergência")
-        st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
-        c_b1, c_b2 = st.columns(2)
-        with c_b1:
-            st.markdown("### 📥 1. Baixar Backups Locais")
-            if os.path.exists(FILE_CLIENTES):
-                with open(FILE_CLIENTES, "rb") as f: st.download_button("Baixar Clientes (.csv)", f, file_name="banco_clientes.csv", use_container_width=True)
-            if os.path.exists(FILE_EMPRESAS):
-                with open(FILE_EMPRESAS, "rb") as f: st.download_button("Baixar Empresas (.csv)", f, file_name="banco_empresas.csv", use_container_width=True)
-            if os.path.exists(FILE_PRESTADORES):
-                with open(FILE_PRESTADORES, "rb") as f: st.download_button("Baixar Prestadores (.csv)", f, file_name="banco_prestadores.csv", use_container_width=True)
-            if os.path.exists(FILE_OS):
-                with open(FILE_OS, "rb") as f: st.download_button("Baixar Atendimentos / OS (.csv)", f, file_name="banco_os.csv", use_container_width=True)
-            if os.path.exists(FILE_FINANCEIRO):
-                with open(FILE_FINANCEIRO, "rb") as f: st.download_button("Baixar Relatório Financeiro (.csv)", f, file_name="banco_financeiro.csv", use_container_width=True)
-        with c_b2:
-            st.markdown("### 📤 2. Restaurar Sistema")
-            uploaded_file = st.file_uploader("Arraste o arquivo de backup aqui para restaurar", type=['csv'])
-            if uploaded_file is not None:
-                if st.button(f"🚀 Restaurar dados de: {uploaded_file.name}"):
-                    caminho_salvar = os.path.join(FOLDER, uploaded_file.name)
-                    with open(caminho_salvar, "wb") as f: f.write(uploaded_file.getbuffer())
-                    sucesso, erro = salvar_no_github(caminho_salvar)
-                    if sucesso:
-                        registrar_atividade(st.session_state.user, "RESTAURAÇÃO BACKUP", f"Restaurou o arquivo {uploaded_file.name}")
-                        st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
-                    else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
+        st.subheader("⭐ Painel de Satisfação do Cliente (NPS)")
+        st.write("Acompanhe em tempo real a qualidade do atendimento da sua Central e dos Guinchos parceiros.")
+        
+        if df_nps.empty:
+            st.info("Nenhuma avaliação recebida ainda. Os dados aparecerão aqui assim que os clientes começarem a responder.")
+        else:
+            total_resp = len(df_nps)
+            promotores = len(df_nps[df_nps['status_nps'] == 'Promotor'])
+            detratores = len(df_nps[df_nps['status_nps'] == 'Detrator'])
+            
+            nps_score = ((promotores - detratores) / total_resp) * 100 if total_resp > 0 else 0
+            
+            try: media_central = df_nps['nota_central'].astype(float).mean()
+            except: media_central = 0.0
+            
+            try: media_guincho = df_nps['nota_guincho'].astype(float).mean()
+            except: media_guincho = 0.0
+            
+            cor_nps = "#2e7d32" if nps_score >= 75 else "#f57f17" if nps_score >= 50 else "#c62828"
+            
+            st.markdown("---")
+            c_nps1, c_nps2, c_nps3 = st.columns(3)
+            c_nps1.markdown(f'<div class="metric-card" style="border: 2px solid {cor_nps};"><div style="color: #666; font-size: 16px; font-weight: bold;">Score NPS Global</div><div class="metric-value" style="color: {cor_nps}; font-size: 38px;">{nps_score:.1f}</div><div style="font-size: 12px; margin-top: 5px;">Total de {total_resp} avaliações</div></div>', unsafe_allow_html=True)
+            c_nps2.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px; font-weight: bold;">Média da Central (1 a 5)</div><div class="metric-value" style="color: #1976D2; font-size: 38px;">{media_central:.1f} ⭐</div></div>', unsafe_allow_html=True)
+            c_nps3.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px; font-weight: bold;">Média dos Guinchos (1 a 5)</div><div class="metric-value" style="color: #1976D2; font-size: 38px;">{media_guincho:.1f} ⭐</div></div>', unsafe_allow_html=True)
+            
+            st.markdown("### 📋 Últimas Avaliações Recebidas")
+            
+            def cor_linha_nps(val):
+                if val == 'Detrator': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
+                if val == 'Promotor': return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;'
+                return 'background-color: #fff8e1; color: #f57f17; font-weight: bold;'
+            
+            df_nps_exibicao = df_nps[['data_hora', 'id_os', 'status_nps', 'nota_nps', 'nota_central', 'nota_guincho', 'comentario']].sort_values(by='data_hora', ascending=False)
+            st.dataframe(df_nps_exibicao.style.map(cor_linha_nps, subset=['status_nps']), use_container_width=True)
 
     with menu[6]:
-        st.subheader("🕵️ Painel de Auditoria e Registro de Atividades")
-        if df_logs.empty: st.info("Nenhuma atividade registrada ainda.")
-        else:
-            df_logs_exibicao = df_logs.copy().sort_values(by='data_hora', ascending=False)
-            busca_log = st.text_input("🔍 Buscar no registro:")
-            if busca_log: df_logs_exibicao = df_logs_exibicao[df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['acao'].str.contains(busca_log, case=False, na=False)]
-            st.write("---")
-            df_logs_exibicao['idx_temp'] = df_logs_exibicao.index
-            opcoes_log = {str(i): f"{r['data_hora']} - {r['usuario']} - {r['acao']}" for i, r in df_logs_exibicao.iterrows()}
-            log_selecionado = st.selectbox("Selecione um registro para ver os Detalhes Completos ou Excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log[x])
-            if log_selecionado != "":
-                detalhe_row = df_logs_exibicao.loc[int(log_selecionado)]
-                st.markdown(f"""
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
-                    <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
-                    <p style="margin-bottom:5px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p>
-                    <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
-                    <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos:</strong> {detalhe_row['detalhes']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                if st.button("❌ Excluir este registro selecionado"):
-                    with st.spinner("Removendo registro..."):
-                        df_logs = df_logs.drop(int(log_selecionado))
-                        df_logs.to_csv(FILE_LOGS, index=False)
-                        salvar_no_github(FILE_LOGS)
-                        st.success("Registro removido com sucesso!"); time.sleep(1); st.rerun()
-            st.write("---")
-            st.dataframe(df_logs_exibicao.drop(columns=['idx_temp']), use_container_width=True)
-            st.write("---")
-            if "confirmar_limpeza_total" not in st.session_state: st.session_state.confirmar_limpeza_total = False
-            if not st.session_state.confirmar_limpeza_total:
-                if st.button("🗑️ LIMPAR TODO O HISTÓRICO"): st.session_state.confirmar_limpeza_total = True; st.rerun()
-            if st.session_state.confirmar_limpeza_total:
-                st.warning("⚠️ Tem certeza? Isso apagará todos os logs irrecuperavelmente.")
-                c1, c2 = st.columns(2)
-                if c1.button("✅ Sim, apagar tudo"):
-                    df_logs_vazio = pd.DataFrame(columns=col_logs)
-                    df_logs_vazio.to_csv(FILE_LOGS, index=False)
-                    salvar_no_github(FILE_LOGS)
-                    df_logs = df_logs_vazio
-                    st.session_state.confirmar_limpeza_total = False; st.rerun()
-                if c2.button("❌ Não"): st.session_state.confirmar_limpeza_total = False; st.rerun()
-
-    with menu[7]:
         st.subheader("💰 Gestão Financeira - Controle de Recebimentos")
         st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
         
@@ -1738,6 +1773,38 @@ if st.session_state.perfil == "Admin":
                                 registrar_atividade(st.session_state.user, "BAIXA FINANCEIRA", f"Editou o faturamento de {emp_edit} ({mes_filtro}) para status {status_final}")
                                 st.success("✅ Registro atualizado com sucesso!"); time.sleep(1); st.rerun()
                             else: st.error(f"Falha na nuvem: {erro}")
+
+    with menu[7]:
+        st.subheader("💾 Bancos de Dados e Backup")
+        st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
+        c_b1, c_b2 = st.columns(2)
+        with c_b1:
+            st.markdown("### 📥 1. Baixar Backups Locais")
+            if os.path.exists(FILE_CLIENTES):
+                with open(FILE_CLIENTES, "rb") as f: st.download_button("Baixar Clientes (.csv)", f, file_name="banco_clientes.csv", use_container_width=True)
+            if os.path.exists(FILE_EMPRESAS):
+                with open(FILE_EMPRESAS, "rb") as f: st.download_button("Baixar Empresas (.csv)", f, file_name="banco_empresas.csv", use_container_width=True)
+            if os.path.exists(FILE_PRESTADORES):
+                with open(FILE_PRESTADORES, "rb") as f: st.download_button("Baixar Prestadores (.csv)", f, file_name="banco_prestadores.csv", use_container_width=True)
+            if os.path.exists(FILE_OS):
+                with open(FILE_OS, "rb") as f: st.download_button("Baixar Atendimentos / OS (.csv)", f, file_name="banco_os.csv", use_container_width=True)
+            if os.path.exists(FILE_FINANCEIRO):
+                with open(FILE_FINANCEIRO, "rb") as f: st.download_button("Baixar Relatório Financeiro (.csv)", f, file_name="banco_financeiro.csv", use_container_width=True)
+            if os.path.exists(FILE_NPS):
+                with open(FILE_NPS, "rb") as f: st.download_button("Baixar Avaliações NPS (.csv)", f, file_name="banco_nps.csv", use_container_width=True)
+        with c_b2:
+            st.markdown("### 📤 2. Restaurar Sistema")
+            uploaded_file = st.file_uploader("Arraste o arquivo de backup aqui para restaurar", type=['csv'])
+            if uploaded_file is not None:
+                if st.button(f"🚀 Restaurar dados de: {uploaded_file.name}"):
+                    caminho_salvar = os.path.join(FOLDER, uploaded_file.name)
+                    with open(caminho_salvar, "wb") as f: f.write(uploaded_file.getbuffer())
+                    sucesso, erro = salvar_no_github(caminho_salvar)
+                    if sucesso:
+                        registrar_atividade(st.session_state.user, "RESTAURAÇÃO BACKUP", f"Restaurou o arquivo {uploaded_file.name}")
+                        st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
+                    else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
+
 
 # ===================================================================================
 # INTERFACE 2: PARCEIROS
