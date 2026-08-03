@@ -261,7 +261,7 @@ def obter_mes_ano_vigente(dia_venc_str):
     dt_fechamento_este_mes = (dt_venc_este_mes - timedelta(days=2)).replace(hour=23, minute=59, second=59)
     if hoje <= dt_fechamento_este_mes: return hoje.month, hoje.year
     else:
-        m = margin = hoje.month + 1
+        m = hoje.month + 1
         y = hoje.year
         if m > 12: m, y = 1, y + 1
         return m, y
@@ -489,6 +489,43 @@ def gerar_texto_resumo_plano(dados_fat):
     else:
         return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento (Informativa):</b> {taxa:.1f}%<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
 
+def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
+    dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
+    df_os_temp = df_os_atuais.copy()
+    df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
+    os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora')
+
+    linhas_os_html = ""
+    if os_mes.empty: linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste ciclo.</td></tr>"
+    else:
+        for _, r in os_mes.iterrows():
+            linhas_os_html += f"<tr><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['id']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{str(r['data_hora'])[:16]}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px; font-weight: bold;'>{r['placa']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['cliente_nome']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['tipo_servico']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['localizacao']} ➔ {r['destino']}</td></tr>"
+
+    linhas_veiculos_html = ""
+    for idx_v, v in enumerate(dados_fat['veiculos']):
+        linhas_veiculos_html += f"<tr><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{idx_v + 1}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px; font-weight: bold;'>{v['placa']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['cliente']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['plano']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['tipo_cobranca']}</td></tr>"
+
+    str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
+    str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
+    timestamp_arquivo = int(time.time())
+    modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
+
+    if modo_pdf == "Performance (Escalonado)":
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso. Enquadramento atual de fechamento do cliente: <b>{dados_fat['faixa']}</b>.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Regra Suavizada para <=20): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (A partir do 21º): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
+    elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
+        franquia_qtd = f"{dados_fat.get('acionamentos_isentos', 2)} guinchos"
+        uso_qtd = f"{dados_fat.get('total_ac', 0)} de {dados_fat.get('acionamentos_isentos', 2)}"
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais (Planos 50km ou 100km).</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Consumo no Ciclo:</strong> {uso_qtd} utilizados.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Acionamentos Excedentes (Fora da Franquia): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
+    else:
+        secao_tabela = ""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>"""
+
+    html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
+    b64 = base64.b64encode(html_content.encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
+
 # ===================================================================================
 # PORTAL DO CLIENTE (NPS E CAPTURA DE GPS) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
 # ===================================================================================
@@ -667,7 +704,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.3</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.4</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -1265,7 +1302,7 @@ if st.session_state.perfil == "Admin":
                 if st.button("Iniciar Importação e Salvar no GitHub"):
                     st.info("Atenção: A função de importação necessita da biblioteca pandas.")
         elif opcao_cli == "Editar":
-            if df_clientes.empty: st.warning("Nenhuma cliente cadastrado.")
+            if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
             else:
                 opcoes_cli = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_clientes.iterrows()}
                 c_target = st.selectbox("🔎 Digite para achar o cliente (Nome, CPF ou Empresa):", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x])
@@ -2230,7 +2267,7 @@ elif st.session_state.perfil == "Prestador":
         else:
             for _, os_row in meus_chamados.iterrows():
                 st.markdown(f"### 🚨 Chamado Nº {os_row['id']}")
-                status_atual_prestador = str(os_row.get('status_os', '')).upper()
+                status_atual_prestador = str(os_row.get('status_os', '')).upper().strip()
                 
                 c1, c2 = st.columns(2)
                 c1.write(f"**Cliente:** {os_row['cliente_nome']}")
@@ -2242,91 +2279,86 @@ elif st.session_state.perfil == "Prestador":
                 
                 if status_atual_prestador == 'FINALIZADO PELO PRESTADOR':
                     st.success("🏁 Você já chegou ao destino e finalizou esta OS! O veículo foi entregue. Aguardando a Central AD confirmar o encerramento do chamado no sistema.")
-                else:
-                    vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
-                    os.makedirs(vistoria_path, exist_ok=True)
-                    fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-                    vistoria_completa = True
-                    for f in fotos_necessarias:
-                        if not os.path.exists(os.path.join(vistoria_path, f"{f}.jpg")):
-                            vistoria_completa = False
+                
+                elif status_atual_prestador == 'EM ROTA (VISTORIA OK)':
+                    st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
                     
-                    if not vistoria_completa:
-                        st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
-                        
-                        # --- TRAVA DE SEGURANÇA DA PLACA ---
-                        key_validada = f"placa_validada_{os_row['id']}"
-                        if key_validada not in st.session_state: st.session_state[key_validada] = False
-                        
-                        if not st.session_state[key_validada]:
-                            st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
-                            c_val1, c_val2 = st.columns([2, 2])
-                            placa_input = c_val1.text_input("Digite os 3 ÚLTIMOS caracteres da Placa:", key=f"input_pl_{os_row['id']}", help="Pode ser letra ou número.")
-                            if c_val1.button("✅ Confirmar Chegada no Local", type="primary", key=f"btn_val_{os_row['id']}"):
-                                placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
-                                ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
-                                digitado_limpo = apenas_numeros_letras(placa_input).upper()
-                                
-                                if digitado_limpo == ultimos_3_reais and digitado_limpo != "":
-                                    st.session_state[key_validada] = True
-                                    registrar_atividade(st.session_state.user, "CHEGADA NO LOCAL", f"Prestador confirmou chegada na OS {os_row['id']} validando a placa ({os_row['placa']}).")
-                                    st.success("✅ Veículo validado com sucesso! Horário de chegada registrado. Liberando Vistoria...")
-                                    time.sleep(1.5)
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Dígitos incorretos. Verifique a placa do veículo físico e tente novamente.")
-                        else:
-                            # Se a placa foi validada, mostra as fotos normalmente
-                            if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
-                            passo = st.session_state.passo_vistoria
-                            nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
+                    if st.button(f"🏁 CHEGUEI E DESCARREGUEI (Finalizar OS)", key=f"btn_fin_{os_row['id']}"):
+                        with st.spinner("Avisando a Central sobre a entrega..."):
+                            df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'FINALIZADO PELO PRESTADOR'
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregou a OS {os_row['id']}.")
+                                st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
+                                time.sleep(2); st.rerun()
+                            else: st.error(f"Erro ao avisar central: {erro}")
+                
+                else: 
+                    st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
+                    
+                    # --- TRAVA DE SEGURANÇA DA PLACA ---
+                    key_validada = f"placa_validada_{os_row['id']}"
+                    if key_validada not in st.session_state: st.session_state[key_validada] = False
+                    
+                    if not st.session_state[key_validada]:
+                        st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
+                        c_val1, c_val2 = st.columns([2, 2])
+                        placa_input = c_val1.text_input("Digite os 3 ÚLTIMOS caracteres da Placa:", key=f"input_pl_{os_row['id']}", help="Pode ser letra ou número.")
+                        if c_val1.button("✅ Confirmar Chegada no Local", type="primary", key=f"btn_val_{os_row['id']}"):
+                            placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
+                            ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
+                            digitado_limpo = apenas_numeros_letras(placa_input).upper()
                             
-                            if passo < 5: 
-                                st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
-                                img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
-                                if img_capturada:
-                                    with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
-                                        f_img.write(img_capturada.getbuffer())
-                                    st.success(f"✅ Foto salva!")
-                                    if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
-                                        st.session_state.passo_vistoria += 1
-                                        st.rerun()
-                                if passo > 0:
-                                    if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
-                                        st.session_state.passo_vistoria = 0; st.rerun()
-                                        
-                            elif passo == 5: 
-                                st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
-                                st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
-                                canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
-                                
-                                if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
-                                    if canvas_result.image_data is not None:
-                                        with st.spinner("Salvando assinatura e avisando a central..."):
-                                            img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
-                                            img = img.convert("RGB") 
-                                            img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
-                                            df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
-                                            salvar_dados(df_os, FILE_OS)
-                                            st.session_state.passo_vistoria += 1
-                                            st.rerun()
-                                    else: st.error("Peça ao cliente para assinar antes de salvar.")
-                                if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
-                                    st.session_state.passo_vistoria = 4; st.rerun()
-                    
+                            if digitado_limpo == ultimos_3_reais and digitado_limpo != "":
+                                st.session_state[key_validada] = True
+                                registrar_atividade(st.session_state.user, "CHEGADA NO LOCAL", f"Prestador confirmou chegada na OS {os_row['id']} validando a placa ({os_row['placa']}).")
+                                st.success("✅ Veículo validado com sucesso! Horário de chegada registrado. Liberando Vistoria...")
+                                time.sleep(1.5)
+                                st.rerun()
+                            else:
+                                st.error("❌ Dígitos incorretos. Verifique a placa do veículo físico e tente novamente.")
                     else:
-                        st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
-                        st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
+                        vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
+                        os.makedirs(vistoria_path, exist_ok=True)
+                        fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
+
+                        if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
+                        passo = st.session_state.passo_vistoria
+                        nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
                         
-                        if st.button(f"🏁 CHEGUEI E DESCARREGUEI (Finalizar OS)", key=f"btn_fin_{os_row['id']}"):
-                            with st.spinner("Avisando a Central sobre a entrega..."):
-                                df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'FINALIZADO PELO PRESTADOR'
-                                sucesso, erro = salvar_dados(df_os, FILE_OS)
-                                if sucesso:
-                                    registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregou a OS {os_row['id']}.")
-                                    st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
-                                    time.sleep(2); st.rerun()
-                                else: st.error(f"Erro ao avisar central: {erro}")
+                        if passo < 5: 
+                            st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
+                            img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
+                            if img_capturada:
+                                with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
+                                    f_img.write(img_capturada.getbuffer())
+                                st.success(f"✅ Foto salva!")
+                                if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
+                                    st.session_state.passo_vistoria += 1
+                                    st.rerun()
+                            if passo > 0:
+                                if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
+                                    st.session_state.passo_vistoria = 0; st.rerun()
+                                    
+                        elif passo == 5: 
+                            st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
+                            st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
+                            canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
+                            
+                            if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
+                                if canvas_result.image_data is not None:
+                                    with st.spinner("Salvando assinatura e avisando a central..."):
+                                        img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
+                                        img = img.convert("RGB") 
+                                        img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
+                                        df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
+                                        salvar_dados(df_os, FILE_OS)
+                                        st.session_state.passo_vistoria = 0 
+                                        st.rerun()
+                                else: st.error("Peça ao cliente para assinar antes de salvar.")
+                            if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
+                                st.session_state.passo_vistoria = 4; st.rerun()
 
     elif aba_selecionada == "📋 Meu Histórico":
         st.markdown("### 📋 Histórico de Serviços Concluídos")
