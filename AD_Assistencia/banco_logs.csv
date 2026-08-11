@@ -87,3 +87,4 @@ data_hora,usuario,acao,detalhes
 2026-08-03 05:44:30,TESTE,ENTREGA DE VEÍCULO (PRESTADOR),Prestador entregou a OS 2.
 2026-08-03 05:44:41,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 2
 2026-08-11 02:30:08,AD Rastreamento Veicular (ADMIN),BAIXA FINANCEIRA,Editou o faturamento de AD RASTREAMENTO VEICULAR (08/2026) para status Pago
+2026-08-11 02:30:52,AD Rastreamento Veicular (ADMIN),EDIÇÃO EMPRESA,Editou a empresa AD RASTREAMENTO VEICULAR
