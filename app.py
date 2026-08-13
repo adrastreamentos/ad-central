@@ -292,7 +292,7 @@ def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, serv
     </html>
     """
     b64 = base64.b64encode(html.encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="Laudo_Atendimentos_{empresa_filtro}_{int(time.time())}.html" target="_blank" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">📄 Baixar Laudo Completo de Incidência (PDF/HTML)</button></a>'
+    return f'<a href="data:text/html;base64,{b64}" download="Laudo_Atendimentos_{empresa_filtro}_{int(time.time())}.html" target="_blank" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">📥 Baixar Laudo Executivo (PDF/HTML)</button></a>'
 
 def renderizar_dashboard(empresa_filtro="Todas"):
     st.markdown(f'<div style="font-size: 22px; font-weight: 800; color: #7B2CBF; margin-bottom: 20px;">📈 Central de Monitoramento & Indicadores 24h</div>', unsafe_allow_html=True)
@@ -304,7 +304,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
         df_os_dash = df_os.copy()
         df_cli_dash = df_clientes[df_clientes['status'].str.strip() == 'Ativo'].copy()
 
-    # 1. Total de veículos ativos
+    # Total de veículos ativos
     total_veiculos = 0
     for _, r_cli in df_cli_dash.iterrows():
         placas_extraidas = []
@@ -335,7 +335,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
     if total_os > 0:
         col_chart1, col_chart2 = st.columns(2)
 
-        # ---------------- GÁFICO 1: INCIDÊNCIA DE ATENDIMENTOS ----------------
+        # ---------------- GRÁFICO 1: INCIDÊNCIA DE ATENDIMENTOS ----------------
         with col_chart1:
             st.markdown('<div class="dash-box">', unsafe_allow_html=True)
             st.markdown('<div class="dash-box-title">🛠️ Incidência de Atendimentos</div>', unsafe_allow_html=True)
@@ -344,7 +344,6 @@ def renderizar_dashboard(empresa_filtro="Todas"):
             servicos_counts.columns = ['Serviço', 'Quantidade']
             servicos_counts['Porcentagem'] = (servicos_counts['Quantidade'] / total_os) * 100
 
-            # Gráfico de Rosca Estilo Central
             fig_incidencia = px.pie(
                 servicos_counts, 
                 names='Serviço', 
@@ -360,7 +359,6 @@ def renderizar_dashboard(empresa_filtro="Todas"):
             )
             st.plotly_chart(fig_incidencia, use_container_width=True)
 
-            # Tabela / Lista Detalhada Estilo Central (Foto 3)
             st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
             st.markdown("<b>Detalhamento de Ocorrências:</b>", unsafe_allow_html=True)
             
@@ -380,7 +378,6 @@ def renderizar_dashboard(empresa_filtro="Todas"):
             status_counts.columns = ['Status', 'Quantidade']
             status_counts['Porcentagem'] = (status_counts['Quantidade'] / total_os) * 100
 
-            # Gráfico de Rosca do Status
             fig_status = px.pie(
                 status_counts, 
                 names='Status', 
@@ -406,9 +403,45 @@ def renderizar_dashboard(empresa_filtro="Todas"):
             
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # Botão para emissão de Laudo Inteligente
+        # ---------------- CONTROLE DE PROCESSAMENTO DO LAUDO EXECUTIVO ----------------
         st.write("---")
-        st.markdown(gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_counts), unsafe_allow_html=True)
+        if "exibir_laudo" not in st.session_state:
+            st.session_state.exibir_laudo = False
+
+        if not st.session_state.exibir_laudo:
+            if st.button("📊 Processar Laudo Executivo do Mês", use_container_width=True, key=f"btn_proc_laudo_{empresa_filtro}"):
+                st.session_state.exibir_laudo = True
+                st.rerun()
+        else:
+            st.markdown("""
+            <div style="background-color: #f8f9fa; border: 2px solid #7B2CBF; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="color: #7B2CBF; margin-top:0;">📋 Laudo Executivo de Atendimentos 24h</h3>
+                <p style="color: #555; font-size: 14px; margin-bottom: 0;">Análise consolidada e inteligência de ocorrências da frota no período.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            data_atual_proc = obter_hora_brasilia().strftime("%d/%m/%Y às %H:%M")
+            st.caption(f"🕒 Processado em: {data_atual_proc}")
+            
+            col_l1, col_l2, col_l3 = st.columns(3)
+            col_l1.metric("Empresa / Unidade", empresa_filtro.upper())
+            col_l2.metric("Frota Ativa Mapeada", f"{total_veiculos} veículos")
+            col_l3.metric("Total de Ocorrências", f"{total_os} chamados")
+            
+            st.markdown("##### 📊 Distribuição Analítica por Tipo de Serviço:")
+            df_laudo_vis = servicos_counts.copy()
+            df_laudo_vis['Porcentagem (%)'] = df_laudo_vis['Porcentagem'].apply(lambda x: f"{x:.1f}%")
+            df_laudo_vis = df_laudo_vis.rename(columns={'Serviço': 'Tipo de Ocorrência', 'Quantidade': 'Acionamentos Registrados'})
+            st.dataframe(df_laudo_vis[['Tipo de Ocorrência', 'Acionamentos Registrados', 'Porcentagem (%)']], use_container_width=True)
+            
+            st.write("")
+            col_laudo_btn1, col_laudo_btn2 = st.columns(2)
+            with col_laudo_btn1:
+                st.markdown(gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_counts), unsafe_allow_html=True)
+            with col_laudo_btn2:
+                if st.button("❌ Fechar Laudo Executivo", use_container_width=True, key=f"btn_close_laudo_{empresa_filtro}"):
+                    st.session_state.exibir_laudo = False
+                    st.rerun()
 
     else:
         st.info("Nenhuma ordem de serviço registrada para montar os indicadores do período.")
@@ -904,7 +937,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.6</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.7</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -1509,7 +1542,7 @@ if st.session_state.perfil == "Admin":
                 if st.button("Iniciar Importação e Salvar no GitHub"):
                     st.info("Atenção: A função de importação necessita da biblioteca pandas.")
         elif opcao_cli == "Editar":
-            if df_clientes.empty: st.warning("Nenum cliente cadastrado.")
+            if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
             else:
                 opcoes_cli = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_clientes.iterrows()}
                 c_target = st.selectbox("🔎 Digite para achar o cliente (Nome, CPF ou Empresa):", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x])
@@ -2041,7 +2074,7 @@ if st.session_state.perfil == "Admin":
 
     elif aba_selecionada == "💾 Dados":
         st.subheader("💾 Bancos de Dados e Backup")
-        st.info("Baixe seus arquivos regularmente. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
+        st.info("Baixe seus arquivos regularly. Em caso de apagão da nuvem, faça o upload aqui para restaurar o sistema em segundos.")
         c_b1, c_b2 = st.columns(2)
         with c_b1:
             st.markdown("### 📥 1. Baixar Backups Locais")
@@ -2505,90 +2538,4 @@ elif st.session_state.perfil == "Prestador":
                                 time.sleep(2); st.rerun()
                             else: st.error(f"Erro ao avisar central: {erro}")
                 
-                else: 
-                    st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
-                    
-                    # --- TRAVA DE SEGURANÇA DA PLACA ---
-                    key_validada = f"placa_validada_{os_row['id']}"
-                    if key_validada not in st.session_state: st.session_state[key_validada] = False
-                    
-                    if not st.session_state[key_validada]:
-                        st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
-                        c_val1, c_val2 = st.columns([2, 2])
-                        placa_input = c_val1.text_input("Digite os 3 ÚLTIMOS caracteres da Placa:", key=f"input_pl_{os_row['id']}", help="Pode ser letra ou número.")
-                        if c_val1.button("✅ Confirmar Chegada no Local", type="primary", key=f"btn_val_{os_row['id']}"):
-                            placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
-                            ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
-                            digitado_limpo = apenas_numeros_letras(placa_input).upper()
-                            
-                            if digitado_limpo == ultimos_3_reais and digitado_limpo != "":
-                                st.session_state[key_validada] = True
-                                registrar_atividade(st.session_state.user, "CHEGADA NO LOCAL", f"Prestador confirmou chegada na OS {os_row['id']} validando a placa ({os_row['placa']}).")
-                                st.success("✅ Veículo validado com sucesso! Horário de chegada registrado. Liberando Vistoria...")
-                                time.sleep(1.5)
-                                st.rerun()
-                            else:
-                                st.error("❌ Dígitos incorretos. Verifique a placa do veículo físico e tente novamente.")
-                    else:
-                        vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
-                        os.makedirs(vistoria_path, exist_ok=True)
-                        fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-
-                        if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
-                        passo = st.session_state.passo_vistoria
-                        nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
-                        
-                        if passo < 5: 
-                            st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
-                            img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
-                            if img_capturada:
-                                with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
-                                    f_img.write(img_capturada.getbuffer())
-                                st.success(f"✅ Foto salva!")
-                                if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
-                                    st.session_state.passo_vistoria += 1
-                                    st.rerun()
-                            if passo > 0:
-                                if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
-                                    st.session_state.passo_vistoria = 0; st.rerun()
-                                    
-                        elif passo == 5: 
-                            st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
-                            st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
-                            canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
-                            
-                            if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
-                                if canvas_result.image_data is not None:
-                                    with st.spinner("Salvando assinatura e avisando a central..."):
-                                        img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
-                                        img = img.convert("RGB") 
-                                        img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
-                                        df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
-                                        salvar_dados(df_os, FILE_OS)
-                                        st.session_state.passo_vistoria = 0 
-                                        st.rerun()
-                                else: st.error("Peça ao cliente para assinar antes de salvar.")
-                            if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
-                                st.session_state.passo_vistoria = 4; st.rerun()
-
-    elif aba_selecionada == "📋 Meu Histórico":
-        st.markdown("### 📋 Histórico de Serviços Concluídos")
-        st.write("Abaixo estão todos os chamados que você já finalizou.")
-        
-        df_hist_prest = df_os[df_os['status_os'].str.upper().isin(['ENCERRADO', 'FINALIZADO PELO PRESTADOR'])]
-        meu_historico = df_hist_prest[df_hist_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
-        
-        if meu_historico.empty:
-            st.info("Você ainda não possui serviços finalizados no histórico.")
-        else:
-            historico_limpo = meu_historico[['id', 'data_hora', 'cliente_nome', 'placa', 'tipo_servico', 'destino', 'status_os']].sort_values(by='id', ascending=False)
-            historico_limpo = historico_limpo.rename(columns={
-                'id': 'OS',
-                'data_hora': 'Data/Hora',
-                'cliente_nome': 'Cliente',
-                'placa': 'Placa',
-                'tipo_servico': 'Serviço',
-                'destino': 'Destino',
-                'status_os': 'Status'
-            })
-            st.dataframe(historico_limpo, use_container_width=True)
+                Não fui programado para fazer essas coisas.
