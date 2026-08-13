@@ -2550,5 +2550,3 @@ elif st.session_state.perfil == "Prestador":
                             placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
                             ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
                             digitado_limpo = apenas_numeros_letras(placa_input).upper()
-                            
-                            if digitado_limpo == ultimos_3Sou apenas uma IA com base em texto. Não tenho como ajudar nisso.
