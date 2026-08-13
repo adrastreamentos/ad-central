@@ -53,9 +53,12 @@ st.markdown("""
     .alert-danger { background-color: #ffebee; color: #c62828; border-color: #E53935; }
     .alert-success { background-color: #e8f5e9; color: #2e7d32; border-color: #4CAF50; }
     .info-box { background-color: #f3e5f5; color: #4a148c; border-color: #7B2CBF; padding: 16px; border-radius: 8px; margin: 15px 0; border-left: 6px solid; font-weight: 600; line-height: 1.6; }
-    .metric-card { background-color: #ffffff; border-radius: 12px; padding: 25px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #f0f0f0; }
-    .metric-value { font-size: 32px; font-weight: 800; margin-top: 12px; }
+    .metric-card { background-color: #ffffff; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #f0f0f0; }
+    .metric-title { color: #666; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .metric-value { font-size: 34px; font-weight: 900; margin-top: 8px; }
     .val-pago { color: #2e7d32; } .val-atrasado { color: #E53935; }
+    .dash-box { background: #ffffff; border-radius: 12px; padding: 18px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03); margin-bottom: 20px; }
+    .dash-box-title { font-size: 17px; font-weight: 800; color: #4a148c; margin-bottom: 15px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -216,10 +219,83 @@ df_loc = carregar_dados(FILE_LOC, col_loc)
 df_nps = carregar_dados(FILE_NPS, col_nps)
 
 # ===================================================================================
-# FUNÇÃO NOVA: RENDERIZAR DASHBOARD
+# RENDERIZAR DASHBOARD REESTRUTURADO (ESTILO CENTRAL DE MONITORAMENTO)
 # ===================================================================================
+def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_df):
+    data_atual = obter_hora_brasilia().strftime("%d/%m/%Y às %H:%M")
+    
+    linhas_tabela = ""
+    for _, row in servicos_df.iterrows():
+        linhas_tabela += f"""
+        <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold;">{row['Serviço']}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">{row['Quantidade']} chamado(s)</td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #7B2CBF; font-weight: bold;">{row['Porcentagem']:.1f}%</td>
+        </tr>
+        """
+        
+    html = f"""
+    <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Laudo Operacional de Atendimentos - AD Rastreamento</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 25px; color: #333; max-width: 800px; margin: 0 auto; }}
+                h2 {{ color: #7B2CBF; border-bottom: 2px solid #E53935; padding-bottom: 8px; margin-bottom: 5px; }}
+                .sub {{ color: #666; font-size: 13px; margin-bottom: 20px; }}
+                .kpi-container {{ display: flex; gap: 15px; margin-bottom: 25px; }}
+                .kpi-card {{ flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; }}
+                .kpi-card h4 {{ margin: 0; font-size: 12px; color: #666; text-transform: uppercase; }}
+                .kpi-card p {{ margin: 5px 0 0 0; font-size: 22px; font-weight: bold; color: #333; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+                th {{ background-color: #7B2CBF; color: white; padding: 10px; text-align: left; font-size: 13px; }}
+            </style>
+        </head>
+        <body>
+            <h2>AD RASTREAMENTO VEICULAR — LAUDO OPERACIONAL</h2>
+            <div class="sub">Relatório de Inteligência e Incidência de Atendimentos 24h | Gerado em: {data_atual}</div>
+            
+            <div class="kpi-container">
+                <div class="kpi-card">
+                    <h4>Empresa / Escopo</h4>
+                    <p>{empresa_filtro.upper()}</p>
+                </div>
+                <div class="kpi-card">
+                    <h4>Frota Ativa Mapeada</h4>
+                    <p>{total_veiculos} veículos</p>
+                </div>
+                <div class="kpi-card">
+                    <h4>Total de Ocorrências</h4>
+                    <p>{total_os} chamados</p>
+                </div>
+            </div>
+
+            <h3 style="color: #4a148c; font-size: 16px;">📊 Distribuição Percentual de Eventos</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tipo de Ocorrência</th>
+                        <th style="text-align: center;">Quantidade de Acionamentos</th>
+                        <th style="text-align: right;">Participação (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {linhas_tabela}
+                </tbody>
+            </table>
+
+            <br><br>
+            <p style="font-size: 11px; color: #888; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
+                <em>Este laudo técnico foi consolidado automaticamente pela Central de Operações AD Rastreamento Veicular.</em>
+            </p>
+        </body>
+    </html>
+    """
+    b64 = base64.b64encode(html.encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="Laudo_Atendimentos_{empresa_filtro}_{int(time.time())}.html" target="_blank" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%;">📄 Baixar Laudo Completo de Incidência (PDF/HTML)</button></a>'
+
 def renderizar_dashboard(empresa_filtro="Todas"):
-    st.markdown(f'<div class="subtitle" style="margin-bottom: 20px;">📈 Visão Geral: {empresa_filtro}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size: 22px; font-weight: 800; color: #7B2CBF; margin-bottom: 20px;">📈 Central de Monitoramento & Indicadores 24h</div>', unsafe_allow_html=True)
 
     if empresa_filtro != "Todas":
         df_os_dash = df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy()
@@ -228,7 +304,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
         df_os_dash = df_os.copy()
         df_cli_dash = df_clientes[df_clientes['status'].str.strip() == 'Ativo'].copy()
 
-    # 1. Calcular total de veículos ativos na base
+    # 1. Total de veículos ativos
     total_veiculos = 0
     for _, r_cli in df_cli_dash.iterrows():
         placas_extraidas = []
@@ -245,46 +321,97 @@ def renderizar_dashboard(empresa_filtro="Todas"):
             if len(p2) >= 6 and p2 not in ['NAN', 'N/D']: placas_extraidas.append(p2)
         total_veiculos += len(placas_extraidas)
 
-    # 2. Métricas de OS
     total_os = len(df_os_dash)
-    os_ativas = len(df_os_dash[~df_os_dash['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
+    os_em_andamento = len(df_os_dash[~df_os_dash['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
 
+    # Cards KPI Superiores Modernos
     c1, c2, c3 = st.columns(3)
-    c1.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Frota Ativa (Veículos)</div><div class="metric-value" style="color: #7B2CBF;">{total_veiculos} 🚗</div></div>', unsafe_allow_html=True)
-    c2.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Acionamentos Realizados</div><div class="metric-value" style="color: #1976D2;">{total_os} 🛠️</div></div>', unsafe_allow_html=True)
-    c3.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Chamados em Andamento</div><div class="metric-value" style="color: #E53935;">{os_ativas} 🚨</div></div>', unsafe_allow_html=True)
+    c1.markdown(f'<div class="metric-card"><div class="metric-title">🚗 Frota Ativa Mapeada</div><div class="metric-value" style="color: #7B2CBF;">{total_veiculos}</div></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="metric-card"><div class="metric-title">🛠️ Total de Atendimentos</div><div class="metric-value" style="color: #1976D2;">{total_os}</div></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="metric-card"><div class="metric-title">🚨 Chamados em Aberto</div><div class="metric-value" style="color: #E53935;">{os_em_andamento}</div></div>', unsafe_allow_html=True)
 
     st.write("---")
 
     if total_os > 0:
-        col_graf1, col_graf2 = st.columns([1, 1])
+        col_chart1, col_chart2 = st.columns(2)
 
-        with col_graf1:
-            st.markdown("#### 📊 Serviços Mais Solicitados")
+        # ---------------- GÁFICO 1: INCIDÊNCIA DE ATENDIMENTOS ----------------
+        with col_chart1:
+            st.markdown('<div class="dash-box">', unsafe_allow_html=True)
+            st.markdown('<div class="dash-box-title">🛠️ Incidência de Atendimentos</div>', unsafe_allow_html=True)
+            
             servicos_counts = df_os_dash['tipo_servico'].value_counts().reset_index()
             servicos_counts.columns = ['Serviço', 'Quantidade']
+            servicos_counts['Porcentagem'] = (servicos_counts['Quantidade'] / total_os) * 100
 
-            # Gráfico de Pizza Interativo
-            fig_pie = px.pie(servicos_counts, names='Serviço', values='Quantidade', hole=0.4,
-                             color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig_pie.update_layout(margin=dict(t=20, b=10, l=10, r=10))
-            st.plotly_chart(fig_pie, use_container_width=True)
+            # Gráfico de Rosca Estilo Central
+            fig_incidencia = px.pie(
+                servicos_counts, 
+                names='Serviço', 
+                values='Quantidade', 
+                hole=0.55,
+                color_discrete_sequence=['#7B2CBF', '#E53935', '#1976D2', '#2E7D32', '#FF9800', '#9C27B0']
+            )
+            fig_incidencia.update_traces(textposition='inside', textinfo='percent')
+            fig_incidencia.update_layout(
+                margin=dict(t=10, b=10, l=10, r=10),
+                height=280,
+                legend=dict(orientation="v", y=0.5, x=1.0)
+            )
+            st.plotly_chart(fig_incidencia, use_container_width=True)
 
-            st.write("**Tabela de Quantidades por Serviço:**")
-            st.dataframe(servicos_counts, use_container_width=True)
+            # Tabela / Lista Detalhada Estilo Central (Foto 3)
+            st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+            st.markdown("<b>Detalhamento de Ocorrências:</b>", unsafe_allow_html=True)
+            
+            for _, r in servicos_counts.iterrows():
+                col_s_nome, col_s_qtd = st.columns([3, 2])
+                col_s_nome.write(f"• **{r['Serviço']}**")
+                col_s_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']} chamado(s)</b> <span style='color: #7B2CBF; font-size: 13px;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        with col_graf2:
-            st.markdown("#### 🚦 Status dos Chamados")
+        # ---------------- GRÁFICO 2: STATUS DOS CHAMADOS ----------------
+        with col_chart2:
+            st.markdown('<div class="dash-box">', unsafe_allow_html=True)
+            st.markdown('<div class="dash-box-title">🚦 Status Operacional dos Chamados</div>', unsafe_allow_html=True)
+            
             status_counts = df_os_dash['status_os'].value_counts().reset_index()
             status_counts.columns = ['Status', 'Quantidade']
+            status_counts['Porcentagem'] = (status_counts['Quantidade'] / total_os) * 100
+
+            # Gráfico de Rosca do Status
+            fig_status = px.pie(
+                status_counts, 
+                names='Status', 
+                values='Quantidade', 
+                hole=0.55,
+                color_discrete_sequence=['#2E7D32', '#E53935', '#FF9800', '#1976D2']
+            )
+            fig_status.update_traces(textposition='inside', textinfo='percent')
+            fig_status.update_layout(
+                margin=dict(t=10, b=10, l=10, r=10),
+                height=280,
+                legend=dict(orientation="v", y=0.5, x=1.0)
+            )
+            st.plotly_chart(fig_status, use_container_width=True)
+
+            st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
+            st.markdown("<b>Detalhamento de Status:</b>", unsafe_allow_html=True)
             
-            # Gráfico de Barras para Status
-            fig_bar = px.bar(status_counts, x='Status', y='Quantidade', text='Quantidade', color='Status', 
-                             color_discrete_sequence=px.colors.qualitative.Set2)
-            fig_bar.update_layout(margin=dict(t=20, b=10, l=10, r=10), showlegend=False, xaxis_title="", yaxis_title="")
-            st.plotly_chart(fig_bar, use_container_width=True)
+            for _, r in status_counts.iterrows():
+                col_st_nome, col_st_qtd = st.columns([3, 2])
+                col_st_nome.write(f"• **{r['Status']}**")
+                col_st_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']} chamado(s)</b> <span style='color: #2E7D32; font-size: 13px;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # Botão para emissão de Laudo Inteligente
+        st.write("---")
+        st.markdown(gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_counts), unsafe_allow_html=True)
+
     else:
-        st.info("Nenhuma ordem de serviço registrada para gerar os gráficos.")
+        st.info("Nenhuma ordem de serviço registrada para montar os indicadores do período.")
 
 
 # ===================================================================================
@@ -777,7 +904,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.5</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.6</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -1382,7 +1509,7 @@ if st.session_state.perfil == "Admin":
                 if st.button("Iniciar Importação e Salvar no GitHub"):
                     st.info("Atenção: A função de importação necessita da biblioteca pandas.")
         elif opcao_cli == "Editar":
-            if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
+            if df_clientes.empty: st.warning("Nenum cliente cadastrado.")
             else:
                 opcoes_cli = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_clientes.iterrows()}
                 c_target = st.selectbox("🔎 Digite para achar o cliente (Nome, CPF ou Empresa):", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x])
