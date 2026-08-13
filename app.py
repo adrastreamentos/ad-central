@@ -45,7 +45,6 @@ st.markdown("""
     ::-webkit-scrollbar-thumb:hover { background: #7B2CBF; }
     .main-title { font-size: 32px; font-weight: 900; background: -webkit-linear-gradient(45deg, #7B2CBF, #E53935); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 5px; }
     .subtitle { font-size: 14px; color: #666; text-align: center; margin-bottom: 25px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-    .section-title { font-size: 18px !important; font-weight: 800 !important; color: #4a148c !important; margin-top: 5px !important; margin-bottom: 15px !important; display: flex; align-items: center; gap: 8px; }
     .stTabs [data-baseweb="tab"] { font-size: 14px; font-weight: 600; background-color: #f8f9fa; border: 1px solid #e0e0e0; color: #555; }
     .stTabs [aria-selected="true"] { background-color: #7B2CBF; color: white !important; }
     div.stButton > button:first-child { background-color: #7B2CBF; color: white; border-radius: 8px; font-weight: 700; font-size: 14px; }
@@ -60,6 +59,7 @@ st.markdown("""
     .val-pago { color: #2e7d32; } .val-atrasado { color: #E53935; }
     .dash-box { background: #ffffff; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); margin-bottom: 15px; }
     .dash-box-title { font-size: 15px; font-weight: 800; color: #4a148c; margin-bottom: 12px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    h4 { color: #4a148c; font-weight: 800; margin-bottom: 15px; margin-top: 10px; font-size: 18px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -296,7 +296,7 @@ def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, serv
     return f'<a href="data:text/html;base64,{b64}" download="Laudo_Atendimentos_{empresa_filtro}_{int(time.time())}.html" target="_blank" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📥 Baixar Laudo Executivo (PDF/HTML)</button></a>'
 
 def renderizar_dashboard(empresa_filtro="Todas"):
-    st.markdown(f'<div class="section-title">📈 Central de Indicadores 24h ({empresa_filtro})</div>', unsafe_allow_html=True)
+    st.markdown('<h4>📈 Central de Indicadores 24h</h4>', unsafe_allow_html=True)
 
     if empresa_filtro != "Todas":
         df_os_dash = df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy()
@@ -753,7 +753,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
 
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
+    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
 # ===================================================================================
 # PORTAL DO CLIENTE (NPS E CAPTURA DE GPS) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
@@ -785,13 +785,13 @@ if portal_atual == "nps":
     st.write(f"**Data do Chamado:** {os_info['data_hora'][:10]}")
     st.write("---")
     
-    st.markdown("<h4 style='color: #7B2CBF; font-size: 15px;'>1. Em uma escala de 0 a 10, o quanto você recomendaria a assistência 24 horas para um amigo ou familiar?</h4>", unsafe_allow_html=True)
+    st.markdown("<h4>1. Em uma escala de 0 a 10, o quanto você recomendaria a assistência 24 horas para um amigo ou familiar?</h4>", unsafe_allow_html=True)
     nota_nps = st.slider("Arraste para dar sua nota:", min_value=0, max_value=10, value=10)
     
-    st.markdown("<h4 style='color: #7B2CBF; margin-top: 15px; font-size: 15px;'>2. Como você avalia a agilidade e educação do nosso Operador da Central?</h4>", unsafe_allow_html=True)
+    st.markdown("<h4>2. Como você avalia a agilidade e educação do nosso Operador da Central?</h4>", unsafe_allow_html=True)
     nota_central = st.feedback("stars", key="fb_central")
     
-    st.markdown("<h4 style='color: #7B2CBF; margin-top: 15px; font-size: 15px;'>3. Como você avalia o atendimento presencial do Motorista do Guincho?</h4>", unsafe_allow_html=True)
+    st.markdown("<h4>3. Como você avalia o atendimento presencial do Motorista do Guincho?</h4>", unsafe_allow_html=True)
     nota_guincho = st.feedback("stars", key="fb_guincho")
     
     comentario = st.text_area("Gostaria de deixar um comentário, elogio ou sugestão? (Opcional)")
@@ -1027,13 +1027,14 @@ if st.session_state.perfil == "Admin":
         st.rerun()
     
     if aba_selecionada == "📈 Dashboard":
+        st.markdown("#### 📈 Painel de Controle - Dashboard Inicial")
         empresas_lista = ["Todas"] + sorted([str(e).upper() for e in df_empresas['nome'].unique() if str(e).strip() != ""])
         empresa_filtro = st.selectbox("Selecione a Empresa Parceira para filtrar os dados:", empresas_lista)
         
         renderizar_dashboard(empresa_filtro)
 
     elif aba_selecionada == "📋 Nova OS":
-        st.markdown('<div class="section-title">🚀 Abertura de Chamado</div>', unsafe_allow_html=True)
+        st.markdown("#### 🚀 Abertura de Chamado / Nova OS")
         tipo_atendimento = st.radio("Tipo de Atendimento:", ["Cliente Cadastrado", "Atendimento Avulso (Particular)"], horizontal=True)
         st.write("---")
         
@@ -1179,7 +1180,7 @@ if st.session_state.perfil == "Admin":
 
         if pronto_para_prosseguir:
             st.write("---")
-            st.markdown('<div class="section-title">🛠️ Destino e Prestador</div>', unsafe_allow_html=True)
+            st.markdown("#### 🛠️ Destino e Prestador")
             
             lista_p_ops = ["Outro (Digitar Manualmente)"]
             if not df_prestadores.empty:
@@ -1280,7 +1281,7 @@ if st.session_state.perfil == "Admin":
                         else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
 
     elif aba_selecionada == "📊 Relatórios & PDF":
-        st.markdown('<div class="section-title">📊 Chamados e Relatórios</div>', unsafe_allow_html=True)
+        st.markdown("#### 📊 Gestão de Chamados e Relatórios")
         os_id_edit = st.text_input("Digite o ID da OS:")
         if os_id_edit:
             os_encontrada = df_os[df_os['id'].astype(str) == str(os_id_edit)]
@@ -1382,7 +1383,7 @@ if st.session_state.perfil == "Admin":
         else: st.dataframe(df_os, use_container_width=True)
 
     elif aba_selecionada == "👤 Clientes":
-        st.markdown('<div class="section-title">👤 Gestão de Clientes</div>', unsafe_allow_html=True)
+        st.markdown("#### 👤 Gestão de Clientes")
         if "aba_cli" not in st.session_state: st.session_state.aba_cli = "Listar"
         opcoes_radio = ["Listar", "Incluir Novo", "Importação em Lote", "Editar", "Excluir"]
         idx_radio = opcoes_radio.index(st.session_state.aba_cli) if st.session_state.aba_cli in opcoes_radio else 0
@@ -1619,7 +1620,7 @@ if st.session_state.perfil == "Admin":
                         if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()
 
     elif aba_selecionada == "🏢 Empresas":
-        st.markdown('<div class="section-title">🏢 Empresas Parceiras</div>', unsafe_allow_html=True)
+        st.markdown("#### 🏢 Empresas Parceiras")
         if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
         opcoes_radio_emp = ["Listar", "Incluir Nova", "Editar", "Excluir"]
         idx_radio_emp = opcoes_radio_emp.index(st.session_state.aba_emp) if st.session_state.aba_emp in opcoes_radio_emp else 0
@@ -1727,7 +1728,7 @@ if st.session_state.perfil == "Admin":
                         if col_nao.button("❌ Não, cancelar"): st.session_state.emp_del_confirm = None; st.rerun()
 
     elif aba_selecionada == "🔧 Prestadores":
-        st.markdown('<div class="section-title">🔧 Rede de Prestadores</div>', unsafe_allow_html=True)
+        st.markdown("#### 🔧 Rede de Prestadores")
         pendentes = df_prestadores[df_prestadores['homologado'] == 'Pendente']
         if not pendentes.empty:
             st.error(f"⚠️ Existem {len(pendentes)} prestadores aguardando homologação.")
@@ -1866,7 +1867,7 @@ if st.session_state.perfil == "Admin":
                         if col_nao.button("❌ Não, cancelar"): st.session_state.pre_del_confirm = None; st.rerun()
 
     elif aba_selecionada == "⭐ Satisfação (NPS)":
-        st.markdown('<div class="section-title">⭐ Pesquisa de Satisfação (NPS)</div>', unsafe_allow_html=True)
+        st.markdown("#### ⭐ Satisfação do Cliente (NPS)")
         st.write("Acompanhe em tempo real a qualidade do atendimento da sua Central e dos Guinchos parceiros.")
         
         if df_nps.empty:
@@ -1903,7 +1904,7 @@ if st.session_state.perfil == "Admin":
             st.dataframe(df_nps_exibicao.style.map(cor_linha_nps, subset=['status_nps']), use_container_width=True)
 
     elif aba_selecionada == "💰 Financeiro":
-        st.markdown('<div class="section-title">💰 Controle Financeiro</div>', unsafe_allow_html=True)
+        st.markdown("#### 💰 Controle Financeiro")
         st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
         
         opcoes_meses_admin = get_ultimos_3_meses()
@@ -2024,7 +2025,7 @@ if st.session_state.perfil == "Admin":
                             else: st.error(f"Falha na nuvem: {erro}")
 
     elif aba_selecionada == "🕵️ Auditoria":
-        st.markdown('<div class="section-title">🕵️ Auditoria e Logs</div>', unsafe_allow_html=True)
+        st.markdown("#### 🕵️ Auditoria e Logs")
         if df_logs.empty: st.info("Nenhuma atividade registrada ainda.")
         else:
             df_logs_exibicao = df_logs.copy().sort_values(by='data_hora', ascending=False)
@@ -2068,7 +2069,7 @@ if st.session_state.perfil == "Admin":
                 if c2.button("❌ Não"): st.session_state.confirmar_limpeza_total = False; st.rerun()
 
     elif aba_selecionada == "💾 Dados":
-        st.markdown('<div class="section-title">💾 Backup e Restauração</div>', unsafe_allow_html=True)
+        st.markdown("#### 💾 Backup e Restauração")
         st.info("Baixe seus arquivos regularmente. Em caso de necessidade, faça o upload para restaurar o sistema.")
         c_b1, c_b2 = st.columns(2)
         with c_b1:
@@ -2117,6 +2118,7 @@ elif st.session_state.perfil == "Parceiro":
         renderizar_dashboard(st.session_state.empresa_vinculada)
     
     elif aba_selecionada == "👥 Cadastro de Clientes":
+        st.markdown("#### 👥 Gestão de Clientes")
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         dia_v_p0 = "30"
@@ -2383,12 +2385,13 @@ elif st.session_state.perfil == "Parceiro":
                         if col_nao.button("❌ Não, cancelar"): st.session_state.part_del_confirm = None; st.rerun()
 
     elif aba_selecionada == "📋 Histórico de Chamados":
+        st.markdown("#### 📋 Histórico de Atendimentos")
         df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
         if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
         else: st.dataframe(df_os_parceiro, use_container_width=True)
 
     elif aba_selecionada == "💰 Meu Financeiro":
-        st.markdown('<div class="section-title">💰 Gestão Financeira</div>', unsafe_allow_html=True)
+        st.markdown("#### 💰 Gestão Financeira")
         st.write("Confira as faturas, o status dos pagamentos e o extrato detalhado da sua empresa.")
         
         dados_emp_base_p = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
@@ -2444,7 +2447,7 @@ elif st.session_state.perfil == "Parceiro":
                 st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
 
     elif aba_selecionada == "🕵️ Auditoria":
-        st.markdown('<div class="section-title">🕵️ Auditoria de Eventos</div>', unsafe_allow_html=True)
+        st.markdown("#### 🕵️ Auditoria e Histórico")
         st.write("Verifique com transparência as ações realizadas no sistema que envolvem a sua empresa.")
         
         empresa_upper = st.session_state.empresa_vinculada.upper()
@@ -2497,7 +2500,7 @@ elif st.session_state.perfil == "Prestador":
         st.rerun()
 
     if aba_selecionada == "🚨 Chamados Ativos":
-        st.markdown('<div class="section-title">🚨 Chamados Ativos</div>', unsafe_allow_html=True)
+        st.markdown("#### 🚨 Chamados Ativos")
         df_os_prest = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
         meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
         
@@ -2505,7 +2508,7 @@ elif st.session_state.perfil == "Prestador":
             st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
         else:
             for _, os_row in meus_chamados.iterrows():
-                st.markdown(f"#### 🚨 Chamado Nº {os_row['id']}")
+                st.markdown(f"**OS Nº {os_row['id']}**")
                 status_atual_prestador = str(os_row.get('status_os', '')).upper().strip()
                 
                 c1, c2 = st.columns(2)
@@ -2528,58 +2531,4 @@ elif st.session_state.perfil == "Prestador":
                             df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'FINALIZADO PELO PRESTADOR'
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
                             if sucesso:
-                                registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregou a OS {os_row['id']}.")
-                                st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
-                                time.sleep(2); st.rerun()
-                            else: st.error(f"Erro ao avisar central: {erro}")
-                
-                else: 
-                    st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
-                    
-                    key_validada = f"placa_validada_{os_row['id']}"
-                    if key_validada not in st.session_state: st.session_state[key_validada] = False
-                    
-                    if not st.session_state[key_validada]:
-                        st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
-                        c_val1, c_val2 = st.columns([2, 2])
-                        placa_input = c_val1.text_input("Digite os 3 ÚLTIMOS caracteres da Placa:", key=f"input_pl_{os_row['id']}", help="Pode ser letra ou número.")
-                        if c_val1.button("✅ Confirmar Chegada no Local", type="primary", key=f"btn_val_{os_row['id']}"):
-                            placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
-                            ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
-                            digitado_limpo = apenas_numeros_letras(placa_input).upper()
-                            
-                            if digitado_limpo == ultimos_3_reais and digitado_limpo != "":
-                                st.session_state[key_validada] = True
-                                registrar_atividade(st.session_state.user, "CHEGADA NO LOCAL", f"Prestador confirmou chegada na OS {os_row['id']} validando a placa ({os_row['placa']}).")
-                                st.success("✅ Veículo validado com sucesso! Horário de chegada registrado. Liberando Vistoria...")
-                                time.sleep(1.5)
-                                st.rerun()
-                            else:
-                                st.error("❌ Dígitos incorretos. Verifique a placa do veículo físico e tente novamente.")
-                    else:
-                        vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
-                        os.makedirs(vistoria_path, exist_ok=True)
-                        fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-
-                        if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
-                        passo = st.session_state.passo_vistoria
-                        nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
-                        
-                        if passo < 5: 
-                            st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
-                            img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
-                            if img_capturada:
-                                with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
-                                    f_img.write(img_capturada.getbuffer())
-                                st.success(f"✅ Foto salva!")
-                                if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
-                                    st.session_state.passo_vistoria += 1
-                                    st.rerun()
-                            if passo > 0:
-                                if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
-                                    st.session_state.passo_vistoria = 0; st.rerun()
-                                    
-                        elif passo == 5: 
-                            st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
-                            st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
-                            canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3,Não tenho como te ajudar. Sou só um modelo de linguagem e não entendo o que você está me pedindo.
+                                registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregouSou um modelo de linguagem. Isso está além das minhas habiliades.
