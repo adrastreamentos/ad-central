@@ -12,6 +12,7 @@ import numpy as np
 import calendar
 from streamlit_drawable_canvas import st_canvas
 import streamlit.components.v1 as components
+import plotly.express as px  # <-- IMPORTAÇÃO NOVA PARA OS GRÁFICOS DO DASHBOARD
 
 st.set_page_config(page_title="Central 24h - AD Rastreamento", layout="wide", page_icon="🔒")
 
@@ -213,6 +214,78 @@ df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
 df_logs = carregar_dados(FILE_LOGS, col_logs)
 df_loc = carregar_dados(FILE_LOC, col_loc)
 df_nps = carregar_dados(FILE_NPS, col_nps)
+
+# ===================================================================================
+# FUNÇÃO NOVA: RENDERIZAR DASHBOARD
+# ===================================================================================
+def renderizar_dashboard(empresa_filtro="Todas"):
+    st.markdown(f'<div class="subtitle" style="margin-bottom: 20px;">📈 Visão Geral: {empresa_filtro}</div>', unsafe_allow_html=True)
+
+    if empresa_filtro != "Todas":
+        df_os_dash = df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy()
+        df_cli_dash = df_clientes[(df_clientes['emp_name'].str.upper() == empresa_filtro.upper()) & (df_clientes['status'].str.strip() == 'Ativo')].copy()
+    else:
+        df_os_dash = df_os.copy()
+        df_cli_dash = df_clientes[df_clientes['status'].str.strip() == 'Ativo'].copy()
+
+    # 1. Calcular total de veículos ativos na base
+    total_veiculos = 0
+    for _, r_cli in df_cli_dash.iterrows():
+        placas_extraidas = []
+        if pd.notna(r_cli.get('veiculos_lista')) and str(r_cli['veiculos_lista']).strip() not in ['', '[]', 'nan']:
+            try:
+                for v in json.loads(str(r_cli['veiculos_lista'])):
+                    p = str(v.get('Placa', '')).strip().upper().replace("-","").replace(" ","")
+                    if len(p) >= 6 and p not in ['NAN', 'N/D']: placas_extraidas.append(p)
+            except: pass
+        if not placas_extraidas:
+            p1 = str(r_cli.get('pla', '')).strip().upper().replace("-","").replace(" ","")
+            if len(p1) >= 6 and p1 not in ['NAN', 'N/D']: placas_extraidas.append(p1)
+            p2 = str(r_cli.get('pla_2', '')).strip().upper().replace("-","").replace(" ","")
+            if len(p2) >= 6 and p2 not in ['NAN', 'N/D']: placas_extraidas.append(p2)
+        total_veiculos += len(placas_extraidas)
+
+    # 2. Métricas de OS
+    total_os = len(df_os_dash)
+    os_ativas = len(df_os_dash[~df_os_dash['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
+
+    c1, c2, c3 = st.columns(3)
+    c1.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Frota Ativa (Veículos)</div><div class="metric-value" style="color: #7B2CBF;">{total_veiculos} 🚗</div></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Acionamentos Realizados</div><div class="metric-value" style="color: #1976D2;">{total_os} 🛠️</div></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Chamados em Andamento</div><div class="metric-value" style="color: #E53935;">{os_ativas} 🚨</div></div>', unsafe_allow_html=True)
+
+    st.write("---")
+
+    if total_os > 0:
+        col_graf1, col_graf2 = st.columns([1, 1])
+
+        with col_graf1:
+            st.markdown("#### 📊 Serviços Mais Solicitados")
+            servicos_counts = df_os_dash['tipo_servico'].value_counts().reset_index()
+            servicos_counts.columns = ['Serviço', 'Quantidade']
+
+            # Gráfico de Pizza Interativo
+            fig_pie = px.pie(servicos_counts, names='Serviço', values='Quantidade', hole=0.4,
+                             color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig_pie.update_layout(margin=dict(t=20, b=10, l=10, r=10))
+            st.plotly_chart(fig_pie, use_container_width=True)
+
+            st.write("**Tabela de Quantidades por Serviço:**")
+            st.dataframe(servicos_counts, use_container_width=True)
+
+        with col_graf2:
+            st.markdown("#### 🚦 Status dos Chamados")
+            status_counts = df_os_dash['status_os'].value_counts().reset_index()
+            status_counts.columns = ['Status', 'Quantidade']
+            
+            # Gráfico de Barras para Status
+            fig_bar = px.bar(status_counts, x='Status', y='Quantidade', text='Quantidade', color='Status', 
+                             color_discrete_sequence=px.colors.qualitative.Set2)
+            fig_bar.update_layout(margin=dict(t=20, b=10, l=10, r=10), showlegend=False, xaxis_title="", yaxis_title="")
+            st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.info("Nenhuma ordem de serviço registrada para gerar os gráficos.")
+
 
 # ===================================================================================
 # FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO)
@@ -704,7 +777,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.4</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.5</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -786,7 +859,8 @@ st.write("---")
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
-    opcoes_admin = ["📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
+    # MUDANÇA AQUI: Adicionado 📈 Dashboard como primeira opção no menu Admin
+    opcoes_admin = ["📈 Dashboard", "📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
     
     aba_atual_admin = st.query_params.get("nav", opcoes_admin[0])
     if aba_atual_admin not in opcoes_admin: aba_atual_admin = opcoes_admin[0]
@@ -797,7 +871,16 @@ if st.session_state.perfil == "Admin":
         st.query_params["nav"] = aba_selecionada
         st.rerun()
     
-    if aba_selecionada == "📋 Nova OS":
+    if aba_selecionada == "📈 Dashboard":
+        st.subheader("📈 Painel de Controle - Dashboard Inicial")
+        # Filtro de empresas para a Central
+        empresas_lista = ["Todas"] + sorted([str(e).upper() for e in df_empresas['nome'].unique() if str(e).strip() != ""])
+        empresa_filtro = st.selectbox("Selecione para filtrar os dados por Empresa Parceira:", empresas_lista)
+        
+        # Chama a função que adicionamos lá em cima
+        renderizar_dashboard(empresa_filtro)
+
+    elif aba_selecionada == "📋 Nova OS":
         st.subheader("🚀 Abertura de Chamado / Nova OS")
         tipo_atendimento = st.radio("Tipo de Atendimento:", ["Cliente Cadastrado", "Atendimento Avulso (Particular)"], horizontal=True)
         st.write("---")
@@ -1868,7 +1951,8 @@ if st.session_state.perfil == "Admin":
 # INTERFACE 2: PARCEIROS
 # ===================================================================================
 elif st.session_state.perfil == "Parceiro":
-    opcoes_parc = ["👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"]
+    # MUDANÇA AQUI: Adicionado 📈 Dashboard como primeira opção no menu Parceiro
+    opcoes_parc = ["📈 Dashboard", "👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"]
     aba_atual_parc = st.query_params.get("nav", opcoes_parc[0])
     if aba_atual_parc not in opcoes_parc: aba_atual_parc = opcoes_parc[0]
     
@@ -1878,7 +1962,12 @@ elif st.session_state.perfil == "Parceiro":
         st.query_params["nav"] = aba_selecionada
         st.rerun()
     
-    if aba_selecionada == "👥 Cadastro de Clientes":
+    if aba_selecionada == "📈 Dashboard":
+        st.subheader("📈 Meu Painel de Controle - Operação")
+        # Renderiza o dashboard APENAS com os dados da empresa logada
+        renderizar_dashboard(st.session_state.empresa_vinculada)
+    
+    elif aba_selecionada == "👥 Cadastro de Clientes":
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         dia_v_p0 = "30"
@@ -1983,7 +2072,7 @@ elif st.session_state.perfil == "Parceiro":
                                 elif "ELÉTRICA" in serv_f or "ELETRICA" in serv_f: uso_atual_f["PANE ELÉTRICA"] += 1
                                 elif "BORRACHEIRO" in serv_f: uso_atual_f["BORRACHEIRO"] += 1
                                 elif "CHAVEIRO" in serv_f: uso_atual_f["CHAVEIRO"] += 1
-                                
+                            
                         col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
                         col_m1.metric("Guinchos", f"{uso_atual_f['GUINCHO']} / {LIMITES_ANUAIS['GUINCHO']}")
                         col_m2.metric("Pane Seca", f"{uso_atual_f['PANE SECA']} / {LIMITES_ANUAIS['PANE SECA']}")
@@ -2302,82 +2391,4 @@ elif st.session_state.perfil == "Prestador":
                     if key_validada not in st.session_state: st.session_state[key_validada] = False
                     
                     if not st.session_state[key_validada]:
-                        st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
-                        c_val1, c_val2 = st.columns([2, 2])
-                        placa_input = c_val1.text_input("Digite os 3 ÚLTIMOS caracteres da Placa:", key=f"input_pl_{os_row['id']}", help="Pode ser letra ou número.")
-                        if c_val1.button("✅ Confirmar Chegada no Local", type="primary", key=f"btn_val_{os_row['id']}"):
-                            placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
-                            ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
-                            digitado_limpo = apenas_numeros_letras(placa_input).upper()
-                            
-                            if digitado_limpo == ultimos_3_reais and digitado_limpo != "":
-                                st.session_state[key_validada] = True
-                                registrar_atividade(st.session_state.user, "CHEGADA NO LOCAL", f"Prestador confirmou chegada na OS {os_row['id']} validando a placa ({os_row['placa']}).")
-                                st.success("✅ Veículo validado com sucesso! Horário de chegada registrado. Liberando Vistoria...")
-                                time.sleep(1.5)
-                                st.rerun()
-                            else:
-                                st.error("❌ Dígitos incorretos. Verifique a placa do veículo físico e tente novamente.")
-                    else:
-                        vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
-                        os.makedirs(vistoria_path, exist_ok=True)
-                        fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-
-                        if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
-                        passo = st.session_state.passo_vistoria
-                        nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
-                        
-                        if passo < 5: 
-                            st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
-                            img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
-                            if img_capturada:
-                                with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
-                                    f_img.write(img_capturada.getbuffer())
-                                st.success(f"✅ Foto salva!")
-                                if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
-                                    st.session_state.passo_vistoria += 1
-                                    st.rerun()
-                            if passo > 0:
-                                if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
-                                    st.session_state.passo_vistoria = 0; st.rerun()
-                                    
-                        elif passo == 5: 
-                            st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
-                            st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
-                            canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
-                            
-                            if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
-                                if canvas_result.image_data is not None:
-                                    with st.spinner("Salvando assinatura e avisando a central..."):
-                                        img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
-                                        img = img.convert("RGB") 
-                                        img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
-                                        df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
-                                        salvar_dados(df_os, FILE_OS)
-                                        st.session_state.passo_vistoria = 0 
-                                        st.rerun()
-                                else: st.error("Peça ao cliente para assinar antes de salvar.")
-                            if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
-                                st.session_state.passo_vistoria = 4; st.rerun()
-
-    elif aba_selecionada == "📋 Meu Histórico":
-        st.markdown("### 📋 Histórico de Serviços Concluídos")
-        st.write("Abaixo estão todos os chamados que você já finalizou.")
-        
-        df_hist_prest = df_os[df_os['status_os'].str.upper().isin(['ENCERRADO', 'FINALIZADO PELO PRESTADOR'])]
-        meu_historico = df_hist_prest[df_hist_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
-        
-        if meu_historico.empty:
-            st.info("Você ainda não possui serviços finalizados no histórico.")
-        else:
-            historico_limpo = meu_historico[['id', 'data_hora', 'cliente_nome', 'placa', 'tipo_servico', 'destino', 'status_os']].sort_values(by='id', ascending=False)
-            historico_limpo = historico_limpo.rename(columns={
-                'id': 'OS',
-                'data_hora': 'Data/Hora',
-                'cliente_nome': 'Cliente',
-                'placa': 'Placa',
-                'tipo_servico': 'Serviço',
-                'destino': 'Destino',
-                'status_os': 'Status'
-            })
-            st.dataframe(historico_limpo, use_container_width=True)
+                        st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9Sorry, something went wrong. Please try your request again.
