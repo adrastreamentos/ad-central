@@ -2538,4 +2538,3 @@ elif st.session_state.perfil == "Prestador":
                                 time.sleep(2); st.rerun()
                             else: st.error(f"Erro ao avisar central: {erro}")
                 
-                Não fui programado para fazer essas coisas.
