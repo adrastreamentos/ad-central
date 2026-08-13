@@ -88,7 +88,6 @@ def buscar_endereco_por_cep(cep):
 def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
     if df_os.empty: return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
     r = df_os.iloc[0]
-    
     fotos_html = ""
     vistoria_path = os.path.join("AD_Assistencia", "vistorias", str(r['id']))
     if os.path.exists(vistoria_path):
@@ -103,7 +102,6 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
                         fotos_html += f"<div style='border: 1px solid #ddd; padding: 5px; border-radius: 5px; background: #fff;'><p style='text-align: center; margin: 2px 0 5px 0; font-size: 12px; font-weight: bold; color: #555;'>{titulo_foto}</p><img src='data:image/jpeg;base64,{b64_img}' style='width: 200px; height: auto; border-radius: 3px;'></div>"
                 except: pass
         fotos_html += "</div>"
-
     html = f"""
     <html>
         <head>
@@ -223,7 +221,6 @@ df_nps = carregar_dados(FILE_NPS, col_nps)
 # ===================================================================================
 def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_df):
     data_atual = obter_hora_brasilia().strftime("%d/%m/%Y às %H:%M")
-    
     linhas_tabela = ""
     for _, row in servicos_df.iterrows():
         linhas_tabela += f"""
@@ -233,7 +230,6 @@ def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, serv
             <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #7B2CBF; font-weight: bold;">{row['Porcentagem']:.1f}%</td>
         </tr>
         """
-        
     html = f"""
     <html>
         <head>
@@ -254,36 +250,16 @@ def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, serv
         <body>
             <h2>AD RASTREAMENTO VEICULAR — LAUDO OPERACIONAL</h2>
             <div class="sub">Relatório de Inteligência e Incidência de Atendimentos 24h | Gerado em: {data_atual}</div>
-            
             <div class="kpi-container">
-                <div class="kpi-card">
-                    <h4>Empresa / Escopo</h4>
-                    <p>{empresa_filtro.upper()}</p>
-                </div>
-                <div class="kpi-card">
-                    <h4>Frota Ativa Mapeada</h4>
-                    <p>{total_veiculos} veículos</p>
-                </div>
-                <div class="kpi-card">
-                    <h4>Total de Ocorrências</h4>
-                    <p>{total_os} chamados</p>
-                </div>
+                <div class="kpi-card"><h4>Empresa / Escopo</h4><p>{empresa_filtro.upper()}</p></div>
+                <div class="kpi-card"><h4>Frota Ativa Mapeada</h4><p>{total_veiculos} veículos</p></div>
+                <div class="kpi-card"><h4>Total de Ocorrências</h4><p>{total_os} chamados</p></div>
             </div>
-
             <h3 style="color: #4a148c; font-size: 16px;">📊 Distribuição Percentual de Eventos</h3>
             <table>
-                <thead>
-                    <tr>
-                        <th>Tipo de Ocorrência</th>
-                        <th style="text-align: center;">Quantidade de Acionamentos</th>
-                        <th style="text-align: right;">Participação (%)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {linhas_tabela}
-                </tbody>
+                <thead><tr><th>Tipo de Ocorrência</th><th style="text-align: center;">Quantidade de Acionamentos</th><th style="text-align: right;">Participação (%)</th></tr></thead>
+                <tbody>{linhas_tabela}</tbody>
             </table>
-
             <br><br>
             <p style="font-size: 11px; color: #888; text-align: center; border-top: 1px solid #eee; padding-top: 10px;">
                 <em>Este laudo técnico foi consolidado automaticamente pela Central de Operações AD Rastreamento Veicular.</em>
@@ -296,7 +272,6 @@ def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, serv
 
 def renderizar_dashboard(empresa_filtro="Todas"):
     st.markdown(f'<div style="font-size: 22px; font-weight: 800; color: #7B2CBF; margin-bottom: 20px;">📈 Central de Monitoramento & Indicadores 24h</div>', unsafe_allow_html=True)
-
     if empresa_filtro != "Todas":
         df_os_dash = df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy()
         df_cli_dash = df_clientes[(df_clientes['emp_name'].str.upper() == empresa_filtro.upper()) & (df_clientes['status'].str.strip() == 'Ativo')].copy()
@@ -304,7 +279,6 @@ def renderizar_dashboard(empresa_filtro="Todas"):
         df_os_dash = df_os.copy()
         df_cli_dash = df_clientes[df_clientes['status'].str.strip() == 'Ativo'].copy()
 
-    # Total de veículos ativos
     total_veiculos = 0
     for _, r_cli in df_cli_dash.iterrows():
         placas_extraidas = []
@@ -324,116 +298,69 @@ def renderizar_dashboard(empresa_filtro="Todas"):
     total_os = len(df_os_dash)
     os_em_andamento = len(df_os_dash[~df_os_dash['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
 
-    # Cards KPI Superiores Modernos
     c1, c2, c3 = st.columns(3)
     c1.markdown(f'<div class="metric-card"><div class="metric-title">🚗 Frota Ativa Mapeada</div><div class="metric-value" style="color: #7B2CBF;">{total_veiculos}</div></div>', unsafe_allow_html=True)
     c2.markdown(f'<div class="metric-card"><div class="metric-title">🛠️ Total de Atendimentos</div><div class="metric-value" style="color: #1976D2;">{total_os}</div></div>', unsafe_allow_html=True)
     c3.markdown(f'<div class="metric-card"><div class="metric-title">🚨 Chamados em Aberto</div><div class="metric-value" style="color: #E53935;">{os_em_andamento}</div></div>', unsafe_allow_html=True)
-
     st.write("---")
 
     if total_os > 0:
         col_chart1, col_chart2 = st.columns(2)
-
-        # ---------------- GRÁFICO 1: INCIDÊNCIA DE ATENDIMENTOS ----------------
         with col_chart1:
             st.markdown('<div class="dash-box">', unsafe_allow_html=True)
             st.markdown('<div class="dash-box-title">🛠️ Incidência de Atendimentos</div>', unsafe_allow_html=True)
-            
             servicos_counts = df_os_dash['tipo_servico'].value_counts().reset_index()
             servicos_counts.columns = ['Serviço', 'Quantidade']
             servicos_counts['Porcentagem'] = (servicos_counts['Quantidade'] / total_os) * 100
-
-            fig_incidencia = px.pie(
-                servicos_counts, 
-                names='Serviço', 
-                values='Quantidade', 
-                hole=0.55,
-                color_discrete_sequence=['#7B2CBF', '#E53935', '#1976D2', '#2E7D32', '#FF9800', '#9C27B0']
-            )
+            fig_incidencia = px.pie(servicos_counts, names='Serviço', values='Quantidade', hole=0.55, color_discrete_sequence=['#7B2CBF', '#E53935', '#1976D2', '#2E7D32', '#FF9800', '#9C27B0'])
             fig_incidencia.update_traces(textposition='inside', textinfo='percent')
-            fig_incidencia.update_layout(
-                margin=dict(t=10, b=10, l=10, r=10),
-                height=280,
-                legend=dict(orientation="v", y=0.5, x=1.0)
-            )
+            fig_incidencia.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280, legend=dict(orientation="v", y=0.5, x=1.0))
             st.plotly_chart(fig_incidencia, use_container_width=True)
-
             st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
             st.markdown("<b>Detalhamento de Ocorrências:</b>", unsafe_allow_html=True)
-            
             for _, r in servicos_counts.iterrows():
                 col_s_nome, col_s_qtd = st.columns([3, 2])
                 col_s_nome.write(f"• **{r['Serviço']}**")
                 col_s_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']} chamado(s)</b> <span style='color: #7B2CBF; font-size: 13px;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
-            
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # ---------------- GRÁFICO 2: STATUS DOS CHAMADOS ----------------
         with col_chart2:
             st.markdown('<div class="dash-box">', unsafe_allow_html=True)
             st.markdown('<div class="dash-box-title">🚦 Status Operacional dos Chamados</div>', unsafe_allow_html=True)
-            
             status_counts = df_os_dash['status_os'].value_counts().reset_index()
             status_counts.columns = ['Status', 'Quantidade']
             status_counts['Porcentagem'] = (status_counts['Quantidade'] / total_os) * 100
-
-            fig_status = px.pie(
-                status_counts, 
-                names='Status', 
-                values='Quantidade', 
-                hole=0.55,
-                color_discrete_sequence=['#2E7D32', '#E53935', '#FF9800', '#1976D2']
-            )
+            fig_status = px.pie(status_counts, names='Status', values='Quantidade', hole=0.55, color_discrete_sequence=['#2E7D32', '#E53935', '#FF9800', '#1976D2'])
             fig_status.update_traces(textposition='inside', textinfo='percent')
-            fig_status.update_layout(
-                margin=dict(t=10, b=10, l=10, r=10),
-                height=280,
-                legend=dict(orientation="v", y=0.5, x=1.0)
-            )
+            fig_status.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=280, legend=dict(orientation="v", y=0.5, x=1.0))
             st.plotly_chart(fig_status, use_container_width=True)
-
             st.markdown("<hr style='margin: 10px 0;'>", unsafe_allow_html=True)
             st.markdown("<b>Detalhamento de Status:</b>", unsafe_allow_html=True)
-            
             for _, r in status_counts.iterrows():
                 col_st_nome, col_st_qtd = st.columns([3, 2])
                 col_st_nome.write(f"• **{r['Status']}**")
                 col_st_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']} chamado(s)</b> <span style='color: #2E7D32; font-size: 13px;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
-            
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # ---------------- CONTROLE DE PROCESSAMENTO DO LAUDO EXECUTIVO ----------------
         st.write("---")
-        if "exibir_laudo" not in st.session_state:
-            st.session_state.exibir_laudo = False
-
+        if "exibir_laudo" not in st.session_state: st.session_state.exibir_laudo = False
         if not st.session_state.exibir_laudo:
             if st.button("📊 Processar Laudo Executivo do Mês", use_container_width=True, key=f"btn_proc_laudo_{empresa_filtro}"):
                 st.session_state.exibir_laudo = True
                 st.rerun()
         else:
-            st.markdown("""
-            <div style="background-color: #f8f9fa; border: 2px solid #7B2CBF; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                <h3 style="color: #7B2CBF; margin-top:0;">📋 Laudo Executivo de Atendimentos 24h</h3>
-                <p style="color: #555; font-size: 14px; margin-bottom: 0;">Análise consolidada e inteligência de ocorrências da frota no período.</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
+            st.markdown("""<div style="background-color: #f8f9fa; border: 2px solid #7B2CBF; border-radius: 12px; padding: 20px; margin-bottom: 20px;"><h3 style="color: #7B2CBF; margin-top:0;">📋 Laudo Executivo de Atendimentos 24h</h3><p style="color: #555; font-size: 14px; margin-bottom: 0;">Análise consolidada e inteligência de ocorrências da frota no período.</p></div>""", unsafe_allow_html=True)
             data_atual_proc = obter_hora_brasilia().strftime("%d/%m/%Y às %H:%M")
             st.caption(f"🕒 Processado em: {data_atual_proc}")
-            
             col_l1, col_l2, col_l3 = st.columns(3)
             col_l1.metric("Empresa / Unidade", empresa_filtro.upper())
             col_l2.metric("Frota Ativa Mapeada", f"{total_veiculos} veículos")
             col_l3.metric("Total de Ocorrências", f"{total_os} chamados")
-            
             st.markdown("##### 📊 Distribuição Analítica por Tipo de Serviço:")
             df_laudo_vis = servicos_counts.copy()
             df_laudo_vis['Porcentagem (%)'] = df_laudo_vis['Porcentagem'].apply(lambda x: f"{x:.1f}%")
             df_laudo_vis = df_laudo_vis.rename(columns={'Serviço': 'Tipo de Ocorrência', 'Quantidade': 'Acionamentos Registrados'})
             st.dataframe(df_laudo_vis[['Tipo de Ocorrência', 'Acionamentos Registrados', 'Porcentagem (%)']], use_container_width=True)
-            
             st.write("")
             col_laudo_btn1, col_laudo_btn2 = st.columns(2)
             with col_laudo_btn1:
@@ -442,17 +369,13 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 if st.button("❌ Fechar Laudo Executivo", use_container_width=True, key=f"btn_close_laudo_{empresa_filtro}"):
                     st.session_state.exibir_laudo = False
                     st.rerun()
-
-    else:
-        st.info("Nenhuma ordem de serviço registrada para montar os indicadores do período.")
+    else: st.info("Nenhuma ordem de serviço registrada para montar os indicadores do período.")
 
 
 # ===================================================================================
 # FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO)
 # ===================================================================================
-def colorir_status(val):
-    return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
-
+def colorir_status(val): return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
 def formatar_status_financeiro(val):
     if str(val).strip() == 'Pago': return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;'
     elif str(val).strip() == 'Atrasado': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
@@ -464,9 +387,7 @@ def get_ultimos_3_meses():
     for i in range(3):
         m = hoje.month - i
         y = hoje.year
-        while m <= 0:
-            m += 12
-            y -= 1
+        while m <= 0: m += 12; y -= 1
         meses.append(f"{m:02d}/{y}")
     return meses
 
@@ -494,8 +415,7 @@ def obter_mes_ano_vigente(dia_venc_str):
     dt_fechamento_este_mes = (dt_venc_este_mes - timedelta(days=2)).replace(hour=23, minute=59, second=59)
     if hoje <= dt_fechamento_este_mes: return hoje.month, hoje.year
     else:
-        m = hoje.month + 1
-        y = hoje.year
+        m = hoje.month + 1; y = hoje.year
         if m > 12: m, y = 1, y + 1
         return m, y
 
@@ -532,7 +452,6 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         "Enquadramento 60% a 70%":       {"50km": 140.00, "100km": 214.00, "200km": 283.00, "Sem Limite": 283.00},
         "Enquadramento Teto (> 70%)":    {"50km": 158.00, "100km": 242.00, "200km": 320.00, "Sem Limite": 320.00},
     }
-    
     lista_veiculos_emp = []
     df_cli_fat = df_clientes_atuais[(df_clientes_atuais['emp_name'].str.upper() == nome_empresa.upper()) & (df_clientes_atuais['status'].str.strip() == 'Ativo')]
     
@@ -551,11 +470,9 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             if len(p1) >= 6 and p1 not in ['NAN', 'N/D']: placas_extraidas.append(p1)
             p2 = str(r_cli.get('pla_2', '')).strip().upper().replace("-","").replace(" ","")
             if len(p2) >= 6 and p2 not in ['NAN', 'N/D']: placas_extraidas.append(p2)
-        for placa in placas_extraidas:
-            lista_veiculos_emp.append({'placa': placa, 'plano': plano_limpo, 'cliente': str(r_cli.get('nome', '')).upper()})
+        for placa in placas_extraidas: lista_veiculos_emp.append({'placa': placa, 'plano': plano_limpo, 'cliente': str(r_cli.get('nome', '')).upper()})
 
     total_v = len(lista_veiculos_emp)
-    
     dia_venc_str, modo_fat_calc = '30', "Tradicional"
     emp_dados_fat = df_empresas_atuais[df_empresas_atuais['nome'].str.upper() == nome_empresa.upper()]
     if not emp_dados_fat.empty:
@@ -564,13 +481,9 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         if not dia_venc_str or dia_venc_str == 'nan': dia_venc_str = '30'
 
     dt_inicio, dt_fim = calcular_datas_ciclo(mes, ano, dia_venc_str)
-    
     df_os_temp = df_os_atuais.copy()
     df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
-    os_filtro = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & 
-                           (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & 
-                           (df_os_temp['data_hora'] >= dt_inicio) & 
-                           (df_os_temp['data_hora'] <= dt_fim)]
+    os_filtro = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'] >= dt_inicio) & (df_os_temp['data_hora'] <= dt_fim)]
                            
     total_os = len(os_filtro)
     taxa = (total_os / total_v * 100) if total_v > 0 else 0.0
@@ -602,21 +515,16 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                 adic_50 = tb_precos[faixa]['50km'] - tb_precos["Enquadramento Base (Até 3%)"]['50km']
                 adic_100 = tb_precos[faixa]['100km'] - tb_precos["Enquadramento Base (Até 3%)"]['100km']
                 adic_200 = tb_precos[faixa]['200km'] - tb_precos["Enquadramento Base (Até 3%)"]['200km']
-
                 qtd_os_50 = sum(1 for _, o in os_filtro.iterrows() if '50' in str(o.get('plano_km', '')).strip())
                 qtd_os_100 = sum(1 for _, o in os_filtro.iterrows() if '100' in str(o.get('plano_km', '')).strip())
-
                 qtd_veic_50 = sum(1 for v in lista_veiculos_emp if v['plano'] == '50km')
                 qtd_veic_100 = sum(1 for v in lista_veiculos_emp if v['plano'] == '100km')
                 qtd_veic_200 = sum(1 for v in lista_veiculos_emp if v['plano'] in ['200km', 'Sem Limite'])
-
                 cobrancas_50 = min(qtd_os_50, qtd_veic_50)
                 cobrancas_100 = min(qtd_os_100, qtd_veic_100)
-
                 soma_adicionais += (cobrancas_50 * adic_50)
                 soma_adicionais += (cobrancas_100 * adic_100)
                 soma_adicionais += (qtd_veic_200 * adic_200)
-
                 fatura_total += soma_adicionais
             else:
                 primeiros_20 = lista_veiculos_emp[:20]
@@ -634,21 +542,14 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                     v['tipo_cobranca'] = 'Excedente (Valor Integral da Tabela)'
                     v['valor_cobrado'] = val_cheio
                 fatura_total += (soma_adicionais + soma_excedentes)
-
     elif "Frota Pequena" in modo_fat_calc or "Até 40 Veículos" in modo_fat_calc:
-        if "Frota Pequena" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 300.00, 2, 50.00, 85.00
-        elif "Opção A" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 2, 50.00, 85.00
-        elif "Opção B" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 4, 80.00, 130.00
-
+        if "Frota Pequena" in modo_fat_calc: valor_base, acionamentos_isentos, taxa_50, taxa_100 = 300.00, 2, 50.00, 85.00
+        elif "Opção A" in modo_fat_calc: valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 2, 50.00, 85.00
+        elif "Opção B" in modo_fat_calc: valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 4, 80.00, 130.00
         if total_v > 0: fatura_total = valor_base
-        
         acionamentos_50 = sum(1 for _, o in os_filtro.iterrows() if '50' in str(o.get('plano_km', '50km')).strip())
         acionamentos_100 = len(os_filtro) - acionamentos_50
         total_ac = acionamentos_50 + acionamentos_100
-        
         if total_ac > acionamentos_isentos:
             isentos_restantes = acionamentos_isentos
             if acionamentos_50 >= isentos_restantes:
@@ -658,13 +559,11 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                 isentos_restantes -= acionamentos_50
                 pagantes_50 = 0
                 pagantes_100 = acionamentos_100 - isentos_restantes
-                
             valor_exc_50 = pagantes_50 * taxa_50
             valor_exc_100 = pagantes_100 * taxa_100
             soma_excedentes = valor_exc_50 + valor_exc_100
             fatura_total += soma_excedentes
             qtd_exc_50, qtd_exc_100 = pagantes_50, pagantes_100
-            
         for v in lista_veiculos_emp:
             v['tipo_cobranca'] = 'Incluso no Pacote (Plano Fixo)'
             v['valor_cobrado'] = 0.0
@@ -698,26 +597,20 @@ def gerar_texto_resumo_plano(dados_fat):
     
     if modo == "Performance (Escalonado)":
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Frota Apurada:</b> {tot_v} veículos ativos.<br>"
-        if taxa == 0.0:
-            texto += f"🎯 <b style='color:#2e7d32;'>Taxa de Acionamento: 0.0% (Mês zerado)</b><br>"
-        else:
-            texto += f"🎯 <b>Taxa de Acionamento:</b> {taxa:.1f}%<br>"
-            
-        texto += f"📈 <b>Enquadramento Comercial:</b> {faixa}<br>"
-        texto += f"💰 <b>Fatura Mapeada:</b> R$ {fat_tot:.2f}"
+        if taxa == 0.0: texto += f"🎯 <b style='color:#2e7d32;'>Taxa de Acionamento: 0.0% (Mês zerado)</b><br>"
+        else: texto += f"🎯 <b>Taxa de Acionamento:</b> {taxa:.1f}%<br>"
+        texto += f"📈 <b>Enquadramento Comercial:</b> {faixa}<br>💰 <b>Fatura Mapeada:</b> R$ {fat_tot:.2f}"
         return texto
     elif "Frota Pequena" in modo or "Até 40" in modo:
         tot_ac = dados_fat.get('total_ac', 0)
         isentos = dados_fat.get('acionamentos_isentos', 0)
-        texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>"
-        texto += f"🎟️ <b>Franquia Utilizada:</b> {tot_ac} de {isentos} guinchos<br>"
+        texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>🎟️ <b>Franquia Utilizada:</b> {tot_ac} de {isentos} guinchos<br>"
         if exc > 0:
             detalhe_exc = []
             if dados_fat.get('qtd_exc_50', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_50']}x excedente(s) de 50km")
             if dados_fat.get('qtd_exc_100', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_100']}x excedente(s) de 100km")
             texto += f"💰 <b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:#E53935; font-size:14px;'>(R$ {base:.2f} Fixo + Adicional: R$ {exc:.2f} de {' e '.join(detalhe_exc)})</span>"
-        else:
-            texto += f"💰 <b>Fatura Atual: R$ {fat_tot:.2f}</b> <span style='color:#2e7d32; font-size:14px;'>(Uso operando perfeitamente dentro da franquia gratuita do pacote)</span>"
+        else: texto += f"💰 <b>Fatura Atual: R$ {fat_tot:.2f}</b> <span style='color:#2e7d32; font-size:14px;'>(Uso operando perfeitamente dentro da franquia gratuita do pacote)</span>"
         return texto
     else:
         return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos | <b>Taxa de Acionamento (Informativa):</b> {taxa:.1f}%<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
@@ -727,22 +620,15 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     df_os_temp = df_os_atuais.copy()
     df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
     os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora')
-
     linhas_os_html = ""
     if os_mes.empty: linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste ciclo.</td></tr>"
     else:
-        for _, r in os_mes.iterrows():
-            linhas_os_html += f"<tr><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['id']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{str(r['data_hora'])[:16]}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px; font-weight: bold;'>{r['placa']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['cliente_nome']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['tipo_servico']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['localizacao']} ➔ {r['destino']}</td></tr>"
-
+        for _, r in os_mes.iterrows(): linhas_os_html += f"<tr><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['id']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{str(r['data_hora'])[:16]}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px; font-weight: bold;'>{r['placa']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['cliente_nome']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['tipo_servico']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['localizacao']} ➔ {r['destino']}</td></tr>"
     linhas_veiculos_html = ""
-    for idx_v, v in enumerate(dados_fat['veiculos']):
-        linhas_veiculos_html += f"<tr><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{idx_v + 1}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px; font-weight: bold;'>{v['placa']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['cliente']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['plano']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['tipo_cobranca']}</td></tr>"
-
-    str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
-    str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
+    for idx_v, v in enumerate(dados_fat['veiculos']): linhas_veiculos_html += f"<tr><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{idx_v + 1}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px; font-weight: bold;'>{v['placa']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['cliente']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['plano']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['tipo_cobranca']}</td></tr>"
+    str_inicio, str_fim = dados_fat['dt_inicio'].strftime('%d/%m/%Y'), dados_fat['dt_fim'].strftime('%d/%m/%Y')
     timestamp_arquivo = int(time.time())
     modo_pdf = dados_fat.get('modo_fat', 'Tradicional')
-
     if modo_pdf == "Performance (Escalonado)":
         secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso. Enquadramento atual de fechamento do cliente: <b>{dados_fat['faixa']}</b>.</p></div>"""
         secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Franquia / Piso Mínimo Operacional (Base de até 20 veículos): <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Risco Aplicado (Regra Suavizada para <=20): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Cobrança de Veículos Excedentes (A partir do 21º): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
@@ -754,13 +640,12 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     else:
         secao_tabela = ""
         secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>"""
-
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos (OS Encerradas no Ciclo):</strong> {dados_fat['total_os']} atendimentos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
 
 # ===================================================================================
-# PORTAL DO CLIENTE (NPS E CAPTURA DE GPS) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
+# PORTAL DO CLIENTE (NPS E CAPTURA DE GPS)
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
 
@@ -768,133 +653,40 @@ if portal_atual == "nps":
     st.markdown('<div class="main-title">Pesquisa de Qualidade</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Assistência 24h</div>', unsafe_allow_html=True)
     os_param = st.query_params.get("os", "")
-    
-    if not os_param:
-        st.error("Número de atendimento não identificado.")
-        st.stop()
-        
+    if not os_param: st.error("Número de atendimento não identificado."); st.stop()
     os_relacionada = df_os[df_os['id'].astype(str) == str(os_param)]
-    if os_relacionada.empty:
-        st.error("Ordem de serviço não encontrada no sistema.")
-        st.stop()
-        
+    if os_relacionada.empty: st.error("Ordem de serviço não encontrada no sistema."); st.stop()
     os_info = os_relacionada.iloc[0]
     nps_existente = df_nps[df_nps['id_os'].astype(str) == str(os_param)]
-    
-    if not nps_existente.empty:
-        st.info("✅ Esta ordem de serviço já foi avaliada. Muito obrigado pelo seu tempo!")
-        st.stop()
+    if not nps_existente.empty: st.info("✅ Esta ordem de serviço já foi avaliada. Muito obrigado pelo seu tempo!"); st.stop()
 
-    st.write(f"**Veículo:** {os_info['placa']}")
-    st.write(f"**Data do Chamado:** {os_info['data_hora'][:10]}")
-    st.write("---")
-    
+    st.write(f"**Veículo:** {os_info['placa']}"); st.write(f"**Data do Chamado:** {os_info['data_hora'][:10]}"); st.write("---")
     st.markdown("<h4 style='color: #7B2CBF;'>1. Em uma escala de 0 a 10, o quanto você recomendaria a assistência 24 horas para um amigo ou familiar?</h4>", unsafe_allow_html=True)
     nota_nps = st.slider("Arraste para dar sua nota:", min_value=0, max_value=10, value=10)
-    
     st.markdown("<h4 style='color: #7B2CBF; margin-top: 20px;'>2. Como você avalia a agilidade e educação do nosso Operador da Central?</h4>", unsafe_allow_html=True)
     nota_central = st.feedback("stars", key="fb_central")
-    
     st.markdown("<h4 style='color: #7B2CBF; margin-top: 20px;'>3. Como você avalia o atendimento presencial do Motorista do Guincho?</h4>", unsafe_allow_html=True)
     nota_guincho = st.feedback("stars", key="fb_guincho")
-    
     comentario = st.text_area("Gostaria de deixar um comentário, elogio ou sugestão? (Opcional)")
     
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🚀 Enviar minha avaliação", use_container_width=True, type="primary"):
         val_cen = nota_central + 1 if nota_central is not None else 5
         val_gui = nota_guincho + 1 if nota_guincho is not None else 5
-        
         status_calc = "Promotor" if nota_nps >= 9 else "Neutro" if nota_nps >= 7 else "Detrator"
-        
-        novo_nps = pd.DataFrame([{
-            'id_os': os_param,
-            'data_hora': obter_hora_str(),
-            'nota_nps': nota_nps,
-            'nota_central': val_cen,
-            'nota_guincho': val_gui,
-            'comentario': comentario.strip(),
-            'status_nps': status_calc
-        }])
-        
+        novo_nps = pd.DataFrame([{'id_os': os_param, 'data_hora': obter_hora_str(), 'nota_nps': nota_nps, 'nota_central': val_cen, 'nota_guincho': val_gui, 'comentario': comentario.strip(), 'status_nps': status_calc}])
         df_nps_atualizado = pd.concat([df_nps, novo_nps], ignore_index=True)
         salvar_dados(df_nps_atualizado, FILE_NPS)
         st.success("🎉 Avaliação enviada com sucesso! Muito obrigado por nos ajudar a melhorar.")
-        time.sleep(2)
-        st.rerun()
+        time.sleep(2); st.rerun()
     st.stop()
 
 if portal_atual == "cliente":
     st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
     placa_param = st.query_params.get("placa", "N/D")
-    
     html_code = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-    body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f8f9fa; margin: 0; }}
-    .btn {{ background-color: #E53935; color: white; padding: 20px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; width: 100%; max-width: 300px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-top: 20px; }}
-    .btn:active {{ background-color: #b71c1c; }}
-    #msg {{ margin-top: 20px; font-size: 16px; color: #555; font-weight: bold; }}
-    </style>
-    </head>
-    <body>
-    <h3 style="color: #7B2CBF; margin-top:0;">Localização de Emergência</h3>
-    <p>Precisamos saber onde você está para enviar o guincho exato até o veículo placa <b>{placa_param}</b>.</p>
-    <button id="btn-loc" class="btn" onclick="getLocation()">📍 ENVIAR MINHA LOCALIZAÇÃO</button>
-    <p id="msg"></p>
-    <script>
-    function getLocation() {{
-        document.getElementById("msg").innerHTML = "Aguardando GPS... Autorize se o celular pedir.";
-        document.getElementById("btn-loc").style.display = "none";
-        
-        if (navigator.geolocation) {{
-            navigator.geolocation.getCurrentPosition(showPosition, showError, {{enableHighAccuracy: true}});
-        }} else {{
-            document.getElementById("msg").innerHTML = "Seu navegador não suporta GPS.";
-            document.getElementById("btn-loc").style.display = "block";
-        }}
-    }}
-    function showPosition(position) {{
-        var lat = position.coords.latitude;
-        var lon = position.coords.longitude;
-        document.getElementById("msg").innerHTML = "Sinal capturado! Salvando no sistema... 🚀";
-        
-        var urlFinal = "https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon;
-        
-        try {{
-            window.top.location.href = urlFinal; 
-        }} catch(e) {{
-            console.log("Fallback acionado.");
-        }}
-        
-        setTimeout(function() {{
-            window.location.href = urlFinal; 
-        }}, 500);
-    }}
-    function showError(error) {{
-        document.getElementById("btn-loc").style.display = "block";
-        switch(error.code) {{
-            case error.PERMISSION_DENIED:
-                document.getElementById("msg").innerHTML = "❌ Você negou o acesso ao GPS. Libere a permissão e tente novamente.";
-                break;
-            case error.POSITION_UNAVAILABLE:
-                document.getElementById("msg").innerHTML = "❌ Sinal de GPS indisponível no momento.";
-                break;
-            case error.TIMEOUT:
-                document.getElementById("msg").innerHTML = "❌ Tempo esgotado para buscar o GPS.";
-                break;
-            default:
-                document.getElementById("msg").innerHTML = "❌ Erro desconhecido ao tentar localizar.";
-                break;
-        }}
-    }}
-    </script>
-    </body>
-    </html>
+    <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>body {{ font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f8f9fa; margin: 0; }}.btn {{ background-color: #E53935; color: white; padding: 20px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer; width: 100%; max-width: 300px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-top: 20px; }}.btn:active {{ background-color: #b71c1c; }}#msg {{ margin-top: 20px; font-size: 16px; color: #555; font-weight: bold; }}</style></head><body><h3 style="color: #7B2CBF; margin-top:0;">Localização de Emergência</h3><p>Precisamos saber onde você está para enviar o guincho exato até o veículo placa <b>{placa_param}</b>.</p><button id="btn-loc" class="btn" onclick="getLocation()">📍 ENVIAR MINHA LOCALIZAÇÃO</button><p id="msg"></p><script>function getLocation() {{ document.getElementById("msg").innerHTML = "Aguardando GPS... Autorize se o celular pedir."; document.getElementById("btn-loc").style.display = "none"; if (navigator.geolocation) {{ navigator.geolocation.getCurrentPosition(showPosition, showError, {{enableHighAccuracy: true}}); }} else {{ document.getElementById("msg").innerHTML = "Seu navegador não suporta GPS."; document.getElementById("btn-loc").style.display = "block"; }} }} function showPosition(position) {{ var lat = position.coords.latitude; var lon = position.coords.longitude; document.getElementById("msg").innerHTML = "Sinal capturado! Salvando no sistema... 🚀"; var urlFinal = "https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon; try {{ window.top.location.href = urlFinal; }} catch(e) {{ console.log("Fallback acionado."); }} setTimeout(function() {{ window.location.href = urlFinal; }}, 500); }} function showError(error) {{ document.getElementById("btn-loc").style.display = "block"; switch(error.code) {{ case error.PERMISSION_DENIED: document.getElementById("msg").innerHTML = "❌ Você negou o acesso ao GPS. Libere a permissão e tente novamente."; break; case error.POSITION_UNAVAILABLE: document.getElementById("msg").innerHTML = "❌ Sinal de GPS indisponível no momento."; break; case error.TIMEOUT: document.getElementById("msg").innerHTML = "❌ Tempo esgotado para buscar o GPS."; break; default: document.getElementById("msg").innerHTML = "❌ Erro desconhecido ao tentar localizar."; break; }} }}</script></body></html>
     """
     components.html(html_code, height=500)
     st.stop()
@@ -903,32 +695,25 @@ elif portal_atual == "cliente_salvo":
     st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
     placa_cliente = st.query_params.get("placa", "N/D")
-    lat = st.query_params.get("lat", "")
-    lon = st.query_params.get("lon", "")
-    
+    lat, lon = st.query_params.get("lat", ""), st.query_params.get("lon", "")
     if lat and lon:
         link_maps = f"https://www.google.com/maps?q={lat},{lon}"
         novo_loc = pd.DataFrame([{'placa': placa_cliente, 'data_hora': obter_hora_str(), 'link_maps': link_maps}])
-        
         df_loc_atualizado = carregar_dados(FILE_LOC, col_loc)
         df_loc_atualizado = pd.concat([df_loc_atualizado, novo_loc], ignore_index=True)
         salvar_dados(df_loc_atualizado, FILE_LOC)
-        
         st.success("✅ Localização recebida com sucesso pela Central! O socorro já está sendo acionado. Você já pode fechar esta tela e aguardar.")
-    else:
-        st.error("Erro ao receber as coordenadas. Tente novamente.")
+    else: st.error("Erro ao receber as coordenadas. Tente novamente.")
     st.stop()
 
 # ===================================================================================
 # CONTROLE DE SESSÃO E LOGIN
 # ===================================================================================
-if "logado" not in st.session_state:
-    st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
+if "logado" not in st.session_state: st.session_state.update({"logado": False, "user": "", "perfil": "", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
     sess_param = st.query_params.get("session")
-    if sess_param == "admin_ad": 
-        st.session_state.update({"logado": True, "user": "AD Rastreamento Veicular (ADMIN)", "perfil": "Admin"})
+    if sess_param == "admin_ad": st.session_state.update({"logado": True, "user": "AD Rastreamento Veicular (ADMIN)", "perfil": "Admin"})
     elif sess_param and sess_param.startswith("parc_"):
         nome_parc = urllib.parse.unquote(sess_param.split("parc_")[1])
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
@@ -937,7 +722,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_prest.upper(), "perfil": "Prestador", "empresa_vinculada": ""})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.7</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 16px; color: #ccc;">🚀 v9.8</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         if portal_atual == "prestador":
@@ -955,9 +740,7 @@ if not st.session_state.logado:
                     if not prestador_valid.empty:
                         prest_row = prestador_valid.iloc[0]
                         if str(prest_row.get('homologado', 'Pendente')).strip() != 'Aprovado': st.error("⚠️ Seu cadastro ainda não foi aprovado pela Central.")
-                        else:
-                            st.session_state.update({"logado": True, "user": prest_row['nome'].upper(), "perfil": "Prestador", "empresa_vinculada": ""})
-                            time.sleep(0.5); st.rerun()
+                        else: st.session_state.update({"logado": True, "user": prest_row['nome'].upper(), "perfil": "Prestador", "empresa_vinculada": ""}); time.sleep(0.5); st.rerun()
                     else: st.error("Usuário ou senha incorretos.")
             with tab_cadastro:
                 with st.form("form_cad_prestador"):
@@ -999,20 +782,12 @@ if not st.session_state.logado:
                     else: st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# ===================================================================================
-# HEADER DO SISTEMA (QUANDO LOGADO)
-# ===================================================================================
 col_user, col_refresh, col_logout = st.columns([6, 2, 2])
-with col_user: 
-    st.markdown(f"<div style='font-size: 18px; font-weight: bold; color: #4a148c; padding-top: 5px;'>Central AD 24h | Operador: <span style='color: #E53935;'>{st.session_state.user}</span></div>", unsafe_allow_html=True)
+with col_user: st.markdown(f"<div style='font-size: 18px; font-weight: bold; color: #4a148c; padding-top: 5px;'>Central AD 24h | Operador: <span style='color: #E53935;'>{st.session_state.user}</span></div>", unsafe_allow_html=True)
 with col_refresh:
-    if st.button("🔄 Atualizar Sistema", use_container_width=True):
-        st.rerun()
+    if st.button("🔄 Atualizar Sistema", use_container_width=True): st.rerun()
 with col_logout:
-    if st.button("Sair / Logoff", key="btn_logout_master", use_container_width=True):
-        st.session_state.logado = False
-        st.query_params.clear()
-        st.rerun()
+    if st.button("Sair / Logoff", key="btn_logout_master", use_container_width=True): st.session_state.logado = False; st.query_params.clear(); st.rerun()
 st.write("---")
 
 # ===================================================================================
@@ -1020,21 +795,15 @@ st.write("---")
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     opcoes_admin = ["📈 Dashboard", "📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
-    
     aba_atual_admin = st.query_params.get("nav", opcoes_admin[0])
     if aba_atual_admin not in opcoes_admin: aba_atual_admin = opcoes_admin[0]
-    
     aba_selecionada = st.radio("Navegação Principal:", opcoes_admin, index=opcoes_admin.index(aba_atual_admin), horizontal=True, label_visibility="collapsed")
-    
-    if aba_selecionada != aba_atual_admin:
-        st.query_params["nav"] = aba_selecionada
-        st.rerun()
+    if aba_selecionada != aba_atual_admin: st.query_params["nav"] = aba_selecionada; st.rerun()
     
     if aba_selecionada == "📈 Dashboard":
         st.subheader("📈 Painel de Controle - Dashboard Inicial")
         empresas_lista = ["Todas"] + sorted([str(e).upper() for e in df_empresas['nome'].unique() if str(e).strip() != ""])
         empresa_filtro = st.selectbox("Selecione para filtrar os dados por Empresa Parceira:", empresas_lista)
-        
         renderizar_dashboard(empresa_filtro)
 
     elif aba_selecionada == "📋 Nova OS":
@@ -1048,10 +817,9 @@ if st.session_state.perfil == "Admin":
         if "os_dest_val" not in st.session_state: st.session_state.os_dest_val = ""
         if "os_obs_val" not in st.session_state: st.session_state.os_obs_val = ""
 
-        pronto_para_prosseguir = False
-        is_excecao_flag = False
-        valor_excecao_val = "0,00"
-        cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os, uf_cliente, cidade_cliente, valor_cobrado_os = "", "", "", "", "", "", "RN", "", "0,00"
+        pronto_para_prosseguir, is_excecao_flag = False, False
+        valor_excecao_val, valor_cobrado_os = "0,00", "0,00"
+        cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os, uf_cliente, cidade_cliente = "", "", "", "", "", "", "RN", ""
         tel_envio_link = ""
 
         if tipo_atendimento == "Cliente Cadastrado":
@@ -1065,7 +833,6 @@ if st.session_state.perfil == "Admin":
                     df_clientes_busca['cpf_limpo'] = df_clientes_busca['cpf'].apply(apenas_numeros_letras)
                     busca_limpa = apenas_numeros_letras(busca)
                     df_filtrado_cli = df_clientes_busca[df_clientes_busca['nome'].str.lower().str.contains(busca.lower(), na=False) | df_clientes_busca['pla'].str.lower().str.contains(busca.lower(), na=False) | df_clientes_busca['cpf_limpo'].str.contains(busca_limpa, na=False) | df_clientes_busca['veiculos_lista'].str.lower().str.contains(busca.lower(), na=False)]
-                    
                     if df_filtrado_cli.empty: st.error("Nenhum cliente ou veículo encontrado com esse termo de busca.")
                     else:
                         opcoes_cli_os = {"": "Selecione um cliente..."}
@@ -1085,13 +852,11 @@ if st.session_state.perfil == "Admin":
                             if not lista_frota_opcoes:
                                 if pd.notna(cliente_dados.get('pla')) and str(cliente_dados['pla']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei', 'Veículo')} - Placa: {cliente_dados['pla']}")
                                 if pd.notna(cliente_dados.get('pla_2')) and str(cliente_dados['pla_2']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei_2', 'Veículo')} - Placa: {cliente_dados['pla_2']}")
-                            
                             if not lista_frota_opcoes: st.error("Este cliente não possui veículos cadastrados com placa válida.")
                             else:
                                 veiculo_sel_os = st.selectbox("Selecione qual Veículo da frota será atendido:", lista_frota_opcoes)
                                 tipo_servico = st.selectbox("Tipo de Serviço Solicitado:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"])
                                 motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
-                                
                                 placa_alvo = veiculo_sel_os.split("Placa: ")[1].strip().upper()
                                 veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
                                 uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
@@ -1108,13 +873,7 @@ if st.session_state.perfil == "Admin":
                                 df_os_carencia = df_os_carencia.dropna(subset=['data_hora'])
                                 placa_alvo_limpa = apenas_numeros_letras(placa_alvo).upper()
                                 
-                                os_placa_ano = df_os_carencia[
-                                    (df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_alvo_limpa) & 
-                                    (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO'])) &
-                                    (df_os_carencia['data_hora'] >= inicio_ciclo) &
-                                    (df_os_carencia['data_hora'] <= fim_ciclo)
-                                ]
-                                
+                                os_placa_ano = df_os_carencia[(df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_alvo_limpa) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO'])) & (df_os_carencia['data_hora'] >= inicio_ciclo) & (df_os_carencia['data_hora'] <= fim_ciclo)]
                                 uso_atual = {"GUINCHO": 0, "PANE SECA": 0, "PANE ELÉTRICA": 0, "BORRACHEIRO": 0, "CHAVEIRO": 0}
                                 for _, o in os_placa_ano.iterrows():
                                     serv = str(o['tipo_servico']).upper()
@@ -1132,39 +891,26 @@ if st.session_state.perfil == "Admin":
                                 c_s4.metric("Borracheiro", f"{uso_atual['BORRACHEIRO']} / {LIMITES_ANUAIS['BORRACHEIRO']}")
                                 c_s5.metric("Chaveiro", f"{uso_atual['CHAVEIRO']} / {LIMITES_ANUAIS['CHAVEIRO']}")
                                 
-                                tipo_servico_limpo = tipo_servico.upper()
-                                limite_excedido = uso_atual.get(tipo_servico_limpo, 0) >= LIMITES_ANUAIS.get(tipo_servico_limpo, 1)
-
-                                os_recentes = df_os_carencia[
-                                    (df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_alvo_limpa) & 
-                                    (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))
-                                ]
+                                limite_excedido = uso_atual.get(tipo_servico.upper(), 0) >= LIMITES_ANUAIS.get(tipo_servico.upper(), 1)
+                                os_recentes = df_os_carencia[(df_os_carencia['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_alvo_limpa) & (~df_os_carencia['status_os'].str.upper().isin(['CANCELADO']))]
                                 
-                                bloqueio_60 = False
-                                msg_bloqueio_60 = ""
+                                bloqueio_60, msg_bloqueio_60 = False, ""
                                 if not os_recentes.empty:
                                     ultima_os = os_recentes.sort_values('data_hora', ascending=False).iloc[0]
                                     dias_passados = (obter_hora_brasilia().replace(tzinfo=None) - ultima_os['data_hora']).days
                                     if 0 <= dias_passados < 60:
-                                        bloqueio_60 = True
-                                        data_ult = ultima_os['data_hora'].strftime("%d/%m/%Y")
+                                        bloqueio_60, data_ult = True, ultima_os['data_hora'].strftime("%d/%m/%Y")
                                         msg_bloqueio_60 = f"Veículo acionou a Central há {dias_passados} dias (em {data_ult}). Faltam {60 - dias_passados} dias para novo acionamento."
 
-                                status_cliente_os = str(cliente_dados.get('status', 'Ativo')).strip()
-                                cliente_inativo = (status_cliente_os == 'Inativo')
-
+                                cliente_inativo = (str(cliente_dados.get('status', 'Ativo')).strip() == 'Inativo')
                                 if cliente_inativo or bloqueio_60 or limite_excedido:
                                     st.write("---")
                                     if cliente_inativo: st.markdown('<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: CLIENTE INATIVO 🚫<br><span style="font-size: 14px; font-weight: normal;">Possível inadimplência ou cancelamento.</span></div>', unsafe_allow_html=True)
                                     if bloqueio_60: st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: REGRA DOS 60 DIAS ATIVA 🚫<br><span style="font-size: 14px; font-weight: bold;">{msg_bloqueio_60}</span></div>', unsafe_allow_html=True)
                                     if limite_excedido: st.markdown(f'<div class="alert-box alert-danger" style="font-size: 16px; text-align: center;">🚫 ALERTA: LIMITE ANUAL ESTOURADO 🚫<br><span style="font-size: 14px; font-weight: bold;">Esta placa já utilizou o limite máximo de {tipo_servico} no ciclo de contrato atual.</span></div>', unsafe_allow_html=True)
-                                        
-                                    liberar_excecao = st.checkbox("⚠️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção")
-                                    if liberar_excecao: 
+                                    if st.checkbox("⚠️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção"): 
                                         valor_excecao_val = st.text_input("Valor do Serviço Extra a ser Cobrado (R$):", value="0,00")
-                                        valor_cobrado_os = valor_excecao_val
-                                        is_excecao_flag = True
-                                        pronto_para_prosseguir = True
+                                        valor_cobrado_os, is_excecao_flag, pronto_para_prosseguir = valor_excecao_val, True, True
                                     else: pronto_para_prosseguir = False
                                 else: pronto_para_prosseguir = True
         else:
@@ -1178,14 +924,12 @@ if st.session_state.perfil == "Admin":
             motivo_servico = st.selectbox("Motivo do Acionamento:", ["Acidente", "Furto", "Roubo", "Outros"])
             cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os = "AVULSO", nome_avulso, placa_avulso.upper().strip(), veiculo_avulso, "CLIENTE PARTICULAR (AVULSO)", "Particular"
             tel_envio_link = apenas_numeros_letras(tel_avulso)
-            
             if nome_avulso and placa_alvo: pronto_para_prosseguir = True
             else: st.warning("⚠️ Nome do Cliente e Placa são obrigatórios para liberar o atendimento avulso.")
 
         if pronto_para_prosseguir:
             st.write("---")
             st.subheader("🛠️ Destino e Acionamento do Prestador")
-            
             lista_p_ops = ["Outro (Digitar Manualmente)"]
             if not df_prestadores.empty:
                 df_prest_filtrados = df_prestadores[(df_prestadores['est'].str.strip().str.upper() == uf_cliente.upper()) & (df_prestadores['status'] == 'Ativo') & (df_prestadores['homologado'] == 'Aprovado')].copy()
@@ -1193,12 +937,9 @@ if st.session_state.perfil == "Admin":
                     cidade_busca = cidade_cliente.strip().upper()
                     df_prest_filtrados['prioridade'] = df_prest_filtrados['cidade'].apply(lambda x: 0 if str(x).strip().upper() == cidade_busca and cidade_busca != "" else 1)
                     df_prest_filtrados = df_prest_filtrados.sort_values(by=['prioridade', 'nome'])
-                    for _, r in df_prest_filtrados.iterrows():
-                        marcador = "📍 [MAIS PRÓXIMO] " if r['prioridade'] == 0 else ""
-                        lista_p_ops.append(f"{marcador}{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
+                    for _, r in df_prest_filtrados.iterrows(): lista_p_ops.append(f"{'📍 [MAIS PRÓXIMO] ' if r['prioridade'] == 0 else ''}{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
                 else:
-                    df_aprovados = df_prestadores[df_prestadores['homologado'] == 'Aprovado']
-                    for _, r in df_aprovados.iterrows(): lista_p_ops.append(f"{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
+                    for _, r in df_prestadores[df_prestadores['homologado'] == 'Aprovado'].iterrows(): lista_p_ops.append(f"{str(r['nome'])} - Tel: {str(r['telefone'])} - {str(r['cidade']).upper()}/{str(r['est']).upper()}")
             
             prestador_sel = st.selectbox("Prestadores homologados (Ordenados por proximidade):", lista_p_ops)
             if prestador_sel == "Outro (Digitar Manualmente)":
@@ -1206,25 +947,22 @@ if st.session_state.perfil == "Admin":
                 tel_prestador_final = apenas_numeros_letras(st.text_input("Telefone do Prestador Manual (DDD + Número):"))
             else:
                 prestador_limpo = prestador_sel.replace("📍 [MAIS PRÓXIMO] ", "")
-                prestador_final = prestador_limpo.split(" - Tel:")[0]
-                tel_prestador_final = apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
+                prestador_final, tel_prestador_final = prestador_limpo.split(" - Tel:")[0], apenas_numeros_letras(prestador_limpo.split(" - Tel:")[1].split("-")[0].strip())
             
             st.markdown("##### 📍 Endereços de Origem e Destino")
-            st.info("Caso o cliente não saiba explicar onde está, use o botão verde abaixo para enviar o link de captura de GPS. Quando ele clicar, o endereço de origem será preenchido sozinho.")
+            st.info("Caso o cliente não saiba explicar onde está, use o botão verde abaixo para enviar o link de captura de GPS.")
             link_captura = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente&placa={placa_alvo}"
             col_loc1, col_loc2 = st.columns([1, 1])
             texto_zap_loc = f"Olá! Aqui é da *Central AD Assistência 24h*.\n\nPara despacharmos o seu socorro rápido, precisamos da sua localização exata. Por favor, clique no link abaixo, permita o uso do GPS e aperte no botão 'ENVIAR MINHA LOCALIZAÇÃO':\n\n{link_captura}"
             link_w_loc = f"https://api.whatsapp.com/send?phone=55{tel_envio_link}&text={urllib.parse.quote(texto_zap_loc)}"
             
-            with col_loc1:
-                st.markdown(f'<a href="{link_w_loc}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">📲 1. Enviar Link no WhatsApp do Cliente</button></a>', unsafe_allow_html=True)
+            with col_loc1: st.markdown(f'<a href="{link_w_loc}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px; width: 100%; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">📲 1. Enviar Link no WhatsApp do Cliente</button></a>', unsafe_allow_html=True)
             with col_loc2:
                 if st.button("🔄 2. Puxar Localização Recebida do Cliente", use_container_width=True, key="btn_puxar_loc_admin"):
                     df_loc_temp = carregar_dados(FILE_LOC, ['placa', 'data_hora', 'link_maps'])
                     loc_cliente = df_loc_temp[df_loc_temp['placa'] == placa_alvo]
                     if not loc_cliente.empty:
-                        ultima_loc = loc_cliente.iloc[-1]['link_maps']
-                        st.session_state.os_loc_val = ultima_loc
+                        st.session_state.os_loc_val = loc_cliente.iloc[-1]['link_maps']
                         st.success("✅ GPS recebido com sucesso! O campo 'Origem' foi preenchido.")
                         time.sleep(2); st.rerun()
                     else: st.warning("⏳ O cliente ainda não enviou a localização. Aguarde alguns segundos e clique novamente.")
@@ -1234,9 +972,7 @@ if st.session_state.perfil == "Admin":
             cep_orig = c_orig1.text_input("CEP Origem (Opcional):", placeholder="Somente números")
             if c_orig1.button("🔍 Buscar Origem", use_container_width=True, key="btn_cep_orig_admin"):
                 end_orig = buscar_endereco_por_cep(cep_orig)
-                if end_orig:
-                    st.session_state.os_loc_val = end_orig
-                    st.rerun()
+                if end_orig: st.session_state.os_loc_val = end_orig; st.rerun()
                 else: st.error("CEP inválido ou não encontrado.")
             localizacao = c_orig2.text_input("Endereço de Origem Completo (Onde pegar o veículo):", value=st.session_state.os_loc_val)
             st.session_state.os_loc_val = localizacao
@@ -1245,9 +981,7 @@ if st.session_state.perfil == "Admin":
             cep_dest = c_dest1.text_input("CEP Destino (Opcional):", placeholder="Somente números")
             if c_dest1.button("🔍 Buscar Destino", use_container_width=True, key="btn_cep_dest_admin"):
                 end_dest = buscar_endereco_por_cep(cep_dest)
-                if end_dest:
-                    st.session_state.os_dest_val = end_dest
-                    st.rerun()
+                if end_dest: st.session_state.os_dest_val = end_dest; st.rerun()
                 else: st.error("CEP inválido ou não encontrado.")
             destino = c_dest2.text_input("Endereço de Destino Completo (Onde deixar o veículo):", value=st.session_state.os_dest_val)
             st.session_state.os_dest_val = destino
@@ -1261,14 +995,12 @@ if st.session_state.perfil == "Admin":
                 resp_empresa = emp_match.iloc[0].get('responsavel', 'Responsável') if not emp_match.empty else 'Responsável'
                 tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
                 if not tel_responsavel: tel_responsavel = tel_envio_link
-
                 texto_pix = (f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\nOlá *{resp_empresa}* (Empresa: *{empresa_os}*),\n\nO acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\n\n📋 *Detalhes completos do Atendimento:*\n• Serviço: {tipo_servico} ({motivo_servico})\n• Onde pegar (Origem): {localizacao if localizacao else 'A informar'}\n• Onde deixar (Destino): {destino if destino else 'A informar'}\n• Motivo da Exceção: Limite Anual ou Carência de 60 dias atingida\n\n💰 *Valor do Serviço Extra:* R$ {valor_excecao_val}\n\n⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\n\n📲 *DADOS PARA PAGAMENTO (PIX):*\nChave PIX (CNPJ): *55496449000184*\nNome: *AD Rastreamento Veicular LTDA*\n\nEnvie o comprovante nesta conversa para despacharmos o socorro imediatamente!")
                 link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
                 if not tel_responsavel: st.warning("⚠️ Atenção: Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar direto.")
                 st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%;">💬 PASSO EXTRA: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
 
-            texto_btn_os = "🚀 Finalizar e Gerar OS do Guincho"
-            if st.button(texto_btn_os, type="primary", key="btn_gerar_os_admin"):
+            if st.button("🚀 Finalizar e Gerar OS do Guincho", type="primary", key="btn_gerar_os_admin"):
                 if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
                 elif not localizacao: st.error("O Endereço de Origem é obrigatório!")
                 else:
@@ -1296,8 +1028,7 @@ if st.session_state.perfil == "Admin":
                     c_os1, c_os2 = st.columns(2)
                     nova_placa = c_os1.text_input("Placa do Veículo:", value=row_os['placa'])
                     status_opcoes = ["EM ATENDIMENTO", "EM ROTA (VISTORIA OK)", "FINALIZADO PELO PRESTADOR", "ENCERRADO", "CANCELADO"]
-                    idx_stat = status_opcoes.index(row_os['status_os'].upper()) if row_os['status_os'].upper() in status_opcoes else 0
-                    novo_status = c_os2.selectbox("Status da OS:", status_opcoes, index=idx_stat)
+                    novo_status = c_os2.selectbox("Status da OS:", status_opcoes, index=status_opcoes.index(row_os['status_os'].upper()) if row_os['status_os'].upper() in status_opcoes else 0)
                     if st.form_submit_button("Salvar Correção da OS"):
                         with st.spinner("Atualizando OS..."):
                             df_os.loc[df_os['id'].astype(str) == str(os_id_edit), ['placa', 'status_os']] = [nova_placa.upper(), novo_status]
@@ -1349,10 +1080,8 @@ if st.session_state.perfil == "Admin":
                 else: st.markdown('<div class="alert-box alert-danger">⏳ Aguardando Vistoria de Entrada pelo Prestador...</div>', unsafe_allow_html=True)
                 
                 link_app_prestador = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=prestador&session=prest_{urllib.parse.quote(prestador_nome_puro)}"
-                
                 link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
                 texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
-                
                 texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}\n\n🔗 *Acesse seu painel para Vistoria:* {link_app_prestador}")
                 link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
                 link_w_cli_nps = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(tel_cliente_os)}&text={urllib.parse.quote(texto_w_nps)}"
@@ -1360,8 +1089,7 @@ if st.session_state.perfil == "Admin":
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%;">📲 1. Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
                 with col_btn2:
-                    texto_botao = "🔒 2. Encerrar OS no Sistema" if status_dessa_os == 'FINALIZADO PELO PRESTADOR' else "🔒 2. Forçar Encerramento da OS Manualmente"
-                    if st.button(texto_botao, key="btn_encerrar_os_adm"):
+                    if st.button("🔒 2. Encerrar OS no Sistema" if status_dessa_os == 'FINALIZADO PELO PRESTADOR' else "🔒 2. Forçar Encerramento da OS Manualmente", key="btn_encerrar_os_adm"):
                         with st.spinner("Encerrando OS..."):
                             df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
                             sucesso, erro = salvar_dados(df_os, FILE_OS)
@@ -1390,8 +1118,7 @@ if st.session_state.perfil == "Admin":
         st.subheader("👤 Gerenciamento de Clientes (Frota Ilimitada e Endereço)")
         if "aba_cli" not in st.session_state: st.session_state.aba_cli = "Listar"
         opcoes_radio = ["Listar", "Incluir Novo", "Importação em Lote", "Editar", "Excluir"]
-        idx_radio = opcoes_radio.index(st.session_state.aba_cli) if st.session_state.aba_cli in opcoes_radio else 0
-        opcao_cli = st.radio("Ação Clientes:", opcoes_radio, horizontal=True, index=idx_radio)
+        opcao_cli = st.radio("Ação Clientes:", opcoes_radio, horizontal=True, index=opcoes_radio.index(st.session_state.aba_cli) if st.session_state.aba_cli in opcoes_radio else 0)
         st.session_state.aba_cli = opcao_cli
         
         if opcao_cli == "Listar":
@@ -1409,11 +1136,8 @@ if st.session_state.perfil == "Admin":
                     if os_cli.empty: return "Nenhum Serviço Solicitado"
                     res = []
                     for _, r in os_cli.iterrows():
-                        try:
-                            d = datetime.strptime(str(r['data_hora']), "%Y-%m-%d %H:%M:%S")
-                            d_str = d.strftime("%d/%m/%Y")
-                        except: d_str = str(r['data_hora'])[:10]
-                        res.append(f"{r['tipo_servico']} ({d_str})")
+                        try: res.append(f"{r['tipo_servico']} ({datetime.strptime(str(r['data_hora']), '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%Y')})")
+                        except: res.append(f"{r['tipo_servico']} ({str(r['data_hora'])[:10]})")
                     return " | ".join(res)
                 df_view_cli['Histórico'] = df_view_cli['id'].apply(formatar_historico)
                 empresas_na_lista = df_view_cli['emp_name'].unique()
@@ -1431,11 +1155,9 @@ if st.session_state.perfil == "Admin":
                             st.dataframe(df_emp_filtrada[['nome','cpf','tel','cidade','plano_km','Histórico','status']].style.map(colorir_status, subset=['status']), use_container_width=True)
                             
                             key_sel_admin = f"sel_det_{emp}"
-                            widget_key_admin = f"sel_sb_{emp}"
                             if key_sel_admin not in st.session_state: st.session_state[key_sel_admin] = ""
                             cli_opcoes = [""] + df_emp_filtrada['nome'].tolist()
-                            idx_sel_admin = cli_opcoes.index(st.session_state[key_sel_admin]) if st.session_state[key_sel_admin] in cli_opcoes else 0
-                            cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, index=idx_sel_admin, key=widget_key_admin)
+                            cli_sel = st.selectbox(f"🔍 Selecione um cliente da {nome_emp} para ver a Ficha Completa:", cli_opcoes, index=cli_opcoes.index(st.session_state[key_sel_admin]) if st.session_state[key_sel_admin] in cli_opcoes else 0, key=f"sel_sb_{emp}")
                             st.session_state[key_sel_admin] = cli_sel
                             if cli_sel != "":
                                 cli_data = df_emp_filtrada[df_emp_filtrada['nome'] == cli_sel].iloc[0]
@@ -1444,8 +1166,7 @@ if st.session_state.perfil == "Admin":
                                 st.markdown(f"### 📋 Ficha do Cliente: {cli_data['nome']}")
                                 c1, c2 = st.columns(2)
                                 c1.write(f"**CPF/CNPJ:** {cli_data['cpf']}"); c1.write(f"**Telefone:** {cli_data['tel']}"); c1.write(f"**Plano Contratado:** {cli_data.get('plano_km', 'N/D')}")
-                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}")
-                                c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
+                                c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}"); c2.write(f"**Status:** {'🟢 Ativo' if cli_data['status'] == 'Ativo' else '🔴 Inativo'}"); c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
                                 try: st.table(pd.DataFrame(json.loads(cli_data['veiculos_lista'])))
                                 except: st.write(f"{cli_data.get('vei', '')} - Placa: {cli_data.get('pla', '')}")
                                 
@@ -1501,8 +1222,7 @@ if st.session_state.perfil == "Admin":
             cad_data = c1.date_input("Data de Cadastro (Início do Contrato):", value=datetime.now())
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa - Adicione quantos quiser)**")
-            df_frota_editavel = pd.DataFrame([{"Modelo/Ano": "", "Placa": ""}])
-            frota_editada = st.data_editor(df_frota_editavel, num_rows="dynamic", use_container_width=True)
+            frota_editada = st.data_editor(pd.DataFrame([{"Modelo/Ano": "", "Placa": ""}]), num_rows="dynamic", use_container_width=True)
             st.write("---")
             col_b1, col_b2, col_b3 = st.columns(3)
             est = col_b1.selectbox("Estado (UF) do Veículo:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
@@ -1523,24 +1243,21 @@ if st.session_state.perfil == "Admin":
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
                         dt_str_save = cad_data.strftime("%Y-%m-%d")
                         novo = pd.DataFrame([{'id': str(prox), 'nome': nome, 'cpf': cpf, 'tel': tel, 'endereco': end_in, 'cidade': cid_in.upper(), 'cep': cep_in, 'plano_km': plano_km, 'vei': vei_prin, 'pla': pla_prin, 'est': est, 'emp_name': emp.upper(), 'status': status, 'veiculos_lista': frota_json_str, 'data_cadastro': dt_str_save}])
-                        df_clientes_temp = pd.concat([df_clientes, novo], ignore_index=True)
-                        sucesso, erro = salvar_dados(df_clientes_temp, FILE_CLIENTES)
+                        sucesso, erro = salvar_dados(pd.concat([df_clientes, novo], ignore_index=True), FILE_CLIENTES)
                         if sucesso:
                             registrar_atividade(st.session_state.user, "NOVO CLIENTE", f"Cadastrou {nome} para a empresa {emp}")
                             st.success("✅ Cliente cadastrado com sucesso!")
                             for k in ["cli_inc_nome", "cli_inc_cpf", "cli_inc_tel", "cli_inc_end", "cli_inc_cid", "cli_inc_cep"]: st.session_state[k] = ""
-                            st.session_state.aba_cli = "Listar"
-                            time.sleep(1); st.rerun()
-                        else:
-                            st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
+                            st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
+                        else: st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
                         
         elif opcao_cli == "Importação em Lote":
             lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
             empresa_selecionada = st.selectbox("Selecione a Empresa Vinculada para esta importação:", options=lista_empresas_disponiveis)
             arquivo_csv_upload = st.file_uploader("Selecione o arquivo CSV da frota do parceiro", type=["csv"])
             if arquivo_csv_upload is not None:
-                if st.button("Iniciar Importação e Salvar no GitHub"):
-                    st.info("Atenção: A função de importação necessita da biblioteca pandas.")
+                if st.button("Iniciar Importação e Salvar no GitHub"): st.info("Atenção: A função de importação necessita da biblioteca pandas.")
+
         elif opcao_cli == "Editar":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
             else:
@@ -1596,8 +1313,7 @@ if st.session_state.perfil == "Admin":
                                 if sucesso:
                                     registrar_atividade(st.session_state.user, "EDIÇÃO DE CLIENTE", f"Editou os dados do cliente {nome}")
                                     st.success("✅ Alterações salvas com sucesso!"); st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
-                                else:
-                                    st.error(f"⚠️ Erro ao salvar edição na nuvem: {erro}")
+                                else: st.error(f"⚠️ Erro ao salvar edição na nuvem: {erro}")
 
         elif opcao_cli == "Excluir":
             if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
@@ -1627,8 +1343,7 @@ if st.session_state.perfil == "Admin":
         st.subheader("🏢 Gerenciamento de Empresas Parceiras")
         if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
         opcoes_radio_emp = ["Listar", "Incluir Nova", "Editar", "Excluir"]
-        idx_radio_emp = opcoes_radio_emp.index(st.session_state.aba_emp) if st.session_state.aba_emp in opcoes_radio_emp else 0
-        opcao_emp = st.radio("Ação Empresas:", opcoes_radio_emp, horizontal=True, index=idx_radio_emp)
+        opcao_emp = st.radio("Ação Empresas:", opcoes_radio_emp, horizontal=True, index=opcoes_radio_emp.index(st.session_state.aba_emp) if st.session_state.aba_emp in opcoes_radio_emp else 0)
         st.session_state.aba_emp = opcao_emp
         
         if opcao_emp == "Listar":
@@ -1663,13 +1378,11 @@ if st.session_state.perfil == "Admin":
                 else:
                     with st.spinner("Salvando empresa..."):
                         novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e, 'modo_faturamento': modo_fat_e, 'dia_vencimento': dia_v_e}])
-                        df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
-                        sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
+                        sucesso, erro = salvar_dados(pd.concat([df_empresas, novo_e], ignore_index=True), FILE_EMPRESAS)
                         if sucesso:
                             registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()} (CNPJ: {cnpj})")
                             st.success("✅ Empresa cadastrada com sucesso!"); st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
-                        else:
-                            st.error(f"Erro na nuvem: {erro}")
+                        else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_emp == "Editar":
             if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
             else:
@@ -1693,8 +1406,7 @@ if st.session_state.perfil == "Admin":
                     
                     venc_ant = str(dados_e_ant.get('dia_vencimento', '30')).strip()
                     if not venc_ant or venc_ant == 'nan': venc_ant = "30"
-                    idx_venc = OPCOES_DIAS_VENC.index(venc_ant) if venc_ant in OPCOES_DIAS_VENC else OPCOES_DIAS_VENC.index("30")
-                    dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=idx_venc)
+                    dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=OPCOES_DIAS_VENC.index(venc_ant) if venc_ant in OPCOES_DIAS_VENC else OPCOES_DIAS_VENC.index("30"))
 
                     if st.button("Salvar Alterações"):
                         cnpj = apenas_numeros_letras(cnpj_raw)
@@ -1740,27 +1452,23 @@ if st.session_state.perfil == "Admin":
                 with st.expander(f"Solicitação de: {p['nome']} - {p['est']}"):
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Cidade:** {p.get('cidade','N/D')}")
                     texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo clicando no link direto de serviços que enviaremos a cada chamado.\n\nSeja bem-vindo à nossa rede 24h!")
-                    link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
-                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     col_h1, col_h2 = st.columns(2)
                     if col_h1.button("✅ Aprovar no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
-                        sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        if sucesso: 
+                        if salvar_dados(df_prestadores, FILE_PRESTADORES)[0]: 
                             registrar_atividade(st.session_state.user, "APROVAÇÃO PRESTADOR", f"Aprovou o cadastro de {p['nome']}")
                             st.success("Aprovado!"); time.sleep(1); st.rerun()
                     if col_h2.button("❌ Reprovar/Excluir", key=f"rep_{p['id']}"):
                         df_prestadores = df_prestadores[df_prestadores['id'].astype(str) != str(p['id'])]
-                        sucesso, erro = salvar_dados(df_prestadores, FILE_PRESTADORES)
-                        if sucesso: 
+                        if salvar_dados(df_prestadores, FILE_PRESTADORES)[0]: 
                             registrar_atividade(st.session_state.user, "REPROVAÇÃO PRESTADOR", f"Reprovou {p['nome']}")
                             st.info("Cadastro excluído."); time.sleep(1); st.rerun()
             st.write("---")
         
         if "aba_pre" not in st.session_state: st.session_state.aba_pre = "Listar"
         opcoes_radio_pre = ["Listar", "Incluir Novo", "Editar", "Excluir"]
-        idx_radio_pre = opcoes_radio_pre.index(st.session_state.aba_pre) if st.session_state.aba_pre in opcoes_radio_pre else 0
-        opcao_pre = st.radio("Ação Prestadores:", opcoes_radio_pre, horizontal=True, index=idx_radio_pre)
+        opcao_pre = st.radio("Ação Prestadores:", opcoes_radio_pre, horizontal=True, index=opcoes_radio_pre.index(st.session_state.aba_pre) if st.session_state.aba_pre in opcoes_radio_pre else 0)
         st.session_state.aba_pre = opcao_pre
         
         if opcao_pre == "Listar":
@@ -1778,8 +1486,7 @@ if st.session_state.perfil == "Admin":
                     for est_sigla in sorted(estados_na_lista):
                         nome_est = str(est_sigla).upper() if str(est_sigla).strip() != "" else "SEM ESTADO VINCULADO"
                         with st.expander(f"📁 Prestadores do Estado: {nome_est}", expanded=expandir_pastas_pre):
-                            df_est_filtrada = df_view_pres[df_view_pres['est'] == est_sigla]
-                            st.dataframe(df_est_filtrada[['nome','cpf','tipo','telefone','cidade','status','homologado']].style.map(colorir_status, subset=['status']), use_container_width=True)
+                            st.dataframe(df_view_pres[df_view_pres['est'] == est_sigla][['nome','cpf','tipo','telefone','cidade','status','homologado']].style.map(colorir_status, subset=['status']), use_container_width=True)
         elif opcao_pre == "Incluir Novo":
             c1, c2 = st.columns(2)
             n_prest_in = c1.text_input("Nome do Guincho/Prestador:", value=st.session_state.get("pre_inc_nome", ""))
@@ -1806,13 +1513,11 @@ if st.session_state.perfil == "Admin":
                     with st.spinner("Salvando prestador..."):
                         prox_p = int(df_prestadores['id'].astype(float).max() + 1) if not df_prestadores.empty else 1
                         novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': n_prest_in.upper(), 'cpf': cpf_p, 'tipo': t_prest, 'telefone': apenas_numeros_letras(tel_p_raw), 'endereco': end_p_in, 'cidade': cid_p_in.upper(), 'cep': cep_p_in, 'est': est_p, 'status': stat_p, 'homologado': 'Aprovado', 'senha': 'admin', 'frota': '[]'}])
-                        df_prestadores_temp = pd.concat([df_prestadores, novo_p], ignore_index=True)
-                        sucesso, erro = salvar_dados(df_prestadores_temp, FILE_PRESTADORES)
+                        sucesso, erro = salvar_dados(pd.concat([df_prestadores, novo_p], ignore_index=True), FILE_PRESTADORES)
                         if sucesso:
                             registrar_atividade(st.session_state.user, "NOVO PRESTADOR", f"Cadastrou prestador {n_prest_in.upper()} ({t_prest})")
                             st.success("✅ Prestador cadastrado com sucesso!"); st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
-                        else:
-                            st.error(f"Erro na nuvem: {erro}")
+                        else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_pre == "Editar":
             if df_prestadores.empty: st.warning("Nenhuma prestador cadastrado.")
             else:
@@ -1874,23 +1579,19 @@ if st.session_state.perfil == "Admin":
         st.subheader("⭐ Painel de Satisfação do Cliente (NPS)")
         st.write("Acompanhe em tempo real a qualidade do atendimento da sua Central e dos Guinchos parceiros.")
         
-        if df_nps.empty:
-            st.info("Nenhuma avaliação recebida ainda. Os dados aparecerão aqui assim que os clientes começarem a responder.")
+        if df_nps.empty: st.info("Nenhuma avaliação recebida ainda. Os dados aparecerão aqui assim que os clientes começarem a responder.")
         else:
             total_resp = len(df_nps)
             promotores = len(df_nps[df_nps['status_nps'] == 'Promotor'])
             detratores = len(df_nps[df_nps['status_nps'] == 'Detrator'])
-            
             nps_score = ((promotores - detratores) / total_resp) * 100 if total_resp > 0 else 0
             
             try: media_central = df_nps['nota_central'].astype(float).mean()
             except: media_central = 0.0
-            
             try: media_guincho = df_nps['nota_guincho'].astype(float).mean()
             except: media_guincho = 0.0
             
             cor_nps = "#2e7d32" if nps_score >= 75 else "#f57f17" if nps_score >= 50 else "#c62828"
-            
             st.markdown("---")
             c_nps1, c_nps2, c_nps3 = st.columns(3)
             c_nps1.markdown(f'<div class="metric-card" style="border: 2px solid {cor_nps};"><div style="color: #666; font-size: 16px; font-weight: bold;">Score NPS Global</div><div class="metric-value" style="color: {cor_nps}; font-size: 38px;">{nps_score:.1f}</div><div style="font-size: 12px; margin-top: 5px;">Total de {total_resp} avaliações</div></div>', unsafe_allow_html=True)
@@ -1898,7 +1599,6 @@ if st.session_state.perfil == "Admin":
             c_nps3.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px; font-weight: bold;">Média dos Guinchos (1 a 5)</div><div class="metric-value" style="color: #1976D2; font-size: 38px;">{media_guincho:.1f} ⭐</div></div>', unsafe_allow_html=True)
             
             st.markdown("### 📋 Últimas Avaliações Recebidas")
-            
             def cor_linha_nps(val):
                 if val == 'Detrator': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
                 if val == 'Promotor': return 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;'
@@ -1928,8 +1628,7 @@ if st.session_state.perfil == "Admin":
                 id_unico = f"{nome_emp}_{mes_filtro}"
                 existe = df_financeiro[df_financeiro['id'] == id_unico] if not df_financeiro.empty and 'id' in df_financeiro.columns else pd.DataFrame()
                 if existe.empty:
-                    novo_fin = pd.DataFrame([{'id': id_unico, 'mes_ano': mes_filtro, 'empresa': nome_emp, 'valor_faturado': '0.00', 'valor_pago': '0.00', 'status': 'Pendente'}])
-                    df_financeiro = pd.concat([df_financeiro, novo_fin], ignore_index=True)
+                    df_financeiro = pd.concat([df_financeiro, pd.DataFrame([{'id': id_unico, 'mes_ano': mes_filtro, 'empresa': nome_emp, 'valor_faturado': '0.00', 'valor_pago': '0.00', 'status': 'Pendente'}])], ignore_index=True)
                     alterado = True
             if alterado:
                 df_financeiro.to_csv(FILE_FINANCEIRO, index=False)
@@ -2041,19 +1740,11 @@ if st.session_state.perfil == "Admin":
             log_selecionado = st.selectbox("Selecione um registro para ver os Detalhes Completos ou Excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log[x])
             if log_selecionado != "":
                 detalhe_row = df_logs_exibicao.loc[int(log_selecionado)]
-                st.markdown(f"""
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
-                    <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
-                    <p style="margin-bottom:5px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p>
-                    <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
-                    <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos:</strong> {detalhe_row['detalhes']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;"><p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p><p style="margin-bottom:5px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p><p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p><p style="margin-bottom:5px;"><strong>📝 Detalhes Completos:</strong> {detalhe_row['detalhes']}</p></div>""", unsafe_allow_html=True)
                 if st.button("❌ Excluir este registro selecionado"):
                     with st.spinner("Removendo registro..."):
                         df_logs = df_logs.drop(int(log_selecionado))
-                        df_logs.to_csv(FILE_LOGS, index=False)
-                        salvar_no_github(FILE_LOGS)
+                        salvar_dados(df_logs, FILE_LOGS)
                         st.success("Registro removido com sucesso!"); time.sleep(1); st.rerun()
             st.write("---")
             st.dataframe(df_logs_exibicao.drop(columns=['idx_temp']), use_container_width=True)
@@ -2066,8 +1757,7 @@ if st.session_state.perfil == "Admin":
                 c1, c2 = st.columns(2)
                 if c1.button("✅ Sim, apagar tudo"):
                     df_logs_vazio = pd.DataFrame(columns=col_logs)
-                    df_logs_vazio.to_csv(FILE_LOGS, index=False)
-                    salvar_no_github(FILE_LOGS)
+                    salvar_dados(df_logs_vazio, FILE_LOGS)
                     df_logs = df_logs_vazio
                     st.session_state.confirmar_limpeza_total = False; st.rerun()
                 if c2.button("❌ Não"): st.session_state.confirmar_limpeza_total = False; st.rerun()
@@ -2105,18 +1795,14 @@ if st.session_state.perfil == "Admin":
 
 
 # ===================================================================================
-# INTERFACE 2: PARCEIROS
+# INTERFACE 2: PARCEIROS E INTERFACE 3: PRESTADORES
 # ===================================================================================
 elif st.session_state.perfil == "Parceiro":
     opcoes_parc = ["📈 Dashboard", "👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"]
     aba_atual_parc = st.query_params.get("nav", opcoes_parc[0])
     if aba_atual_parc not in opcoes_parc: aba_atual_parc = opcoes_parc[0]
-    
     aba_selecionada = st.radio("Navegação do Parceiro:", opcoes_parc, index=opcoes_parc.index(aba_atual_parc), horizontal=True, label_visibility="collapsed")
-    
-    if aba_selecionada != aba_atual_parc:
-        st.query_params["nav"] = aba_selecionada
-        st.rerun()
+    if aba_selecionada != aba_atual_parc: st.query_params["nav"] = aba_selecionada; st.rerun()
     
     if aba_selecionada == "📈 Dashboard":
         st.subheader("📈 Meu Painel de Controle - Operação")
@@ -2126,27 +1812,21 @@ elif st.session_state.perfil == "Parceiro":
         df_filtrado_p = df_clientes[df_clientes['emp_name'].str.lower() == st.session_state.empresa_vinculada.lower()]
         dados_emp_base_p0 = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         dia_v_p0 = "30"
-        if not dados_emp_base_p0.empty:
-            dia_v_p0 = str(dados_emp_base_p0.iloc[0].get('dia_vencimento', '30')).strip()
-
+        if not dados_emp_base_p0.empty: dia_v_p0 = str(dados_emp_base_p0.iloc[0].get('dia_vencimento', '30')).strip()
         mes_atual_taxa_p, ano_atual_taxa_p = obter_mes_ano_vigente(dia_v_p0)
         dados_fat_resumo = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_atual_taxa_p, ano_atual_taxa_p, df_clientes, df_os, df_empresas)
-
         st.markdown(f'<div class="info-box" style="padding:10px;">{gerar_texto_resumo_plano(dados_fat_resumo)}</div>', unsafe_allow_html=True)
         st.write("---")
         
         if "aba_part" not in st.session_state: st.session_state.aba_part = "Visualizar"
         opcoes_radio_part = ["Visualizar", "Incluir Novo", "Editar Cliente", "Excluir Cliente"]
-        idx_radio_part = opcoes_radio_part.index(st.session_state.aba_part) if st.session_state.aba_part in opcoes_radio_part else 0
-        op_part = st.radio("Ação Parceiro:", opcoes_radio_part, horizontal=True, index=idx_radio_part)
+        op_part = st.radio("Ação Parceiro:", opcoes_radio_part, horizontal=True, index=opcoes_radio_part.index(st.session_state.aba_part) if st.session_state.aba_part in opcoes_radio_part else 0)
         st.session_state.aba_part = op_part
         
         if op_part == "Visualizar":
             busca_cli_part = st.text_input("🔍 Buscar Cliente (Nome, Placa ou CPF):")
             df_view_cli_part = df_filtrado_p.copy()
-            if busca_cli_part:
-                df_view_cli_part = df_view_cli_part[df_view_cli_part['nome'].str.contains(busca_cli_part, case=False, na=False) | df_view_cli_part['pla'].str.contains(busca_cli_part, case=False, na=False) | df_view_cli_part['cpf'].str.contains(busca_cli_part, case=False, na=False) | df_view_cli_part['veiculos_lista'].str.lower().str.contains(busca_cli_part.lower(), na=False)]
-            
+            if busca_cli_part: df_view_cli_part = df_view_cli_part[df_view_cli_part['nome'].str.contains(busca_cli_part, case=False, na=False) | df_view_cli_part['pla'].str.contains(busca_cli_part, case=False, na=False) | df_view_cli_part['cpf'].str.contains(busca_cli_part, case=False, na=False) | df_view_cli_part['veiculos_lista'].str.lower().str.contains(busca_cli_part.lower(), na=False)]
             if df_view_cli_part.empty: st.info("Nenhum cliente encontrado.")
             else: 
                 def formatar_historico_p(c_id):
@@ -2157,11 +1837,8 @@ elif st.session_state.perfil == "Parceiro":
                     if os_cli.empty: return "Nenhum Serviço Solicitado"
                     res = []
                     for _, r in os_cli.iterrows():
-                        try:
-                            d = datetime.strptime(str(r['data_hora']), "%Y-%m-%d %H:%M:%S")
-                            d_str = d.strftime("%d/%m/%Y")
-                        except: d_str = str(r['data_hora'])[:10]
-                        res.append(f"{r['tipo_servico']} ({d_str})")
+                        try: res.append(f"{r['tipo_servico']} ({datetime.strptime(str(r['data_hora']), '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%Y')})")
+                        except: res.append(f"{r['tipo_servico']} ({str(r['data_hora'])[:10]})")
                     return " | ".join(res)
                 
                 df_view_cli_part['Histórico'] = df_view_cli_part['id'].apply(formatar_historico_p)
@@ -2169,10 +1846,8 @@ elif st.session_state.perfil == "Parceiro":
                 st.markdown("---")
                 
                 if "sel_det_part" not in st.session_state: st.session_state.sel_det_part = ""
-                widget_key_part = "sb_det_part_wid"
                 cli_opcoes_part = [""] + df_view_cli_part['nome'].tolist()
-                idx_sel_part = cli_opcoes_part.index(st.session_state.sel_det_part) if st.session_state.sel_det_part in cli_opcoes_part else 0
-                cli_sel_part = st.selectbox("🔍 Selecione um cliente para ver a Ficha Completa:", cli_opcoes_part, index=idx_sel_part, key=widget_key_part)
+                cli_sel_part = st.selectbox("🔍 Selecione um cliente para ver a Ficha Completa:", cli_opcoes_part, index=cli_opcoes_part.index(st.session_state.sel_det_part) if st.session_state.sel_det_part in cli_opcoes_part else 0, key="sb_det_part_wid")
                 st.session_state.sel_det_part = cli_sel_part
                 
                 if cli_sel_part != "":
@@ -2203,23 +1878,16 @@ elif st.session_state.perfil == "Parceiro":
                         if pd.notna(cli_data_p.get('pla')) and str(cli_data_p['pla']).strip(): lista_frota_ficha.append(str(cli_data_p['pla']).upper().strip())
                         if pd.notna(cli_data_p.get('pla_2')) and str(cli_data_p['pla_2']).strip(): lista_frota_ficha.append(str(cli_data_p['pla_2']).upper().strip())
                     
-                    if not lista_frota_ficha:
-                        st.warning("Nenhum veículo válido cadastrado para exibir saldos.")
+                    if not lista_frota_ficha: st.warning("Nenhum veículo válido cadastrado para exibir saldos.")
                     else:
                         placa_sel_ficha = st.selectbox("🚗 Selecione a Placa para ver o Saldo Operacional no Ano:", lista_frota_ficha, key=f"sel_placa_part_{cli_sel_part}")
                         st.write(f"**📊 Saldo de Limites da Placa {placa_sel_ficha} no Ano de Contrato ({inicio_cli.strftime('%d/%m/%Y')} a {fim_cli.strftime('%d/%m/%Y')}):**")
-                        
                         uso_atual_f = {"GUINCHO": 0, "PANE SECA": 0, "PANE ELÉTRICA": 0, "BORRACHEIRO": 0, "CHAVEIRO": 0}
                         if not df_os.empty:
                             df_os_copy = df_os.copy()
                             df_os_copy['data_hora'] = pd.to_datetime(df_os_copy['data_hora'], errors='coerce')
                             placa_limpa_f = apenas_numeros_letras(placa_sel_ficha).upper()
-                            os_placa_f = df_os_copy[
-                                (df_os_copy['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa_f) & 
-                                (~df_os_copy['status_os'].str.upper().isin(['CANCELADO'])) &
-                                (df_os_copy['data_hora'] >= inicio_cli) &
-                                (df_os_copy['data_hora'] <= fim_cli)
-                            ]
+                            os_placa_f = df_os_copy[(df_os_copy['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_limpa_f) & (~df_os_copy['status_os'].str.upper().isin(['CANCELADO'])) & (df_os_copy['data_hora'] >= inicio_cli) & (df_os_copy['data_hora'] <= fim_cli)]
                             for _, o in os_placa_f.iterrows():
                                 serv_f = str(o['tipo_servico']).upper()
                                 if "GUINCHO" in serv_f: uso_atual_f["GUINCHO"] += 1
@@ -2244,9 +1912,7 @@ elif st.session_state.perfil == "Parceiro":
                         else: st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                             
                     if st.button("❌ Fechar Ficha do Cliente", key="btn_close_part"):
-                        st.session_state.sel_det_part = ""
-                        if widget_key_part in st.session_state: del st.session_state[widget_key_part]
-                        st.rerun()
+                        st.session_state.sel_det_part = ""; st.rerun()
         
         elif op_part == "Incluir Novo":
             c1, c2 = st.columns(2)
@@ -2262,21 +1928,17 @@ elif st.session_state.perfil == "Parceiro":
             st.session_state.part_inc_cid = p_cid_in
             p_cep_in = c2.text_input("CEP:", value=st.session_state.get("part_inc_cep", ""))
             st.session_state.part_inc_cep = p_cep_in
-            
             cad_data = c1.date_input("Data de Cadastro (Início do Contrato):", value=datetime.now())
-            
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa)**")
             frota_editada_p = st.data_editor(pd.DataFrame([{"Modelo/Ano": "", "Placa": ""}]), num_rows="dynamic", use_container_width=True)
             st.write("---")
-            
             col_pb1, col_pb2, col_pb3 = st.columns(3)
             uf_padrao_parceiro = "RN"
             if not df_empresas.empty:
                 emp_dados = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
                 if not emp_dados.empty: uf_padrao_parceiro = str(emp_dados.iloc[0].get('est', 'RN')).upper()
             idx_uf_parceiro = ESTADOS_BR.index(uf_padrao_parceiro) if uf_padrao_parceiro in ESTADOS_BR else ESTADOS_BR.index("RN")
-
             p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_uf_parceiro)
             p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=PLANOS_KM, index=0)
             p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=0)
@@ -2288,7 +1950,6 @@ elif st.session_state.perfil == "Parceiro":
                 frota_json_str_p = json.dumps(frota_limpa_p.to_dict('records'))
                 vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                 pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
-                
                 if not p_nome_in or not pla_prin_p: st.error("Nome e ao menos 1 Placa são obrigatórios.")
                 else:
                     with st.spinner("Salvando novo registro e sincronizando com a nuvem..."):
@@ -2302,8 +1963,7 @@ elif st.session_state.perfil == "Parceiro":
                             st.success("✅ Registro salvo com sucesso!")
                             for k in ["part_inc_nome", "part_inc_cpf", "part_inc_tel", "part_inc_end", "part_inc_cid", "part_inc_cep"]: st.session_state[k] = ""
                             st.session_state.aba_part = "Visualizar"; time.sleep(1); st.rerun()
-                        else:
-                            st.error("⚠️ Atenção: Instabilidade na Conexão com a Nuvem.")
+                        else: st.error("⚠️ Atenção: Instabilidade na Conexão com a Nuvem.")
 
         elif op_part == "Editar Cliente":
             if df_filtrado_p.empty: st.warning("Nenhum cliente cadastrado para editar.")
@@ -2319,11 +1979,9 @@ elif st.session_state.perfil == "Parceiro":
                     p_end_in = c2.text_input("Endereço Completo:", value=dados_part_ant.get('endereco', ''))
                     p_cid_in = c1.text_input("Cidade:", value=dados_part_ant.get('cidade', ''))
                     p_cep_in = c2.text_input("CEP:", value=dados_part_ant.get('cep', ''))
-                    
                     try: val_data_cad = datetime.strptime(str(dados_part_ant.get('data_cadastro', ''))[:10], "%Y-%m-%d").date()
                     except: val_data_cad = datetime.now().date()
                     cad_data = c1.date_input("Data de Cadastro (Início do Contrato):", value=val_data_cad)
-                    
                     st.write("---")
                     st.write("🚗 **Frota do Cliente**")
                     frota_inicial_p = []
@@ -2336,7 +1994,6 @@ elif st.session_state.perfil == "Parceiro":
                     if not frota_inicial_p: frota_inicial_p = [{"Modelo/Ano": "", "Placa": ""}]
                     frota_editada_p = st.data_editor(pd.DataFrame(frota_inicial_p), num_rows="dynamic", use_container_width=True)
                     st.write("---")
-                    
                     col_pb1, col_pb2, col_pb3 = st.columns(3)
                     idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if str(dados_part_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part)
@@ -2360,8 +2017,7 @@ elif st.session_state.perfil == "Parceiro":
                                 if sucesso:
                                     registrar_atividade(st.session_state.user, "EDIÇÃO CLIENTE PARCEIRO", f"Editou o cliente {p_nome_in.upper()}")
                                     st.success("✅ Registro atualizado com sucesso!"); st.session_state.aba_part = "Visualizar"; time.sleep(1); st.rerun()
-                                else:
-                                    st.error("⚠️ Atenção: Falha de comunicação com a nuvem.")
+                                else: st.error("⚠️ Atenção: Falha de comunicação com a nuvem.")
 
         elif op_part == "Excluir Cliente":
             if df_filtrado_p.empty: st.warning("Nenhum cliente cadastrado.")
@@ -2379,7 +2035,6 @@ elif st.session_state.perfil == "Parceiro":
                             with st.spinner("Excluindo registro..."):
                                 cli_p_apagado = df_clientes[df_clientes['id'].astype(str) == part_target_del].iloc[0]
                                 detalhes_del_p = f"Apagou o cliente -> ID: {part_target_del} | Nome: {cli_p_apagado['nome']} | CPF: {cli_p_apagado.get('cpf','')} | Placa Principal: {cli_p_apagado.get('pla','')}"
-                                
                                 df_clientes = df_clientes[df_clientes['id'].astype(str) != part_target_del]
                                 sucesso, erro = salvar_dados(df_clientes, FILE_CLIENTES)
                                 if sucesso:
@@ -2396,12 +2051,9 @@ elif st.session_state.perfil == "Parceiro":
     elif aba_selecionada == "💰 Meu Financeiro":
         st.subheader("💰 Gestão Financeira (Meu Faturamento)")
         st.write("Confira as faturas, o status dos pagamentos e o extrato detalhado da sua empresa.")
-        
         dados_emp_base_p = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         modo_fat_p = "Tradicional"
-        if not dados_emp_base_p.empty:
-            modo_fat_p = str(dados_emp_base_p.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
-
+        if not dados_emp_base_p.empty: modo_fat_p = str(dados_emp_base_p.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
         opcoes_meses_p = get_ultimos_3_meses()
         escolha_mes_p = st.selectbox("Mês de Referência:", opcoes_meses_p + ["Outro (Buscar por data)"], key="mes_parc")
         if escolha_mes_p == "Outro (Buscar por data)":
@@ -2410,29 +2062,21 @@ elif st.session_state.perfil == "Parceiro":
         else: mes_filtro_p = escolha_mes_p
             
         df_fin_parc = df_financeiro[(df_financeiro['mes_ano'] == mes_filtro_p) & (df_financeiro['empresa'].str.upper() == st.session_state.empresa_vinculada.upper())]
-        
-        if df_fin_parc.empty:
-            st.info("Nenhum faturamento gerado ou disponível para visualização neste ciclo ainda.")
+        if df_fin_parc.empty: st.info("Nenhum faturamento gerado ou disponível para visualização neste ciclo ainda.")
         else:
             row_fin = df_fin_parc.iloc[0]
-            v_fat = str(row_fin.get('valor_faturado', '0.00'))
-            v_pag = str(row_fin.get('valor_pago', '0.00'))
-            status_f = str(row_fin.get('status', 'Pendente')).strip()
-                
+            v_fat, v_pag, status_f = str(row_fin.get('valor_faturado', '0.00')), str(row_fin.get('valor_pago', '0.00')), str(row_fin.get('status', 'Pendente')).strip()
             st.markdown("---")
             c_f1, c_f2, c_f3 = st.columns(3)
             c_f1.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Sua Fatura Total</div><div class="metric-value" style="color: #1976D2;">R$ {v_fat}</div></div>', unsafe_allow_html=True)
             c_f2.markdown(f'<div class="metric-card"><div style="color: #666; font-size: 16px;">Valor que Consta como Pago</div><div class="metric-value val-pago">R$ {v_pag}</div></div>', unsafe_allow_html=True)
-            
             cor_borda = "#4CAF50" if status_f == "Pago" else "#E53935" if status_f == "Atrasado" else "#f57f17"
             bg_cor = "#e8f5e9" if status_f == "Pago" else "#ffebee" if status_f == "Atrasado" else "#fff8e1"
             c_f3.markdown(f'<div class="metric-card" style="border: 2px solid {cor_borda}; background-color: {bg_cor};"><div style="color: #666; font-size: 16px;">Status no Sistema Central</div><div class="metric-value" style="color: {cor_borda}; font-size: 28px;">{status_f.upper()}</div></div>', unsafe_allow_html=True)
-
             if modo_fat_p != 'Tradicional':
                 st.write("---")
                 try: mes_sp, ano_sp = mes_filtro_p.split('/')
                 except: mes_sp, ano_sp = datetime.now().month, datetime.now().year
-                
                 with st.expander("🔍 Detalhar Fatura no Aplicativo"):
                     st.markdown(f"**Empresa:** {st.session_state.empresa_vinculada.upper()} | **Período de Referência:** {mes_filtro_p}")
                     dados_det = calcular_fatura_parceiro(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas)
@@ -2445,74 +2089,43 @@ elif st.session_state.perfil == "Parceiro":
                         else: st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
                     st.write(f"- **Valor Final Calculado:** R$ {dados_det['fatura_total']:.2f}")
                     st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a auditoria com todas as placas cobradas.")
-
                 st.write("")
                 st.markdown(gerar_pdf_extrato_detalhado(st.session_state.empresa_vinculada, mes_sp, ano_sp, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
 
     elif aba_selecionada == "🕵️ Auditoria":
         st.subheader("🕵️ Auditoria e Histórico de Atividades")
         st.write("Verifique com transparência as ações realizadas no sistema que envolvem a sua empresa.")
-        
-        empresa_upper = st.session_state.empresa_vinculada.upper()
-        user_upper = st.session_state.user.upper()
-        
-        df_logs_parc = df_logs[
-            (df_logs['usuario'].str.upper() == user_upper) | 
-            (df_logs['detalhes'].str.upper().str.contains(empresa_upper, na=False))
-        ].copy()
-        
-        if df_logs_parc.empty:
-            st.info("Nenhuma atividade registrada por sua empresa ou central ainda.")
+        empresa_upper, user_upper = st.session_state.empresa_vinculada.upper(), st.session_state.user.upper()
+        df_logs_parc = df_logs[(df_logs['usuario'].str.upper() == user_upper) | (df_logs['detalhes'].str.upper().str.contains(empresa_upper, na=False))].copy()
+        if df_logs_parc.empty: st.info("Nenhuma atividade registrada por sua empresa ou central ainda.")
         else:
             df_logs_parc = df_logs_parc.sort_values(by='data_hora', ascending=False)
             busca_log_p = st.text_input("🔍 Buscar no seu registro (ex: placa, nome):")
-            if busca_log_p:
-                df_logs_parc = df_logs_parc[df_logs_parc['detalhes'].str.contains(busca_log_p, case=False, na=False) | df_logs_parc['acao'].str.contains(busca_log_p, case=False, na=False)]
-            
+            if busca_log_p: df_logs_parc = df_logs_parc[df_logs_parc['detalhes'].str.contains(busca_log_p, case=False, na=False) | df_logs_parc['acao'].str.contains(busca_log_p, case=False, na=False)]
             st.write("---")
             opcoes_log_p = {str(i): f"{r['data_hora']} - {r['acao']}" for i, r in df_logs_parc.iterrows()}
             log_sel_p = st.selectbox("Selecione um registro para ver os Detalhes Completos:", options=[""] + list(opcoes_log_p.keys()), format_func=lambda x: "Selecione para ver o detalhamento..." if x == "" else opcoes_log_p[x])
-            
             if log_sel_p != "":
                 detalhe_row = df_logs_parc.loc[int(log_sel_p)]
-                
-                st.markdown(f"""
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;">
-                    <p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
-                    <p style="margin-bottom:5px;"><strong>👤 Feito por:</strong> {detalhe_row['usuario']}</p>
-                    <p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
-                    <p style="margin-bottom:5px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
+                st.markdown(f"""<div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #7B2CBF; margin-bottom: 15px;"><p style="margin-bottom:5px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p><p style="margin-bottom:5px;"><strong>👤 Feito por:</strong> {detalhe_row['usuario']}</p><p style="margin-bottom:5px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p><p style="margin-bottom:5px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p></div>""", unsafe_allow_html=True)
             st.write("---")
             st.dataframe(df_logs_parc[['data_hora', 'acao', 'detalhes']], use_container_width=True)
 
-# ===================================================================================
-# INTERFACE 3: PRESTADOR (GUINCHO)
-# ===================================================================================
 elif st.session_state.perfil == "Prestador":
     opcoes_prest = ["🚨 Chamados Ativos", "📋 Meu Histórico"]
     aba_atual_prest = st.query_params.get("nav", opcoes_prest[0])
     if aba_atual_prest not in opcoes_prest: aba_atual_prest = opcoes_prest[0]
-    
     aba_selecionada = st.radio("Navegação do Prestador:", opcoes_prest, index=opcoes_prest.index(aba_atual_prest), horizontal=True, label_visibility="collapsed")
-    
-    if aba_selecionada != aba_atual_prest:
-        st.query_params["nav"] = aba_selecionada
-        st.rerun()
+    if aba_selecionada != aba_atual_prest: st.query_params["nav"] = aba_selecionada; st.rerun()
 
     if aba_selecionada == "🚨 Chamados Ativos":
         df_os_prest = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
         meus_chamados = df_os_prest[df_os_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
-        
-        if meus_chamados.empty:
-            st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
+        if meus_chamados.empty: st.success("🎉 Nenhuma ordem de serviço pendente para você no momento. Aguarde novos chamados.")
         else:
             for _, os_row in meus_chamados.iterrows():
                 st.markdown(f"### 🚨 Chamado Nº {os_row['id']}")
                 status_atual_prestador = str(os_row.get('status_os', '')).upper().strip()
-                
                 c1, c2 = st.columns(2)
                 c1.write(f"**Cliente:** {os_row['cliente_nome']}")
                 c1.write(f"**Serviço:** {os_row['tipo_servico']} ({os_row['motivo']})")
@@ -2521,13 +2134,10 @@ elif st.session_state.perfil == "Prestador":
                 c2.write(f"**Destino:** {os_row['destino']}")
                 c2.write(f"**Observações:** {os_row['obs']}")
                 
-                if status_atual_prestador == 'FINALIZADO PELO PRESTADOR':
-                    st.success("🏁 Você já chegou ao destino e finalizou esta OS! O veículo foi entregue. Aguardando a Central AD confirmar o encerramento do chamado no sistema.")
-                
+                if status_atual_prestador == 'FINALIZADO PELO PRESTADOR': st.success("🏁 Você já chegou ao destino e finalizou esta OS! O veículo foi entregue. Aguardando a Central AD confirmar o encerramento do chamado no sistema.")
                 elif status_atual_prestador == 'EM ROTA (VISTORIA OK)':
                     st.markdown('<div class="alert-box alert-success">✅ VISTORIA DE ENTRADA CONCLUÍDA. Veículo liberado para o transporte.</div>', unsafe_allow_html=True)
                     st.markdown('<div class="info-box">ℹ️ ATENÇÃO EXTREMA: Desloque-se até o destino. Só clique no botão abaixo para FINALIZAR a OS após chegar no local e descarregar o veículo com segurança.</div>', unsafe_allow_html=True)
-                    
                     if st.button(f"🏁 CHEGUEI E DESCARREGUEI (Finalizar OS)", key=f"btn_fin_{os_row['id']}"):
                         with st.spinner("Avisando a Central sobre a entrega..."):
                             df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'FINALIZADO PELO PRESTADOR'
@@ -2537,14 +2147,10 @@ elif st.session_state.perfil == "Prestador":
                                 st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
                                 time.sleep(2); st.rerun()
                             else: st.error(f"Erro ao avisar central: {erro}")
-                
                 else: 
                     st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
-                    
-                    # --- TRAVA DE SEGURANÇA DA PLACA ---
                     key_validada = f"placa_validada_{os_row['id']}"
                     if key_validada not in st.session_state: st.session_state[key_validada] = False
-                    
                     if not st.session_state[key_validada]:
                         st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
                         c_val1, c_val2 = st.columns([2, 2])
@@ -2553,20 +2159,16 @@ elif st.session_state.perfil == "Prestador":
                             placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
                             ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
                             digitado_limpo = apenas_numeros_letras(placa_input).upper()
-                            
                             if digitado_limpo == ultimos_3_reais and digitado_limpo != "":
                                 st.session_state[key_validada] = True
                                 registrar_atividade(st.session_state.user, "CHEGADA NO LOCAL", f"Prestador confirmou chegada na OS {os_row['id']} validando a placa ({os_row['placa']}).")
                                 st.success("✅ Veículo validado com sucesso! Horário de chegada registrado. Liberando Vistoria...")
-                                time.sleep(1.5)
-                                st.rerun()
-                            else:
-                                st.error("❌ Dígitos incorretos. Verifique a placa do veículo físico e tente novamente.")
+                                time.sleep(1.5); st.rerun()
+                            else: st.error("❌ Dígitos incorretos. Verifique a placa do veículo físico e tente novamente.")
                     else:
                         vistoria_path = os.path.join(FOLDER, "vistorias", str(os_row['id']))
                         os.makedirs(vistoria_path, exist_ok=True)
                         fotos_necessarias = ['Frente', 'Traseira', 'Lateral_Esquerda', 'Lateral_Direita', 'Placa', 'Assinatura']
-
                         if "passo_vistoria" not in st.session_state: st.session_state.passo_vistoria = 0
                         passo = st.session_state.passo_vistoria
                         nomes_exibicao = ["1. Foto da Frente", "2. Foto da Traseira", "3. Lateral Esquerda", "4. Lateral Direita", "5. Foco na Placa", "6. Assinatura Digital do Cliente"]
@@ -2575,30 +2177,34 @@ elif st.session_state.perfil == "Prestador":
                             st.markdown(f"#### 📸 Etapa Atual: {nomes_exibicao[passo]}")
                             img_capturada = st.camera_input("Tirar Foto Agora", key=f"cam_{os_row['id']}_{fotos_necessarias[passo]}")
                             if img_capturada:
-                                with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img:
-                                    f_img.write(img_capturada.getbuffer())
+                                with open(os.path.join(vistoria_path, f"{fotos_necessarias[passo]}.jpg"), "wb") as f_img: f_img.write(img_capturada.getbuffer())
                                 st.success(f"✅ Foto salva!")
                                 if st.button("Confirmar e Avançar ➡️", key=f"btn_next_{os_row['id']}_{fotos_necessarias[passo]}"):
-                                    st.session_state.passo_vistoria += 1
-                                    st.rerun()
+                                    st.session_state.passo_vistoria += 1; st.rerun()
                             if passo > 0:
-                                if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"):
-                                    st.session_state.passo_vistoria = 0; st.rerun()
-                                    
+                                if st.button("🔄 Reiniciar Fotos", key=f"btn_reset_{os_row['id']}"): st.session_state.passo_vistoria = 0; st.rerun()
                         elif passo == 5: 
                             st.markdown(f"#### ✍️ Etapa Atual: {nomes_exibicao[passo]}")
                             st.info("Peça para o cliente assinar no quadro abaixo com o dedo. (Pode virar o celular de lado para ter mais espaço).")
                             canvas_result = st_canvas(fill_color="rgba(255, 255, 255, 0.3)", stroke_width=3, stroke_color="#000000", background_color="#EEEEEE", height=250, drawing_mode="freedraw", key=f"canvas_{os_row['id']}")
-                            
                             if st.button("Salvar Assinatura e Concluir Vistoria", type="primary"):
                                 if canvas_result.image_data is not None:
                                     with st.spinner("Salvando assinatura e avisando a central..."):
-                                        img = Image.fromarray((canvas_result.image_data).astype(np.uint8))
-                                        img = img.convert("RGB") 
+                                        img = Image.fromarray((canvas_result.image_data).astype(np.uint8)).convert("RGB") 
                                         img.save(os.path.join(vistoria_path, "Assinatura.jpg"))
                                         df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
                                         salvar_dados(df_os, FILE_OS)
-                                        st.session_state.passo_vistoria = 0 
-                                        st.rerun()
+                                        st.session_state.passo_vistoria = 0; st.rerun()
                                 else: st.error("Peça ao cliente para assinar antes de salvar.")
-                            if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
+                            if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"): st.session_state.passo_vistoria = 4; st.rerun()
+
+    elif aba_selecionada == "📋 Meu Histórico":
+        st.markdown("### 📋 Histórico de Serviços Concluídos")
+        st.write("Abaixo estão todos os chamados que você já finalizou.")
+        df_hist_prest = df_os[df_os['status_os'].str.upper().isin(['ENCERRADO', 'FINALIZADO PELO PRESTADOR'])]
+        meu_historico = df_hist_prest[df_hist_prest['prestador'].str.upper().str.contains(str(st.session_state.user).upper(), na=False)]
+        if meu_historico.empty: st.info("Você ainda não possui serviços finalizados no histórico.")
+        else:
+            historico_limpo = meu_historico[['id', 'data_hora', 'cliente_nome', 'placa', 'tipo_servico', 'destino', 'status_os']].sort_values(by='id', ascending=False)
+            historico_limpo = historico_limpo.rename(columns={'id': 'OS', 'data_hora': 'Data/Hora', 'cliente_nome': 'Cliente', 'placa': 'Placa', 'tipo_servico': 'Serviço', 'destino': 'Destino', 'status_os': 'Status'})
+            st.dataframe(historico_limpo, use_container_width=True)
