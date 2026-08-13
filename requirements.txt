@@ -3,3 +3,5 @@ requests
 Pillow
 numpy
 streamlit-drawable-canvas
+streamlit
+plotly 
