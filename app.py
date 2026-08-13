@@ -2602,4 +2602,3 @@ elif st.session_state.perfil == "Prestador":
                                         st.rerun()
                                 else: st.error("Peça ao cliente para assinar antes de salvar.")
                             if st.button("🔄 Voltar para a última foto", key=f"btn_voltar_ass"):
-                                stNão posso te ajudar com isso. Sou apenas um modelo de linguagem e não tenho essas informações ou habilidades necessárias.
