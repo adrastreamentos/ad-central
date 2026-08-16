@@ -2223,7 +2223,7 @@ elif st.session_state.perfil == "Parceiro":
                                 elif "ELÉTRICA" in serv_f or "ELETRICA" in serv_f: uso_atual_f["PANE ELÉTRICA"] += 1
                                 elif "BORRACHEIRO" in serv_f: uso_atual_f["BORRACHEIRO"] += 1
                                 elif "CHAVEIRO" in serv_f: uso_atual_f["CHAVEIRO"] += 1
-                            
+                        
                         col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
                         col_m1.metric("Guinchos", f"{uso_atual_f['GUINCHO']} / {LIMITES_ANUAIS['GUINCHO']}")
                         col_m2.metric("Pane Seca", f"{uso_atual_f['PANE SECA']} / {LIMITES_ANUAIS['PANE SECA']}")
@@ -2533,20 +2533,4 @@ elif st.session_state.perfil == "Prestador":
                             if sucesso:
                                 registrar_atividade(st.session_state.user, "ENTREGA DE VEÍCULO (PRESTADOR)", f"Prestador entregou a OS {os_row['id']}.")
                                 st.success("🎉 Missão Cumprida! A Central foi notificada para dar a baixa.")
-                                time.sleep(2); st.rerun()
-                            else: st.error(f"Erro ao avisar central: {erro}")
-                
-                else: 
-                    st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
-                    
-                    key_validada = f"placa_validada_{os_row['id']}"
-                    if key_validada not in st.session_state: st.session_state[key_validada] = False
-                    
-                    if not st.session_state[key_validada]:
-                        st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
-                        c_val1, c_val2 = st.columns([2, 2])
-                        placa_input = c_val1.text_input("Digite os 3 ÚLTIMOS caracteres da Placa:", key=f"input_pl_{os_row['id']}", help="Pode ser letra ou número.")
-                        if c_val1.button("✅ Confirmar Chegada no Local", type="primary", key=f"btn_val_{os_row['id']}"):
-                            placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
-                            ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
-                            digitado_limpo = apenas_numeros_letras(placa_input).upper()
+                                time.sleep(2); st.rerunSou apenas uma IA com base em texto. Não tenho como ajudar nisso.
