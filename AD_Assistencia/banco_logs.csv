@@ -102,3 +102,4 @@ data_hora,usuario,acao,detalhes
 2026-08-16 19:25:32,TESTE,ENTREGA DE VEÍCULO (PRESTADOR),Prestador entregou a OS 4.
 2026-08-16 19:25:45,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 4
 2026-08-16 19:30:59,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 5 para a placa RQL8B81
+2026-08-16 19:54:47,AD Rastreamento Veicular (ADMIN),ENCERRAMENTO OS,Finalizou o chamado 5
