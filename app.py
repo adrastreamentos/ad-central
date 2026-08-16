@@ -111,7 +111,7 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
                 <p><strong>Tipo de Serviço:</strong> {r['tipo_servico']} ({r.get('motivo','N/D')})</p>
                 <p><strong>Origem (Localização):</strong> {r.get('localizacao','N/D')}</p>
                 <p><strong>Destino:</strong> {r.get('destino','N/D')}</p>
-                <p><strong>Observações:</strong> {r.get('obs','N/D')}</p>
+                <p><strong>Observações:</strong> {r.get('obs','Nenhuma')}</p>
                 <p><strong>Prestador Acionado:</strong> {r['prestador']}</p>
             </div>
             <br>
@@ -912,7 +912,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v11.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.0</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -1250,10 +1250,27 @@ if st.session_state.perfil == "Admin":
             st.write(f"**Origem:** {row_os['localizacao']} | **Destino:** {row_os['destino']}")
             st.write(f"**Prestador Acionado:** {prestador_info}")
             
+            obs_val = str(row_os.get('obs', ''))
+            if obs_val.strip() == "" or obs_val.lower() == "nan": obs_val = "Nenhuma"
+            st.write(f"**Observações Extras:** {obs_val}")
+            
             link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
             texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
             
-            texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}")
+            texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n"
+                              f"-----------------------------------------\n"
+                              f"*Chamado Nº:* {row_os['id']}\n"
+                              f"*Data/Hora:* {row_os['data_hora']}\n"
+                              f"*Plano KM:* {row_os.get('plano_km', 'N/D')}\n"
+                              f"*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n"
+                              f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
+                              f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
+                              f"*Telefone do Cliente:* {tel_cliente_os}\n\n"
+                              f"*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n"
+                              f"*Origem:* {row_os['localizacao']}\n"
+                              f"*Destino:* {row_os['destino']}\n\n"
+                              f"*Obs:* {obs_val}")
+            
             link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
             link_w_cli_nps = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(tel_cliente_os)}&text={urllib.parse.quote(texto_w_nps)}"
             
@@ -1488,7 +1505,7 @@ if st.session_state.perfil == "Admin":
                 if st.button("Iniciar Importação e Salvar no GitHub"):
                     st.info("Atenção: A função de importação necessita da biblioteca pandas.")
         elif opcao_cli == "Editar":
-            if df_clientes.empty: st.warning("Nenhum cliente cadastrado.")
+            if df_clientes.empty: st.warning("Nenhuma cliente cadastrado.")
             else:
                 opcoes_cli = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_clientes.iterrows()}
                 c_target = st.selectbox("🔎 Digite para achar o cliente (Nome, CPF ou Empresa):", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x])
@@ -2131,7 +2148,7 @@ elif st.session_state.perfil == "Parceiro":
                     c1.write(f"**CPF:** {cli_data_p['cpf']}")
                     c1.write(f"**Telefone:** {cli_data_p['tel']}")
                     c1.write(f"**Plano Contratado:** {cli_data_p.get('plano_km', 'N/D')}")
-                    c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
+                    c2.write(f"**Endereço:** {cli_data_p.get('endereco', 'N/D')} - {cli_data_p.get('cidade', 'N/D')}/{cli_data_p.get('est', 'N/D')}")
                     c2.write(f"**Status:** {'🟢 Ativo' if cli_data_p['status'] == 'Ativo' else '🔴 Inativo'}")
                     c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
                     st.write("**🚗 Frota Cadastrada:**")
