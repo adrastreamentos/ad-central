@@ -2541,10 +2541,10 @@ elif st.session_state.perfil == "Prestador":
                     st.info("Por favor, tire as fotos de todos os ângulos do veículo antes de carregá-lo no guincho.")
                     
                     col_f1, col_f2 = st.columns(2)
-                    foto_frente = col_f1.camera_input("Foto da Frente", key=f"cam_frente_{os_row['id']}", facing_mode="environment")
-                    foto_traseira = col_f2.camera_input("Foto da Traseira", key=f"cam_tras_{os_row['id']}", facing_mode="environment")
-                    foto_lat_esq = col_f1.camera_input("Lateral Esquerda", key=f"cam_esq_{os_row['id']}", facing_mode="environment")
-                    foto_lat_dir = col_f2.camera_input("Lateral Direita", key=f"cam_dir_{os_row['id']}", facing_mode="environment")
+                    foto_frente = col_f1.camera_input("Foto da Frente", key=f"cam_frente_{os_row['id']}")
+                    foto_traseira = col_f2.camera_input("Foto da Traseira", key=f"cam_tras_{os_row['id']}")
+                    foto_lat_esq = col_f1.camera_input("Lateral Esquerda", key=f"cam_esq_{os_row['id']}")
+                    foto_lat_dir = col_f2.camera_input("Lateral Direita", key=f"cam_dir_{os_row['id']}")
                     
                     st.markdown("<b>Assinatura do Cliente / Responsável:</b>", unsafe_allow_html=True)
                     assinatura = st_canvas(
