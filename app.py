@@ -2484,7 +2484,8 @@ elif st.session_state.perfil == "Parceiro":
                 
             st.write("---")
             st.dataframe(df_logs_parc[['data_hora', 'acao', 'detalhes']], use_container_width=True)
-            # ===================================================================================
+
+# ===================================================================================
 # INTERFACE 3: PRESTADOR (GUINCHO)
 # ===================================================================================
 elif st.session_state.perfil == "Prestador":
@@ -2536,59 +2537,34 @@ elif st.session_state.perfil == "Prestador":
                             else: st.error(f"Erro ao avisar central: {erro}")
                 
                 else: 
-                    st.markdown('<div class="alert-box alert-danger">⚠️ AÇÃO OBRIGATÓRIA: Realize a Vistoria de Entrada ANTES de carregar o veículo no guincho. O botão de finalizar está bloqueado.</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="section-title" style="margin-top: 20px;">📸 Vistoria Digital Obrigatória</div>', unsafe_allow_html=True)
+                    st.info("Por favor, tire as fotos de todos os ângulos do veículo antes de carregá-lo no guincho.")
                     
-                    key_validada = f"placa_validada_{os_row['id']}"
-                    if key_validada not in st.session_state: st.session_state[key_validada] = False
+                    col_f1, col_f2 = st.columns(2)
+                    foto_frente = col_f1.camera_input("Foto da Frente", key=f"cam_frente_{os_row['id']}", facing_mode="environment")
+                    foto_traseira = col_f2.camera_input("Foto da Traseira", key=f"cam_tras_{os_row['id']}", facing_mode="environment")
+                    foto_lat_esq = col_f1.camera_input("Lateral Esquerda", key=f"cam_esq_{os_row['id']}", facing_mode="environment")
+                    foto_lat_dir = col_f2.camera_input("Lateral Direita", key=f"cam_dir_{os_row['id']}", facing_mode="environment")
                     
-                    if not st.session_state[key_validada]:
-                        st.markdown('<div class="info-box" style="background-color: #fff3e0; border-color: #ff9800; color: #e65100;">📍 <b>Validação de Segurança de Chegada:</b><br>Para confirmar que você localizou o veículo correto e registrar seu horário de chegada, informe a placa abaixo.</div>', unsafe_allow_html=True)
-                        c_val1, c_val2 = st.columns([2, 2])
-                        placa_input = c_val1.text_input("Digite os 3 ÚLTIMOS caracteres da Placa:", key=f"input_pl_{os_row['id']}", help="Pode ser letra ou número.")
-                        
-                        if c_val1.button("✅ Confirmar Chegada no Local", type="primary", key=f"btn_val_{os_row['id']}"):
-                            placa_real_limpa = apenas_numeros_letras(os_row['placa']).upper()
-                            ultimos_3_reais = placa_real_limpa[-3:] if len(placa_real_limpa) >= 3 else placa_real_limpa
-                            digitado_limpo = apenas_numeros_letras(placa_input).upper()
+                    st.markdown("<b>Assinatura do Cliente / Responsável:</b>", unsafe_allow_html=True)
+                    assinatura = st_canvas(
+                        stroke_width=2, stroke_color="#000", background_color="#eee",
+                        height=150, width=400, drawing_mode="freedraw", key=f"canvas_{os_row['id']}"
+                    )
+                    
+                    st.write("---")
+                    if st.button("🚀 Enviar Vistoria e Iniciar Atendimento", type="primary", use_container_width=True, key=f"btn_iniciar_rota_{os_row['id']}"):
+                        with st.spinner("Salvando vistoria e atualizando status da OS..."):
+                            df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
                             
-                            # VALIDAÇÃO CORRIGIDA
-                            if digitado_limpo == ultimos_3_reais:
-                                st.session_state[key_validada] = True
-                                st.success("✅ Veículo localizado com sucesso! Carregando vistoria...")
-                                time.sleep(1.5)
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "VISTORIA OK", f"Prestador iniciou o atendimento da OS {os_row['id']}")
+                                st.success("✅ Vistoria enviada com sucesso! Inicie o deslocamento/atendimento.")
+                                time.sleep(2)
                                 st.rerun()
                             else:
-                                st.error("⚠️ Os caracteres digitados não conferem com a placa do chamado. Tente novamente.")
-                    
-                    else:
-                        st.markdown('<div class="section-title" style="margin-top: 20px;">📸 Vistoria Digital Obrigatória</div>', unsafe_allow_html=True)
-                        st.info("Por favor, tire as fotos de todos os ângulos do veículo antes de carregá-lo no guincho.")
-                        
-                        col_f1, col_f2 = st.columns(2)
-                        foto_frente = col_f1.camera_input("Foto da Frente", key=f"cam_frente_{os_row['id']}")
-                        foto_traseira = col_f2.camera_input("Foto da Traseira", key=f"cam_tras_{os_row['id']}")
-                        foto_lat_esq = col_f1.camera_input("Lateral Esquerda", key=f"cam_esq_{os_row['id']}")
-                        foto_lat_dir = col_f2.camera_input("Lateral Direita", key=f"cam_dir_{os_row['id']}")
-                        
-                        st.markdown("<b>Assinatura do Cliente / Responsável:</b>", unsafe_allow_html=True)
-                        assinatura = st_canvas(
-                            stroke_width=2, stroke_color="#000", background_color="#eee",
-                            height=150, width=400, drawing_mode="freedraw", key=f"canvas_{os_row['id']}"
-                        )
-                        
-                        st.write("---")
-                        if st.button("🚀 Enviar Vistoria e Iniciar Rota", type="primary", use_container_width=True, key=f"btn_iniciar_rota_{os_row['id']}"):
-                            with st.spinner("Salvando vistoria e atualizando status da OS..."):
-                                df_os.loc[df_os['id'] == os_row['id'], 'status_os'] = 'EM ROTA (VISTORIA OK)'
-                                sucesso, erro = salvar_dados(df_os, FILE_OS)
-                                
-                                if sucesso:
-                                    registrar_atividade(st.session_state.user, "VISTORIA OK", f"Prestador coletou o veículo da OS {os_row['id']}")
-                                    st.success("✅ Vistoria enviada com sucesso! Dirija com segurança até o destino.")
-                                    time.sleep(2)
-                                    st.rerun()
-                                else:
-                                    st.error(f"Erro ao salvar: {erro}")
+                                st.error(f"Erro ao salvar: {erro}")
 
     elif aba_selecionada == "📋 Meu Histórico":
         st.markdown('<div class="section-title">📋 Meu Histórico de Serviços</div>', unsafe_allow_html=True)
