@@ -912,7 +912,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v10.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v11.0</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -955,7 +955,7 @@ st.write("---")
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
-    opcoes_admin = ["📈 Dashboard", "📋 Nova OS", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
+    opcoes_admin = ["📈 Dashboard", "📋 Nova OS", "🚨 Pendências", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
     
     aba_atual_admin = st.query_params.get("nav", opcoes_admin[0])
     if aba_atual_admin not in opcoes_admin: aba_atual_admin = opcoes_admin[0]
@@ -1220,9 +1220,49 @@ if st.session_state.perfil == "Admin":
                             time.sleep(1.5); st.rerun()
                         else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
 
+    elif aba_selecionada == "🚨 Pendências":
+        st.markdown('<div class="section-title">🚨 Painel de Pendências (OS em Andamento)</div>', unsafe_allow_html=True)
+        df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
+        if df_abertas.empty: st.success("Nenhum chamado pendente no momento! 🎉")
+        else:
+            lista_abertas = [f"OS Nº: {r['id']} | Status: {r['status_os']} | Placa: {r.get('placa','N/D')}" for _, r in df_abertas.iterrows()]
+            os_sel_str = st.selectbox("Selecione o chamado para Gerenciar / Dar Baixa:", lista_abertas)
+            os_id_alvo = os_sel_str.split("|")[0].replace("OS Nº:", "").strip()
+            row_os = df_abertas[df_abertas['id'].astype(str) == os_id_alvo].iloc[0]
+            status_dessa_os = str(row_os['status_os']).upper()
+            prestador_info = str(row_os['prestador'])
+            tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
+            cli_id_os = str(row_os['cliente_id'])
+            df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
+            tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
+            
+            st.write(f"**Cliente:** {row_os['cliente_nome']} | **Veículo:** {row_os.get('veiculo_desc', '')} - {row_os.get('placa', '')}")
+            st.write(f"**Origem:** {row_os['localizacao']} | **Destino:** {row_os['destino']}")
+            st.write(f"**Prestador Acionado:** {prestador_info}")
+            
+            link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
+            texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
+            
+            texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}")
+            link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
+            link_w_cli_nps = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(tel_cliente_os)}&text={urllib.parse.quote(texto_w_nps)}"
+            
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📲 1. Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
+            with col_btn2:
+                if st.button("🔒 2. Encerrar OS no Sistema", key="btn_encerrar_os_adm"):
+                    with st.spinner("Encerrando OS..."):
+                        df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
+                        sucesso, erro = salvar_dados(df_os, FILE_OS)
+                        if sucesso:
+                            registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
+                            st.success(f"🎉 Chamado Nº {os_id_alvo} Encerrado com sucesso!")
+                            st.markdown(f'<a href="{link_w_cli_nps}" target="_blank"><button style="background-color: #1E88E5; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 13px;">⭐ 3. Disparar Pesquisa de Satisfação (NPS) para o Cliente</button></a>', unsafe_allow_html=True)
+                        else: st.error(f"Erro na nuvem: {erro}")
+
     elif aba_selecionada == "📊 Relatórios & PDF":
         st.markdown('<div class="section-title">📊 Chamados e Relatórios</div>', unsafe_allow_html=True)
-        os_id_edit = st.text_input("Digite o ID da OS:")
+        os_id_edit = st.text_input("Digite o ID da OS para editar ou excluir:")
         if os_id_edit:
             os_encontrada = df_os[df_os['id'].astype(str) == str(os_id_edit)]
             if not os_encontrada.empty:
@@ -1263,56 +1303,24 @@ if st.session_state.perfil == "Admin":
             else: st.warning("Nenhuma OS encontrada com esse ID.")
 
         st.write("---")
-        visao_relatorio = st.radio("Escolha a Visão:", ["🚨 OS em Andamento (Gerenciar)", "✅ Histórico e Gerar PDF (Finalizadas)", "Tabela Geral"], horizontal=True)
-        if visao_relatorio == "🚨 OS em Andamento (Gerenciar)":
-            df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
-            if df_abertas.empty: st.success("Nenhum chamado pendente no momento!")
-            else:
-                lista_abertas = [f"OS Nº: {r['id']} | Status: {r['status_os']} | Placa: {r.get('placa','N/D')}" for _, r in df_abertas.iterrows()]
-                os_sel_str = st.selectbox("Selecione o chamado para Gerenciar / Dar Baixa:", lista_abertas)
-                os_id_alvo = os_sel_str.split("|")[0].replace("OS Nº:", "").strip()
-                row_os = df_abertas[df_abertas['id'].astype(str) == os_id_alvo].iloc[0]
-                status_dessa_os = str(row_os['status_os']).upper()
-                prestador_info = str(row_os['prestador'])
-                tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
-                cli_id_os = str(row_os['cliente_id'])
-                df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
-                tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
-                
-                link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
-                texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
-                
-                texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n-----------------------------------------\n*Chamado Nº:* {row_os['id']}\n*Data/Hora:* {row_os['data_hora']}\n*Plano KM:* {row_os.get('plano_km', 'N/D')}\n*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n*Cliente:* {str(row_os['cliente_nome']).upper()}\n*Telefone do Cliente:* {tel_cliente_os}\n\n*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n*Origem:* {row_os['localizacao']}\n*Destino:* {row_os['destino']}\n\n*Obs:* {row_os['obs']}")
-                link_w = f"https://api.whatsapp.com/send?phone=55{tel_prestador_final}&text={urllib.parse.quote(texto_whatsapp)}"
-                link_w_cli_nps = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(tel_cliente_os)}&text={urllib.parse.quote(texto_w_nps)}"
-                
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1: st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📲 1. Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
-                with col_btn2:
-                    if st.button("🔒 2. Encerrar OS no Sistema", key="btn_encerrar_os_adm"):
-                        with st.spinner("Encerrando OS..."):
-                            df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
-                            sucesso, erro = salvar_dados(df_os, FILE_OS)
-                            if sucesso:
-                                registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
-                                st.success(f"🎉 Chamado Nº {os_id_alvo} Encerrado com sucesso!")
-                                st.markdown(f'<a href="{link_w_cli_nps}" target="_blank"><button style="background-color: #1E88E5; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 13px;">⭐ 3. Disparar Pesquisa de Satisfação (NPS) para o Cliente</button></a>', unsafe_allow_html=True)
-                            else: st.error(f"Erro na nuvem: {erro}")
-        elif visao_relatorio == "✅ Histórico e Gerar PDF (Finalizadas)":
-            df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
-            if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
-            else:
-                busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para encontrar o relatório:")
-                if busca_os_relatorio:
-                    df_filtrado_fechadas = df_fechadas[df_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False)]
-                    if df_filtrado_fechadas.empty: st.warning("Nenhum acionamento finalizado encontrado.")
-                    else:
-                        lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
-                        os_escolhida_str = st.selectbox("Selecione qual acionamento deseja gerar o PDF:", options=lista_os_dele)
-                        os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
-                        df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
-                        st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
-        else: st.dataframe(df_os, use_container_width=True)
+        st.markdown("##### ✅ Histórico e Gerar PDF (OS Finalizadas)")
+        df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
+        if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
+        else:
+            busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para encontrar o relatório:")
+            if busca_os_relatorio:
+                df_filtrado_fechadas = df_fechadas[df_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False)]
+                if df_filtrado_fechadas.empty: st.warning("Nenhum acionamento finalizado encontrado.")
+                else:
+                    lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
+                    os_escolhida_str = st.selectbox("Selecione qual acionamento deseja gerar o PDF:", options=lista_os_dele)
+                    os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
+                    df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
+                    st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
+        
+        st.write("---")
+        st.markdown("##### 🗃️ Tabela Geral de Chamados")
+        st.dataframe(df_os, use_container_width=True)
 
     elif aba_selecionada == "👤 Clientes":
         st.markdown('<div class="section-title">👤 Gestão de Clientes</div>', unsafe_allow_html=True)
@@ -1667,7 +1675,7 @@ if st.session_state.perfil == "Admin":
             for idx, p in pendentes.iterrows():
                 with st.expander(f"Solicitação de: {p['nome']} - {p['est']}"):
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Cidade:** {p.get('cidade','N/D')}")
-                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na rede de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nA partir de agora você receberá nossos chamados de assistência 24h diretamente por aqui.\n\nSeja bem-vindo à nossa rede!")
+                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo clicando no link direto de serviços que enviaremos a cada chamado.\n\nSeja bem-vindo à nossa rede 24h!")
                     link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
                     st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 13px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     col_h1, col_h2 = st.columns(2)
