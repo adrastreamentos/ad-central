@@ -955,11 +955,21 @@ st.write("---")
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
 if st.session_state.perfil == "Admin":
-    opcoes_admin = ["📈 Dashboard", "📋 Nova OS", "🚨 Pendências", "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
+    # Calcula a quantidade de pendências (OS que não estão Encerradas nem Canceladas)
+    qtd_pendencias = len(df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
+    aba_pendencias_nome = f"🚨 Pendências ({qtd_pendencias})"
+    
+    opcoes_admin = ["📈 Dashboard", "📋 Nova OS", aba_pendencias_nome, "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
     
     aba_atual_admin = st.query_params.get("nav", opcoes_admin[0])
-    if aba_atual_admin not in opcoes_admin: aba_atual_admin = opcoes_admin[0]
     
+    # Tratamento caso o número de pendências mude entre um clique e outro e a aba "suma" da lista
+    if aba_atual_admin not in opcoes_admin: 
+        if "Pendências" in aba_atual_admin:
+            aba_atual_admin = aba_pendencias_nome
+        else:
+            aba_atual_admin = opcoes_admin[0]
+            
     aba_selecionada = st.radio("Navegação Principal:", opcoes_admin, index=opcoes_admin.index(aba_atual_admin), horizontal=True, label_visibility="collapsed")
     
     if aba_selecionada != aba_atual_admin:
@@ -1220,8 +1230,8 @@ if st.session_state.perfil == "Admin":
                             time.sleep(1.5); st.rerun()
                         else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
 
-    elif aba_selecionada == "🚨 Pendências":
-        st.markdown('<div class="section-title">🚨 Painel de Pendências (OS em Andamento)</div>', unsafe_allow_html=True)
+    elif aba_selecionada == aba_pendencias_nome:
+        st.markdown(f'<div class="section-title">{aba_pendencias_nome} (OS em Andamento)</div>', unsafe_allow_html=True)
         df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
         if df_abertas.empty: st.success("Nenhum chamado pendente no momento! 🎉")
         else:
@@ -1675,7 +1685,7 @@ if st.session_state.perfil == "Admin":
             for idx, p in pendentes.iterrows():
                 with st.expander(f"Solicitação de: {p['nome']} - {p['est']}"):
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Cidade:** {p.get('cidade','N/D')}")
-                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na plataforma de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nVocê já pode acessar o seu painel exclusivo clicando no link direto de serviços que enviaremos a cada chamado.\n\nSeja bem-vindo à nossa rede 24h!")
+                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na rede de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nA partir de agora você receberá nossos chamados de assistência 24h diretamente por aqui.\n\nSeja bem-vindo à nossa rede!")
                     link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
                     st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 13px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     col_h1, col_h2 = st.columns(2)
@@ -2121,7 +2131,7 @@ elif st.session_state.perfil == "Parceiro":
                     c1.write(f"**CPF:** {cli_data_p['cpf']}")
                     c1.write(f"**Telefone:** {cli_data_p['tel']}")
                     c1.write(f"**Plano Contratado:** {cli_data_p.get('plano_km', 'N/D')}")
-                    c2.write(f"**Endereço:** {cli_data_p.get('endereco', 'N/D')} - {cli_data_p.get('cidade', 'N/D')}/{cli_data_p.get('est', 'N/D')}")
+                    c2.write(f"**Endereço:** {cli_data.get('endereco', 'N/D')} - {cli_data.get('cidade', 'N/D')}/{cli_data.get('est', 'N/D')}")
                     c2.write(f"**Status:** {'🟢 Ativo' if cli_data_p['status'] == 'Ativo' else '🔴 Inativo'}")
                     c2.write(f"**Data de Cadastro:** {dt_cad_cliente}")
                     st.write("**🚗 Frota Cadastrada:**")
