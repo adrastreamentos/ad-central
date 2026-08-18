@@ -160,7 +160,7 @@ def carregar_dados(caminho, col_obr):
 def registrar_atividade(usuario, acao, detalhes):
     global df_logs
     novo_log = pd.DataFrame([{'data_hora': obter_hora_str(), 'usuario': usuario, 'acao': acao, 'detalhes': detalhes}])
-    df_logs = pd.concat([df_logs, ignore_index=True)
+    df_logs = pd.concat([df_logs, novo_log], ignore_index=True)
     df_logs.to_csv(FILE_LOGS, index=False)
     salvar_no_github(FILE_LOGS)
 
@@ -1132,6 +1132,7 @@ if st.session_state.perfil == "Admin":
 
         if pronto_para_prosseguir:
             st.write("---")
+            # --- SEÇÃO MOVIDA PARA CIMA PARA MELHORAR A BUSCA DE GUINCHOS (INTELIGÊNCIA CEP/BAIRRO) ---
             st.markdown('<div class="section-title">📍 Endereço da Ocorrência e Destino</div>', unsafe_allow_html=True)
             st.info("Caso o cliente não saiba explicar onde está, use o botão verde abaixo para enviar o link de captura de GPS. Quando ele clicar, o endereço de origem será preenchido sozinho.")
             link_captura = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente&placa={placa_alvo}"
@@ -1187,6 +1188,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.os_obs_val = obs
 
             st.write("---")
+            # --- LISTA DE PRESTADORES ORDENADA PELA PROXIMIDADE ---
             st.markdown('<div class="section-title">🛠️ Prestador Acionado (Inteligência de Despacho)</div>', unsafe_allow_html=True)
             
             lista_p_ops = ["Outro (Digitar Manualmente)"]
