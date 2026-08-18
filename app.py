@@ -160,7 +160,7 @@ def carregar_dados(caminho, col_obr):
 def registrar_atividade(usuario, acao, detalhes):
     global df_logs
     novo_log = pd.DataFrame([{'data_hora': obter_hora_str(), 'usuario': usuario, 'acao': acao, 'detalhes': detalhes}])
-    df_logs = pd.concat([df_logs, novo_log], ignore_index=True)
+    df_logs = pd.concat([df_logs, ignore_index=True)
     df_logs.to_csv(FILE_LOGS, index=False)
     salvar_no_github(FILE_LOGS)
 
@@ -175,7 +175,6 @@ FILE_FINANCEIRO = os.path.join(FOLDER, "banco_financeiro.csv")
 FILE_LOC = os.path.join(FOLDER, "banco_loc.csv")
 FILE_NPS = os.path.join(FOLDER, "banco_nps.csv")
 
-# === Atualizado com coluna BAIRRO para Clientes e Prestadores ===
 col_cli = ['id','nome','cpf','tel','endereco','bairro','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','bairro','cidade','cep','est','status','homologado','senha','frota']
@@ -1133,7 +1132,6 @@ if st.session_state.perfil == "Admin":
 
         if pronto_para_prosseguir:
             st.write("---")
-            # --- SEÇÃO MOVIDA PARA CIMA PARA MELHORAR A BUSCA DE GUINCHOS (INTELIGÊNCIA CEP/BAIRRO) ---
             st.markdown('<div class="section-title">📍 Endereço da Ocorrência e Destino</div>', unsafe_allow_html=True)
             st.info("Caso o cliente não saiba explicar onde está, use o botão verde abaixo para enviar o link de captura de GPS. Quando ele clicar, o endereço de origem será preenchido sozinho.")
             link_captura = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente&placa={placa_alvo}"
@@ -1189,7 +1187,6 @@ if st.session_state.perfil == "Admin":
             st.session_state.os_obs_val = obs
 
             st.write("---")
-            # --- LISTA DE PRESTADORES ORDENADA PELA PROXIMIDADE ---
             st.markdown('<div class="section-title">🛠️ Prestador Acionado (Inteligência de Despacho)</div>', unsafe_allow_html=True)
             
             lista_p_ops = ["Outro (Digitar Manualmente)"]
@@ -1478,8 +1475,11 @@ if st.session_state.perfil == "Admin":
                                     col_m3.metric("Elétrica", f"{uso_atual_f['PANE ELÉTRICA']} / {LIMITES_ANUAIS['PANE ELÉTRICA']}")
                                     col_m4.metric("Chaveiro", f"{uso_atual_f['CHAVEIRO']} / {LIMITES_ANUAIS['CHAVEIRO']}")
                                     col_m5.metric("Borracheiro", f"{uso_atual_f['BORRACHEIRO']} / {LIMITES_ANUAIS['BORRACHEIRO']}")
+                                
                                 if st.button("❌ Fechar Ficha", key=f"btn_close_{emp}"):
-                                    st.session_state[key_sel_admin] = ""; st.rerun()
+                                    st.session_state[key_sel_admin] = ""
+                                    if widget_key_admin in st.session_state: del st.session_state[widget_key_admin]
+                                    st.rerun()
 
         elif opcao_cli == "Incluir Novo":
             c1, c2, c3 = st.columns([2, 2, 1])
@@ -2109,7 +2109,9 @@ if st.session_state.perfil == "Admin":
                         registrar_atividade(st.session_state.user, "RESTAURAÇÃO BACKUP", f"Restaurou o arquivo {uploaded_file.name}")
                         st.success(f"✅ Arquivo {uploaded_file.name} restaurado no sistema e salvo na nuvem com sucesso!"); time.sleep(2); st.rerun()
                     else: st.error(f"⚠️ Arquivo restaurado apenas localmente. Falha ao enviar para o GitHub: {erro}")
-                        # ===================================================================================
+
+
+# ===================================================================================
 # INTERFACE 2: PARCEIROS
 # ===================================================================================
 elif st.session_state.perfil == "Parceiro":
