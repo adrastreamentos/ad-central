@@ -178,7 +178,7 @@ FILE_NPS = os.path.join(FOLDER, "banco_nps.csv")
 col_cli = ['id','nome','cpf','tel','endereco','bairro','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','bairro','cidade','cep','est','status','homologado','senha','frota']
-col_os = ['id','data_hora','cliente_id','cliente_nome','telefone_cli','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
+col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
 col_fin = ['id', 'mes_ano', 'empresa', 'valor_faturado', 'valor_pago', 'status']
 col_logs = ['data_hora', 'usuario', 'acao', 'detalhes']
 col_loc = ['placa', 'data_hora', 'link_maps']
@@ -1253,21 +1253,7 @@ if st.session_state.perfil == "Admin":
                 else:
                     with st.spinner("Registrando OS e sincronizando com a nuvem..."):
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
-                        nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'telefone_cli': tel_envio_link, 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
-                        df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
-                        sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
-                        if sucesso:
-                            registrar_atividade(st.session_state.user, "NOVA OS", f"Abriu chamado {nova_id} para a placa {placa_alvo}")
-                            st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
-                            for k in ["os_busca_val", "os_cli_val", "os_loc_val", "os_bairro_orig_val", "os_cidade_orig_val", "os_cep_orig_val", "os_dest_val", "os_obs_val"]: st.session_state[k] = ""
-                            time.sleep(1.5); st.rerun()
-                        else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
-                if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
-                elif not localizacao: st.error("O Endereço de Origem é obrigatório!")
-                else:
-                    with st.spinner("Registrando OS e sincronizando com a nuvem..."):
-                        nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
-                       nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'telefone_cli': tel_envio_link, 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
+                        nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
                         df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
                         sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
                         if sucesso:
@@ -1290,11 +1276,8 @@ if st.session_state.perfil == "Admin":
             prestador_info = str(row_os['prestador'])
             tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
             cli_id_os = str(row_os['cliente_id'])
-            if cli_id_os == "AVULSO":
-                tel_cliente_os = str(row_os.get('telefone_cli', ''))
-            else:
-                df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
-                tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
+            df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
+            tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
             
             st.write(f"**Cliente:** {row_os['cliente_nome']} | **Veículo:** {row_os.get('veiculo_desc', '')} - {row_os.get('placa', '')}")
             st.write(f"**Origem:** {row_os['localizacao']} | **Destino:** {row_os['destino']}")
