@@ -125,3 +125,4 @@ data_hora,usuario,acao,detalhes
 2026-08-18 20:48:39,AD Rastreamento Veicular (ADMIN),NOVO PRESTADOR,"Cadastrou prestador REGINALDO DA SILVA TORRES (Guincho, Pane Seca, Pane Elétrica, Borracheiro, Chaveiro)"
 2026-08-19 04:38:49,AD Rastreamento Veicular (ADMIN),NOVO CLIENTE,Cadastrou TESTE para a empresa AD RASTREAMENTO VEICULAR
 2026-08-19 04:39:16,AD Rastreamento Veicular (ADMIN),EXCLUSÃO CLIENTE,Apagou o cliente -> ID: 84 | Nome: TESTE | CPF: 5465 | Empresa: AD RASTREAMENTO VEICULAR
+2026-08-19 04:52:16,AD Rastreamento Veicular (ADMIN),NOVA OS,Abriu chamado 5 para a placa XXX1234
