@@ -1253,6 +1253,20 @@ if st.session_state.perfil == "Admin":
                 else:
                     with st.spinner("Registrando OS e sincronizando com a nuvem..."):
                         nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
+                        nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'telefone_cli': tel_envio_link, 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
+                        df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
+                        sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
+                        if sucesso:
+                            registrar_atividade(st.session_state.user, "NOVA OS", f"Abriu chamado {nova_id} para a placa {placa_alvo}")
+                            st.success(f"✅ Chamado Nº {nova_id} Aberto! Redirecionando...")
+                            for k in ["os_busca_val", "os_cli_val", "os_loc_val", "os_bairro_orig_val", "os_cidade_orig_val", "os_cep_orig_val", "os_dest_val", "os_obs_val"]: st.session_state[k] = ""
+                            time.sleep(1.5); st.rerun()
+                        else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
+                if not prestador_final or not tel_prestador_final: st.error("Identifique o Nome e o Telefone do prestador.")
+                elif not localizacao: st.error("O Endereço de Origem é obrigatório!")
+                else:
+                    with st.spinner("Registrando OS e sincronizando com a nuvem..."):
+                        nova_id = int(df_os['id'].astype(float).max() + 1) if not df_os.empty else 1
                        nova_os = pd.DataFrame([{'id': str(nova_id), 'data_hora': obter_hora_str(), 'cliente_id': str(cliente_id_os), 'cliente_nome': str(cliente_nome_os).upper(), 'telefone_cli': tel_envio_link, 'placa': placa_alvo, 'veiculo_desc': str(veiculo_desc_alvo).upper(), 'empresa': empresa_os, 'tipo_servico': tipo_servico, 'motivo': motivo_servico, 'prestador': f"{prestador_final} | Telefone/Zap: {tel_prestador_final}", 'localizacao': localizacao, 'destino': destino, 'obs': obs, 'status_os': "EM ATENDIMENTO", 'plano_km': plano_km_os, 'valor_cobrado': valor_cobrado_os}])
                         df_os_temp = pd.concat([df_os, nova_os], ignore_index=True)
                         sucesso, erro = salvar_dados(df_os_temp, FILE_OS)
