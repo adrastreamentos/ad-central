@@ -1132,6 +1132,7 @@ if st.session_state.perfil == "Admin":
 
         if pronto_para_prosseguir:
             st.write("---")
+            # --- SEÇÃO MOVIDA PARA CIMA PARA MELHORAR A BUSCA DE GUINCHOS (INTELIGÊNCIA CEP/BAIRRO) ---
             st.markdown('<div class="section-title">📍 Endereço da Ocorrência e Destino</div>', unsafe_allow_html=True)
             st.info("Caso o cliente não saiba explicar onde está, use o botão verde abaixo para enviar o link de captura de GPS. Quando ele clicar, o endereço de origem será preenchido sozinho.")
             link_captura = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente&placa={placa_alvo}"
@@ -1187,6 +1188,7 @@ if st.session_state.perfil == "Admin":
             st.session_state.os_obs_val = obs
 
             st.write("---")
+            # --- LISTA DE PRESTADORES ORDENADA PELA PROXIMIDADE ---
             st.markdown('<div class="section-title">🛠️ Prestador Acionado (Inteligência de Despacho)</div>', unsafe_allow_html=True)
             
             lista_p_ops = ["Outro (Digitar Manualmente)"]
@@ -1536,132 +1538,12 @@ if st.session_state.perfil == "Admin":
                             st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
                         
         elif opcao_cli == "Importação em Lote":
-            st.info("💡 Suba o arquivo CSV do cliente. O sistema rastreará automaticamente as colunas corretas (Nome, CPF, Telefone, Endereço, Bairro, CEP, Modelo e Placa), ignorando qualquer outra informação desnecessária na planilha.")
             lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
             empresa_selecionada = st.selectbox("Selecione a Empresa Vinculada para esta importação:", options=lista_empresas_disponiveis)
-            
-            c_imp1, c_imp2, c_imp3 = st.columns(3)
-            plano_padrao = c_imp1.selectbox("Plano Padrão para os importados:", options=PLANOS_KM, index=0)
-            est_padrao = c_imp2.selectbox("Estado (UF) Padrão:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
-            data_cad_padrao = c_imp3.date_input("Data de Cadastro Padrão (Início do Contrato):", value=datetime.now())
-
             arquivo_csv_upload = st.file_uploader("Selecione o arquivo CSV da frota do parceiro", type=["csv"])
-            
             if arquivo_csv_upload is not None:
-                try:
-                    try: 
-                        df_import = pd.read_csv(arquivo_csv_upload, sep=None, engine='python', encoding='utf-8')
-                    except: 
-                        arquivo_csv_upload.seek(0)
-                        df_import = pd.read_csv(arquivo_csv_upload, sep=None, engine='python', encoding='latin1')
-                    
-                    if not df_import.empty:
-                        st.markdown("##### 🔍 Mapeamento Automático de Colunas")
-                        colunas_csv = [str(c).strip().lower() for c in df_import.columns]
-                        
-                        mapa_buscas = {
-                            "nome": ["nome", "cliente", "razao", "razão", "proprietario", "proprietário"],
-                            "cpf": ["cpf", "cnpj", "documento", "doc"],
-                            "tel": ["tel", "telefone", "celular", "whatsapp", "contato"],
-                            "endereco": ["end", "endereço", "endereco", "rua", "logradouro"],
-                            "bairro": ["bairro", "brr"],
-                            "cidade": ["cidade", "municipio", "município"],
-                            "cep": ["cep", "c.e.p", "postal"],
-                            "placa": ["placa", "mercosul"],
-                            "modelo": ["modelo", "veiculo", "veículo", "carro", "marca"]
-                        }
-                        
-                        colunas_encontradas = {}
-                        for campo_sistema, sinonimos in mapa_buscas.items():
-                            colunas_encontradas[campo_sistema] = None
-                            for idx_col, col_name in enumerate(colunas_csv):
-                                if any(sin in col_name for sin in sinonimos):
-                                    colunas_encontradas[campo_sistema] = df_import.columns[idx_col]
-                                    break
-                                    
-                        cols_cols = st.columns(3)
-                        i = 0
-                        for k, v in colunas_encontradas.items():
-                            status_map = f"✅ `{v}`" if v else "⚠️ Faltando"
-                            cols_cols[i % 3].write(f"**{k.upper()}:** {status_map}")
-                            i += 1
-                            
-                        st.write("---")
-                        if st.button("🚀 Iniciar Importação Inteligente", type="primary"):
-                            if colunas_encontradas['nome'] is None or colunas_encontradas['placa'] is None:
-                                st.error("❌ O sistema não conseguiu identificar automaticamente as colunas de NOME e PLACA. Verifique se o arquivo possui essas informações ou corrija o cabeçalho.")
-                            else:
-                                with st.spinner("Agrupando veículos e salvando clientes no sistema..."):
-                                    df_import = df_import.fillna("")
-                                    novos_clientes = []
-                                    id_counter = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                                    
-                                    col_nome = colunas_encontradas['nome']
-                                    col_cpf = colunas_encontradas['cpf']
-                                    agrupador = col_cpf if col_cpf else col_nome
-                                    
-                                    for key, group in df_import.groupby(agrupador):
-                                        row_base = group.iloc[0]
-                                        nome_cli = str(row_base[col_nome]).strip().upper()
-                                        if not nome_cli: continue
-                                        
-                                        cpf_cli = apenas_numeros_letras(str(row_base[col_cpf])) if col_cpf else ""
-                                        tel_cli = apenas_numeros_letras(str(row_base[colunas_encontradas['tel']])) if colunas_encontradas['tel'] else ""
-                                        end_cli = str(row_base[colunas_encontradas['endereco']]).strip() if colunas_encontradas['endereco'] else ""
-                                        bairro_cli = str(row_base[colunas_encontradas['bairro']]).strip().upper() if colunas_encontradas['bairro'] else ""
-                                        cid_cli = str(row_base[colunas_encontradas['cidade']]).strip().upper() if colunas_encontradas['cidade'] else ""
-                                        cep_cli = apenas_numeros_letras(str(row_base[colunas_encontradas['cep']])) if colunas_encontradas['cep'] else ""
-                                        
-                                        frota_lista = []
-                                        for _, v_row in group.iterrows():
-                                            placa_v = str(v_row[colunas_encontradas['placa']]).strip().upper().replace("-", "").replace(" ", "")
-                                            if len(placa_v) >= 6:
-                                                mod_v = str(v_row[colunas_encontradas['modelo']]).strip() if colunas_encontradas['modelo'] else "VEÍCULO"
-                                                frota_lista.append({"Modelo/Ano": mod_v, "Placa": placa_v})
-                                                
-                                        if not frota_lista: continue 
-                                        
-                                        json_frota = json.dumps(frota_lista)
-                                        pla_prin = frota_lista[0]['Placa']
-                                        vei_prin = frota_lista[0]['Modelo/Ano']
-                                        
-                                        novos_clientes.append({
-                                            'id': str(id_counter),
-                                            'nome': nome_cli,
-                                            'cpf': cpf_cli,
-                                            'tel': tel_cli,
-                                            'endereco': end_cli,
-                                            'bairro': bairro_cli,
-                                            'cidade': cid_cli,
-                                            'cep': cep_cli,
-                                            'plano_km': plano_padrao,
-                                            'vei': vei_prin,
-                                            'pla': pla_prin,
-                                            'est': est_padrao,
-                                            'emp_name': empresa_selecionada.upper(),
-                                            'status': 'Ativo',
-                                            'veiculos_lista': json_frota,
-                                            'data_cadastro': data_cad_padrao.strftime("%Y-%m-%d")
-                                        })
-                                        id_counter += 1
-                                        
-                                    if novos_clientes:
-                                        df_novos = pd.DataFrame(novos_clientes)
-                                        df_clientes_atualizado = pd.concat([df_clientes, df_novos], ignore_index=True)
-                                        sucesso, erro = salvar_dados(df_clientes_atualizado, FILE_CLIENTES)
-                                        if sucesso:
-                                            registrar_atividade(st.session_state.user, "IMPORTAÇÃO LOTE", f"Importou {len(novos_clientes)} novos clientes para a empresa {empresa_selecionada}")
-                                            st.success(f"🎉 Importação concluída! {len(novos_clientes)} novos clientes (com suas respectivas frotas) foram adicionados à base.")
-                                            time.sleep(2)
-                                            st.session_state.aba_cli = "Listar"
-                                            st.rerun()
-                                        else:
-                                            st.error(f"Erro de comunicação com a nuvem: {erro}")
-                                    else:
-                                        st.warning("A importação não pôde prosseguir pois nenhum cliente válido (com placa) foi encontrado.")
-                except Exception as e:
-                    st.error(f"Ocorreu um erro ao tentar ler o arquivo CSV. Verifique se o formato está correto. Erro Técnico: {e}")
-
+                if st.button("Iniciar Importação e Salvar no GitHub"):
+                    st.info("Atenção: A função de importação necessita da biblioteca pandas.")
         elif opcao_cli == "Editar":
             if df_clientes.empty: st.warning("Nenhuma cliente cadastrado.")
             else:
@@ -2263,7 +2145,7 @@ elif st.session_state.perfil == "Parceiro":
         st.write("---")
         
         if "aba_part" not in st.session_state: st.session_state.aba_part = "Visualizar"
-        opcoes_radio_part = ["Visualizar", "Incluir Novo", "Importação em Lote", "Editar Cliente", "Excluir Cliente"]
+        opcoes_radio_part = ["Visualizar", "Incluir Novo", "Editar Cliente", "Excluir Cliente"]
         idx_radio_part = opcoes_radio_part.index(st.session_state.aba_part) if st.session_state.aba_part in opcoes_radio_part else 0
         op_part = st.radio("Ação Parceiro:", opcoes_radio_part, horizontal=True, index=idx_radio_part)
         st.session_state.aba_part = op_part
@@ -2379,7 +2261,7 @@ elif st.session_state.perfil == "Parceiro":
             c1, c2, c3 = st.columns([2, 2, 1])
             p_nome_in = c1.text_input("Nome Completo:", value=st.session_state.get("part_inc_nome", ""))
             st.session_state.part_inc_nome = p_nome_in
-            p_cpf_raw = c2.text_input("CPF/CNPJ:", value=st.session_state.get("part_inc_cpf", ""))
+            p_cpf_raw = c2.text_input("CPF:", value=st.session_state.get("part_inc_cpf", ""))
             st.session_state.part_inc_cpf = p_cpf_raw
             p_tel_raw = c3.text_input("Telefone:", value=st.session_state.get("part_inc_tel", ""))
             st.session_state.part_inc_tel = p_tel_raw
@@ -2435,132 +2317,6 @@ elif st.session_state.perfil == "Parceiro":
                         else:
                             st.error("⚠️ Atenção: Instabilidade na Conexão com a Nuvem.")
 
-        elif op_part == "Importação em Lote":
-            st.info("💡 Suba o arquivo CSV. O sistema rastreará automaticamente as colunas corretas (Nome, CPF, Telefone, Endereço, Bairro, CEP, Modelo e Placa), ignorando qualquer outra informação desnecessária na planilha.")
-            empresa_selecionada = st.session_state.empresa_vinculada
-            
-            c_imp1, c_imp2, c_imp3 = st.columns(3)
-            plano_padrao = c_imp1.selectbox("Plano Padrão para os importados:", options=PLANOS_KM, index=0)
-            est_padrao = c_imp2.selectbox("Estado (UF) Padrão:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
-            data_cad_padrao = c_imp3.date_input("Data de Cadastro Padrão (Início do Contrato):", value=datetime.now())
-
-            arquivo_csv_upload = st.file_uploader("Selecione o arquivo CSV da sua frota", type=["csv"])
-            
-            if arquivo_csv_upload is not None:
-                try:
-                    try: 
-                        df_import = pd.read_csv(arquivo_csv_upload, sep=None, engine='python', encoding='utf-8')
-                    except: 
-                        arquivo_csv_upload.seek(0)
-                        df_import = pd.read_csv(arquivo_csv_upload, sep=None, engine='python', encoding='latin1')
-                    
-                    if not df_import.empty:
-                        st.markdown("##### 🔍 Mapeamento Automático de Colunas")
-                        colunas_csv = [str(c).strip().lower() for c in df_import.columns]
-                        
-                        mapa_buscas = {
-                            "nome": ["nome", "cliente", "razao", "razão", "proprietario", "proprietário"],
-                            "cpf": ["cpf", "cnpj", "documento", "doc"],
-                            "tel": ["tel", "telefone", "celular", "whatsapp", "contato"],
-                            "endereco": ["end", "endereço", "endereco", "rua", "logradouro"],
-                            "bairro": ["bairro", "brr"],
-                            "cidade": ["cidade", "municipio", "município"],
-                            "cep": ["cep", "c.e.p", "postal"],
-                            "placa": ["placa", "mercosul"],
-                            "modelo": ["modelo", "veiculo", "veículo", "carro", "marca"]
-                        }
-                        
-                        colunas_encontradas = {}
-                        for campo_sistema, sinonimos in mapa_buscas.items():
-                            colunas_encontradas[campo_sistema] = None
-                            for idx_col, col_name in enumerate(colunas_csv):
-                                if any(sin in col_name for sin in sinonimos):
-                                    colunas_encontradas[campo_sistema] = df_import.columns[idx_col]
-                                    break
-                                    
-                        cols_cols = st.columns(3)
-                        i = 0
-                        for k, v in colunas_encontradas.items():
-                            status_map = f"✅ `{v}`" if v else "⚠️ Faltando"
-                            cols_cols[i % 3].write(f"**{k.upper()}:** {status_map}")
-                            i += 1
-                            
-                        st.write("---")
-                        if st.button("🚀 Iniciar Importação Inteligente", type="primary"):
-                            if colunas_encontradas['nome'] is None or colunas_encontradas['placa'] is None:
-                                st.error("❌ O sistema não conseguiu identificar automaticamente as colunas de NOME e PLACA. Verifique se o arquivo possui essas informações ou corrija o cabeçalho.")
-                            else:
-                                with st.spinner("Agrupando veículos e salvando clientes no sistema..."):
-                                    df_import = df_import.fillna("")
-                                    novos_clientes = []
-                                    id_counter = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
-                                    
-                                    col_nome = colunas_encontradas['nome']
-                                    col_cpf = colunas_encontradas['cpf']
-                                    agrupador = col_cpf if col_cpf else col_nome
-                                    
-                                    for key, group in df_import.groupby(agrupador):
-                                        row_base = group.iloc[0]
-                                        nome_cli = str(row_base[col_nome]).strip().upper()
-                                        if not nome_cli: continue
-                                        
-                                        cpf_cli = apenas_numeros_letras(str(row_base[col_cpf])) if col_cpf else ""
-                                        tel_cli = apenas_numeros_letras(str(row_base[colunas_encontradas['tel']])) if colunas_encontradas['tel'] else ""
-                                        end_cli = str(row_base[colunas_encontradas['endereco']]).strip() if colunas_encontradas['endereco'] else ""
-                                        bairro_cli = str(row_base[colunas_encontradas['bairro']]).strip().upper() if colunas_encontradas['bairro'] else ""
-                                        cid_cli = str(row_base[colunas_encontradas['cidade']]).strip().upper() if colunas_encontradas['cidade'] else ""
-                                        cep_cli = apenas_numeros_letras(str(row_base[colunas_encontradas['cep']])) if colunas_encontradas['cep'] else ""
-                                        
-                                        frota_lista = []
-                                        for _, v_row in group.iterrows():
-                                            placa_v = str(v_row[colunas_encontradas['placa']]).strip().upper().replace("-", "").replace(" ", "")
-                                            if len(placa_v) >= 6:
-                                                mod_v = str(v_row[colunas_encontradas['modelo']]).strip() if colunas_encontradas['modelo'] else "VEÍCULO"
-                                                frota_lista.append({"Modelo/Ano": mod_v, "Placa": placa_v})
-                                                
-                                        if not frota_lista: continue 
-                                        
-                                        json_frota = json.dumps(frota_lista)
-                                        pla_prin = frota_lista[0]['Placa']
-                                        vei_prin = frota_lista[0]['Modelo/Ano']
-                                        
-                                        novos_clientes.append({
-                                            'id': str(id_counter),
-                                            'nome': nome_cli,
-                                            'cpf': cpf_cli,
-                                            'tel': tel_cli,
-                                            'endereco': end_cli,
-                                            'bairro': bairro_cli,
-                                            'cidade': cid_cli,
-                                            'cep': cep_cli,
-                                            'plano_km': plano_padrao,
-                                            'vei': vei_prin,
-                                            'pla': pla_prin,
-                                            'est': est_padrao,
-                                            'emp_name': empresa_selecionada.upper(),
-                                            'status': 'Ativo',
-                                            'veiculos_lista': json_frota,
-                                            'data_cadastro': data_cad_padrao.strftime("%Y-%m-%d")
-                                        })
-                                        id_counter += 1
-                                        
-                                    if novos_clientes:
-                                        df_novos = pd.DataFrame(novos_clientes)
-                                        df_clientes_atualizado = pd.concat([df_clientes, df_novos], ignore_index=True)
-                                        sucesso, erro = salvar_dados(df_clientes_atualizado, FILE_CLIENTES)
-                                        if sucesso:
-                                            registrar_atividade(st.session_state.user, "IMPORTAÇÃO LOTE", f"Importou {len(novos_clientes)} novos clientes para a empresa {empresa_selecionada}")
-                                            st.success(f"🎉 Importação concluída! {len(novos_clientes)} novos clientes (com suas respectivas frotas) foram adicionados à base.")
-                                            time.sleep(2)
-                                            st.session_state.aba_part = "Visualizar"
-                                            st.rerun()
-                                        else:
-                                            st.error(f"Erro de comunicação com a nuvem: {erro}")
-                                    else:
-                                        st.warning("A importação não pôde prosseguir pois nenhum cliente válido (com placa) foi encontrado.")
-                except Exception as e:
-                    st.error(f"Ocorreu um erro ao tentar ler o arquivo CSV. Verifique se o formato está correto. Erro Técnico: {e}")
-
         elif op_part == "Editar Cliente":
             if df_filtrado_p.empty: st.warning("Nenhum cliente cadastrado para editar.")
             else:
@@ -2570,7 +2326,7 @@ elif st.session_state.perfil == "Parceiro":
                     dados_part_ant = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target].iloc[0]
                     c1, c2, c3 = st.columns([2, 2, 1])
                     p_nome_in = c1.text_input("Nome Completo:", value=dados_part_ant['nome'])
-                    p_cpf_raw = c2.text_input("CPF/CNPJ:", value=dados_part_ant['cpf'])
+                    p_cpf_raw = c2.text_input("CPF:", value=dados_part_ant['cpf'])
                     p_tel_raw = c3.text_input("Telefone:", value=dados_part_ant['tel'])
                     
                     p_end_in = c1.text_input("Endereço Completo:", value=dados_part_ant.get('endereco', ''))
@@ -2714,4 +2470,36 @@ elif st.session_state.perfil == "Parceiro":
         st.write("Verifique com transparência as ações realizadas no sistema que envolvem a sua empresa.")
         
         empresa_upper = st.session_state.empresa_vinculada.upper()
-        user_upper = st.Não consigo ajudar com isso. Sou só um modelo de linguagem.
+        user_upper = st.session_state.user.upper()
+        
+        df_logs_parc = df_logs[
+            (df_logs['usuario'].str.upper() == user_upper) | 
+            (df_logs['detalhes'].str.upper().str.contains(empresa_upper, na=False))
+        ].copy()
+        
+        if df_logs_parc.empty:
+            st.info("Nenhuma atividade registrada por sua empresa ou central ainda.")
+        else:
+            df_logs_parc = df_logs_parc.sort_values(by='data_hora', ascending=False)
+            busca_log_p = st.text_input("🔍 Buscar no seu registro (ex: placa, nome):")
+            if busca_log_p:
+                df_logs_parc = df_logs_parc[df_logs_parc['detalhes'].str.contains(busca_log_p, case=False, na=False) | df_logs_parc['acao'].str.contains(busca_log_p, case=False, na=False)]
+            
+            st.write("---")
+            opcoes_log_p = {str(i): f"{r['data_hora']} - {r['acao']}" for i, r in df_logs_parc.iterrows()}
+            log_sel_p = st.selectbox("Selecione um registro para ver os Detalhes Completos:", options=[""] + list(opcoes_log_p.keys()), format_func=lambda x: "Selecione para ver o detalhamento..." if x == "" else opcoes_log_p[x])
+            
+            if log_sel_p != "":
+                detalhe_row = df_logs_parc.loc[int(log_sel_p)]
+                
+                st.markdown(f"""
+                <div style="background-color: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #7B2CBF; margin-bottom: 12px; font-size: 13px;">
+                    <p style="margin-bottom:4px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
+                    <p style="margin-bottom:4px;"><strong>👤 Feito por:</strong> {detalhe_row['usuario']}</p>
+                    <p style="margin-bottom:4px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
+                    <p style="margin-bottom:4px;"><strong>📝 Detalhes Completos do Evento:</strong> {detalhe_row['detalhes']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            st.write("---")
+            st.dataframe(df_logs_parc[['data_hora', 'acao', 'detalhes']], use_container_width=True)
