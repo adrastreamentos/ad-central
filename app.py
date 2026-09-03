@@ -1837,15 +1837,19 @@ if st.session_state.perfil == "Admin":
                     est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e)
                     
                     c_v1, c_v2, c_v3 = st.columns(3)
-                    stat_ant = dados_e_ant.get('status', 'Inativo')
-                    stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(stat_ant)))
-                    idx_modo_fat = MODOS_FATURAMENTO.index(str(dados_e_ant.get('modo_faturamento', 'Tradicional'))) if str(dados_e_ant.get('modo_faturamento', 'Tradicional')) in MODOS_FATURAMENTO else 0
+                    stat_ant = str(dados_e_ant.get('status', 'Inativo')).strip()
+                    stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(stat_ant) if stat_ant in ["Ativo", "Inativo"] else 0)
+                    
+                    modo_fat_ant = str(dados_e_ant.get('modo_faturamento', 'Tradicional')).strip()
+                    idx_modo_fat = MODOS_FATURAMENTO.index(modo_fat_ant) if modo_fat_ant in MODOS_FATURAMENTO else 0
                     modo_fat_e = c_v2.selectbox("Modo de Faturamento:", MODOS_FATURAMENTO, index=idx_modo_fat)
                     
                     venc_ant = str(dados_e_ant.get('dia_vencimento', '30')).strip()
                     if not venc_ant or venc_ant == 'nan': venc_ant = "30"
-                    idx_venc = OPCOES_DIAS_VENC.index(venc_ant) if venc_ant in OPCOES_DIAS_VENC else OPCOES_DIAS_VENC.index("30")
-                    dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=idx_venc)
+                    
+                    opcoes_dias_edit = OPCOES_DIAS_VENC if venc_ant in OPCOES_DIAS_VENC else OPCOES_DIAS_VENC + [venc_ant]
+                    idx_venc = opcoes_dias_edit.index(venc_ant)
+                    dia_v_e = c_v3.selectbox("Dia do Vencimento:", opcoes_dias_edit, index=idx_venc)
 
                     if st.button("Salvar Alterações"):
                         cnpj = apenas_numeros_letras(cnpj_raw)
@@ -1853,14 +1857,23 @@ if st.session_state.perfil == "Admin":
                         else:
                             with st.spinner("Atualizando dados da empresa..."):
                                 dt_ativacao = str(dados_e_ant.get('data_ativacao', ''))
+                                
+                                # REGRA 1: Se estava Inativa e foi ativada agora
                                 if stat_ant != 'Ativo' and stat_e == 'Ativo':
                                     dt_ativacao = datetime.now().strftime("%Y-%m-%d")
+                                    dia_v_e = str(datetime.now().day)
+                                
+                                # REGRA 2: Migração do Tradicional para Novo Plano Automático
+                                elif modo_fat_ant == 'Tradicional' and modo_fat_e != 'Tradicional':
+                                    dt_ativacao = datetime.now().strftime("%Y-%m-%d") 
+                                    dia_v_e = str(datetime.now().day) 
+                                    st.info(f"🔄 Migração de plano detectada! O ciclo de 30 dias foi resetado para iniciar a partir de hoje ({dt_ativacao}).")
                                     
                                 df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento', 'data_ativacao']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e, modo_fat_e, dia_v_e, dt_ativacao]
                                 sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
                                 if sucesso:
-                                    registrar_atividade(st.session_state.user, "EDIÇÃO EMPRESA", f"Editou a empresa {n_emp_in.upper()}")
-                                    st.success("✅ Empresa atualizada com sucesso!"); st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
+                                    registrar_atividade(st.session_state.user, "EDIÇÃO EMPRESA", f"Editou a empresa {n_emp_in.upper()} (Plano alterado para {modo_fat_e})")
+                                    st.success("✅ Empresa atualizada com sucesso e regras de ciclo aplicadas!"); st.session_state.aba_emp = "Listar"; time.sleep(2.5); st.rerun()
                                 else: st.error(f"Erro na nuvem: {erro}")
         elif opcao_emp == "Excluir":
             if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
