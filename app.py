@@ -426,21 +426,28 @@ def renderizar_dashboard(empresa_filtro="Todas"):
         st.info("Nenhuma ordem de serviço registrada para montar os indicadores do período.")
 
 # ===================================================================================
-# TABELAS DE PREÇOS E FAIXAS (NOVAS REGRAS)
+# TABELAS DE PREÇOS E FAIXAS (NOVAS REGRAS COMPLETAS)
 # ===================================================================================
 TABELA_ESCALONADO = {
-    "Enquadramento Base (Até 3%)": {"max": 3.0, "50km": 6.90, "100km": 8.90, "200km": 11.20, "Sem Limite": 11.20},
-    "Faixa 1 (3,01% a 5%)": {"max": 5.0, "50km": 9.50, "100km": 13.50, "200km": 17.50, "Sem Limite": 17.50},
-    "Faixa 2 (5,01% a 7%)": {"max": 7.0, "50km": 11.50, "100km": 16.50, "200km": 21.50, "Sem Limite": 21.50},
-    "Faixa 3 (7,01% a 10%)": {"max": 10.0, "50km": 14.50, "100km": 21.25, "200km": 28.00, "Sem Limite": 28.00},
-    "Faixa 4 (10,01% a 13%)": {"max": 13.0, "50km": 24.00, "100km": 30.00, "200km": 39.00, "Sem Limite": 39.00},
-    "Faixa Teto (Acima de 13%)": {"max": 999.0, "50km": 35.00, "100km": 42.00, "200km": 55.00, "Sem Limite": 55.00}
+    "Enquadramento Base (Até 3%)":   {"max": 3.0,   "50km": 6.90,   "100km": 8.90,   "200km": 11.20,  "Sem Limite": 11.20},
+    "Enquadramento 3% a 5%":         {"max": 5.0,   "50km": 9.10,   "100km": 13.15,  "200km": 17.20,  "Sem Limite": 17.20},
+    "Enquadramento 5% a 7%":         {"max": 7.0,   "50km": 11.80,  "100km": 17.20,  "200km": 22.60,  "Sem Limite": 22.60},
+    "Enquadramento 7% a 10%":        {"max": 10.0,  "50km": 14.50,  "100km": 21.25,  "200km": 28.00,  "Sem Limite": 28.00},
+    "Enquadramento 10% a 13%":       {"max": 13.0,  "50km": 24.00,  "100km": 35.80,  "200km": 47.60,  "Sem Limite": 47.60},
+    "Enquadramento 13% a 17%":       {"max": 17.0,  "50km": 33.50,  "100km": 50.40,  "200km": 67.20,  "Sem Limite": 67.20},
+    "Enquadramento 17% a 20%":       {"max": 20.0,  "50km": 50.00,  "100km": 74.00,  "200km": 98.00,  "Sem Limite": 98.00},
+    "Enquadramento 20% a 30%":       {"max": 30.0,  "50km": 68.00,  "100km": 102.00, "200km": 135.00, "Sem Limite": 135.00},
+    "Enquadramento 30% a 40%":       {"max": 40.0,  "50km": 86.00,  "100km": 130.00, "200km": 172.00, "Sem Limite": 172.00},
+    "Enquadramento 40% a 50%":       {"max": 50.0,  "50km": 104.00, "100km": 158.00, "200km": 209.00, "Sem Limite": 209.00},
+    "Enquadramento 50% a 60%":       {"max": 60.0,  "50km": 122.00, "100km": 186.00, "200km": 246.00, "Sem Limite": 246.00},
+    "Enquadramento 60% a 70%":       {"max": 70.0,  "50km": 140.00, "100km": 214.00, "200km": 283.00, "Sem Limite": 283.00},
+    "Enquadramento Teto (> 70%)":    {"max": 999.0, "50km": 158.00, "100km": 242.00, "200km": 320.00, "Sem Limite": 320.00}
 }
 
 def obter_faixa_escalonado(taxa_uso):
     for nome_faixa, dados in TABELA_ESCALONADO.items():
         if taxa_uso <= dados["max"]: return nome_faixa, dados
-    return "Faixa Teto (Acima de 13%)", TABELA_ESCALONADO["Faixa Teto (Acima de 13%)"]
+    return "Enquadramento Teto (> 70%)", TABELA_ESCALONADO["Enquadramento Teto (> 70%)"]
 
 # ===================================================================================
 # FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO ATUALIZADO)
