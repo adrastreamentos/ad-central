@@ -176,7 +176,6 @@ FILE_LOC = os.path.join(FOLDER, "banco_loc.csv")
 FILE_NPS = os.path.join(FOLDER, "banco_nps.csv")
 
 col_cli = ['id','nome','cpf','tel','endereco','bairro','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
-# Adicionamos 'data_ativacao' na lista para o CSV aceitá-lo, caso não exista
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento', 'data_ativacao']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','bairro','cidade','cep','est','status','homologado','senha','frota']
 col_os = ['id','data_hora','cliente_id','cliente_nome','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado']
@@ -202,6 +201,229 @@ df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
 df_logs = carregar_dados(FILE_LOGS, col_logs)
 df_loc = carregar_dados(FILE_LOC, col_loc)
 df_nps = carregar_dados(FILE_NPS, col_nps)
+
+# ===================================================================================
+# DASHBOARD REESTRUTURADO E COMPACTO
+# ===================================================================================
+def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_df):
+    data_atual = obter_hora_brasilia().strftime("%d/%m/%Y às %H:%M")
+    
+    linhas_tabela = ""
+    for _, row in servicos_df.iterrows():
+        linhas_tabela += f"""
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">{row['Serviço']}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">{row['Quantidade']} chamado(s)</td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; color: #7B2CBF; font-weight: bold;">{row['Porcentagem']:.1f}%</td>
+        </tr>
+        """
+        
+    html = f"""
+    <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Laudo Operacional de Atendimentos - AD Rastreamento</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 750px; margin: 0 auto; }}
+                h2 {{ color: #7B2CBF; border-bottom: 2px solid #E53935; padding-bottom: 6px; margin-bottom: 4px; font-size: 20px; }}
+                .sub {{ color: #666; font-size: 12px; margin-bottom: 18px; }}
+                .kpi-container {{ display: flex; gap: 12px; margin-bottom: 20px; }}
+                .kpi-card {{ flex: 1; background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #7B2CBF; }}
+                .kpi-card h4 {{ margin: 0; font-size: 11px; color: #666; text-transform: uppercase; }}
+                .kpi-card p {{ margin: 4px 0 0 0; font-size: 18px; font-weight: bold; color: #333; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }}
+                th {{ background-color: #7B2CBF; color: white; padding: 8px; text-align: left; }}
+            </style>
+        </head>
+        <body>
+            <h2>AD RASTREAMENTO VEICULAR — LAUDO OPERACIONAL</h2>
+            <div class="sub">Relatório de Inteligência e Incidência de Atendimentos 24h | Gerado em: {data_atual}</div>
+            
+            <div class="kpi-container">
+                <div class="kpi-card">
+                    <h4>Empresa / Escopo</h4>
+                    <p>{empresa_filtro.upper()}</p>
+                </div>
+                <div class="kpi-card">
+                    <h4>Frota Ativa Mapeada</h4>
+                    <p>{total_veiculos} veículos</p>
+                </div>
+                <div class="kpi-card">
+                    <h4>Total Ocorrências</h4>
+                    <p>{total_os} chamados</p>
+                </div>
+            </div>
+
+            <h3 style="color: #4a148c; font-size: 15px; margin-bottom: 8px;">📊 Distribuição Percentual de Eventos</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tipo de Ocorrência</th>
+                        <th style="text-align: center;">Quantidade</th>
+                        <th style="text-align: right;">Participação (%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {linhas_tabela}
+                </tbody>
+            </table>
+
+            <br>
+            <p style="font-size: 11px; color: #888; text-align: center; border-top: 1px solid #eee; padding-top: 8px;">
+                <em>Este laudo técnico foi consolidado automaticamente pela Central de Operações AD Rastreamento Veicular.</em>
+            </p>
+        </body>
+    </html>
+    """
+    b64 = base64.b64encode(html.encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="Laudo_Atendimentos_{empresa_filtro}_{int(time.time())}.html" target="_blank" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📥 Baixar Laudo Executivo (PDF/HTML)</button></a>'
+
+def renderizar_dashboard(empresa_filtro="Todas"):
+    st.markdown(f'<div class="section-title">📈 Central de Indicadores 24h ({empresa_filtro})</div>', unsafe_allow_html=True)
+
+    if empresa_filtro != "Todas":
+        df_os_dash = df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy()
+        df_cli_dash = df_clientes[(df_clientes['emp_name'].str.upper() == empresa_filtro.upper()) & (df_clientes['status'].str.strip() == 'Ativo')].copy()
+    else:
+        df_os_dash = df_os.copy()
+        df_cli_dash = df_clientes[df_clientes['status'].str.strip() == 'Ativo'].copy()
+
+    total_veiculos = 0
+    for _, r_cli in df_cli_dash.iterrows():
+        placas_extraidas = []
+        if pd.notna(r_cli.get('veiculos_lista')) and str(r_cli['veiculos_lista']).strip() not in ['', '[]', 'nan']:
+            try:
+                for v in json.loads(str(r_cli['veiculos_lista'])):
+                    p = str(v.get('Placa', '')).strip().upper().replace("-","").replace(" ","")
+                    if len(p) >= 6 and p not in ['NAN', 'N/D']: placas_extraidas.append(p)
+            except: pass
+        if not placas_extraidas:
+            p1 = str(r_cli.get('pla', '')).strip().upper().replace("-","").replace(" ","")
+            if len(p1) >= 6 and p1 not in ['NAN', 'N/D']: placas_extraidas.append(p1)
+            p2 = str(r_cli.get('pla_2', '')).strip().upper().replace("-","").replace(" ","")
+            if len(p2) >= 6 and p2 not in ['NAN', 'N/D']: placas_extraidas.append(p2)
+        total_veiculos += len(placas_extraidas)
+
+    total_os = len(df_os_dash)
+    os_em_andamento = len(df_os_dash[~df_os_dash['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
+
+    c1, c2, c3 = st.columns(3)
+    c1.markdown(f'<div class="metric-card"><div class="metric-title">🚗 Frota Ativa Mapeada</div><div class="metric-value" style="color: #7B2CBF;">{total_veiculos}</div></div>', unsafe_allow_html=True)
+    c2.markdown(f'<div class="metric-card"><div class="metric-title">🛠️ Total Atendimentos</div><div class="metric-value" style="color: #1976D2;">{total_os}</div></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="metric-card"><div class="metric-title">🚨 Chamados em Aberto</div><div class="metric-value" style="color: #E53935;">{os_em_andamento}</div></div>', unsafe_allow_html=True)
+
+    st.write("---")
+
+    if total_os > 0:
+        col_chart1, col_chart2 = st.columns(2)
+
+        with col_chart1:
+            st.markdown('<div class="dash-box">', unsafe_allow_html=True)
+            st.markdown('<div class="dash-box-title">🛠️ Incidência de Atendimentos</div>', unsafe_allow_html=True)
+            
+            servicos_counts = df_os_dash['tipo_servico'].value_counts().reset_index()
+            servicos_counts.columns = ['Serviço', 'Quantidade']
+            servicos_counts['Porcentagem'] = (servicos_counts['Quantidade'] / total_os) * 100
+
+            fig_incidencia = px.pie(
+                servicos_counts, 
+                names='Serviço', 
+                values='Quantidade', 
+                hole=0.55,
+                color_discrete_sequence=['#7B2CBF', '#E53935', '#1976D2', '#2E7D32', '#FF9800', '#9C27B0']
+            )
+            fig_incidencia.update_traces(textposition='inside', textinfo='percent')
+            fig_incidencia.update_layout(
+                margin=dict(t=10, b=10, l=10, r=10),
+                height=250,
+                legend=dict(orientation="v", y=0.5, x=1.0)
+            )
+            st.plotly_chart(fig_incidencia, use_container_width=True)
+
+            st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
+            st.markdown("<b>Detalhamento de Ocorrências:</b>", unsafe_allow_html=True)
+            
+            for _, r in servicos_counts.iterrows():
+                col_s_nome, col_s_qtd = st.columns([3, 2])
+                col_s_nome.write(f"• **{r['Serviço']}**")
+                col_s_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']} chamado(s)</b> <span style='color: #7B2CBF; font-size: 12px;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col_chart2:
+            st.markdown('<div class="dash-box">', unsafe_allow_html=True)
+            st.markdown('<div class="dash-box-title">🚦 Status Operacional dos Chamados</div>', unsafe_allow_html=True)
+            
+            status_counts = df_os_dash['status_os'].value_counts().reset_index()
+            status_counts.columns = ['Status', 'Quantidade']
+            status_counts['Porcentagem'] = (status_counts['Quantidade'] / total_os) * 100
+
+            fig_status = px.pie(
+                status_counts, 
+                names='Status', 
+                values='Quantidade', 
+                hole=0.55,
+                color_discrete_sequence=['#2E7D32', '#E53935', '#FF9800', '#1976D2']
+            )
+            fig_status.update_traces(textposition='inside', textinfo='percent')
+            fig_status.update_layout(
+                margin=dict(t=10, b=10, l=10, r=10),
+                height=250,
+                legend=dict(orientation="v", y=0.5, x=1.0)
+            )
+            st.plotly_chart(fig_status, use_container_width=True)
+
+            st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
+            st.markdown("<b>Detalhamento de Status:</b>", unsafe_allow_html=True)
+            
+            for _, r in status_counts.iterrows():
+                col_st_nome, col_st_qtd = st.columns([3, 2])
+                col_st_nome.write(f"• **{r['Status']}**")
+                col_st_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']} chamado(s)</b> <span style='color: #2E7D32; font-size: 12px;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.write("---")
+        if "exibir_laudo" not in st.session_state:
+            st.session_state.exibir_laudo = False
+
+        if not st.session_state.exibir_laudo:
+            if st.button("📊 Processar Laudo Executivo do Mês", use_container_width=True, key=f"btn_proc_laudo_{empresa_filtro}"):
+                st.session_state.exibir_laudo = True
+                st.rerun()
+        else:
+            st.markdown("""
+            <div style="background-color: #f8f9fa; border: 2px solid #7B2CBF; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+                <h3 style="color: #7B2CBF; margin-top:0; font-size: 18px;">📋 Laudo Executivo de Atendimentos 24h</h3>
+                <p style="color: #555; font-size: 13px; margin-bottom: 0;">Análise consolidada e inteligência de ocorrências da frota no período.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            data_atual_proc = obter_hora_brasilia().strftime("%d/%m/%Y às %H:%M")
+            st.caption(f"🕒 Processado em: {data_atual_proc}")
+            
+            col_l1, col_l2, col_l3 = st.columns(3)
+            col_l1.metric("Empresa / Unidade", empresa_filtro.upper())
+            col_l2.metric("Frota Ativa Mapeada", f"{total_veiculos} veículos")
+            col_l3.metric("Total Ocorrências", f"{total_os} chamados")
+            
+            st.markdown("##### 📊 Distribuição Analítica por Tipo de Serviço:")
+            df_laudo_vis = servicos_counts.copy()
+            df_laudo_vis['Porcentagem (%)'] = df_laudo_vis['Porcentagem'].apply(lambda x: f"{x:.1f}%")
+            df_laudo_vis = df_laudo_vis.rename(columns={'Serviço': 'Tipo de Ocorrência', 'Quantidade': 'Acionamentos Registrados'})
+            st.dataframe(df_laudo_vis[['Tipo de Ocorrência', 'Acionamentos Registrados', 'Porcentagem (%)']], use_container_width=True)
+            
+            st.write("")
+            col_laudo_btn1, col_laudo_btn2 = st.columns(2)
+            with col_laudo_btn1:
+                st.markdown(gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_counts), unsafe_allow_html=True)
+            with col_laudo_btn2:
+                if st.button("❌ Fechar Laudo Executivo", use_container_width=True, key=f"btn_close_laudo_{empresa_filtro}"):
+                    st.session_state.exibir_laudo = False
+                    st.rerun()
+
+    else:
+        st.info("Nenhuma ordem de serviço registrada para montar os indicadores do período.")
 
 # ===================================================================================
 # TABELAS DE PREÇOS E FAIXAS (NOVAS REGRAS)
@@ -616,7 +838,7 @@ if portal_atual == "cliente":
         var lon = position.coords.longitude;
         document.getElementById("msg").innerHTML = "Sinal capturado! Salvando no sistema... 🚀";
         
-        var urlFinal = "https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente_salvo&placa={placa_param}&lat=" + lat + + "&lon=" + lon;
+        var urlFinal = "https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente_salvo&placa={placa_param}&lat=" + lat + "&lon=" + lon;
         
         try {{
             window.top.location.href = urlFinal; 
@@ -1330,7 +1552,7 @@ if st.session_state.perfil == "Admin":
                             st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
                         
         elif opcao_cli == "Importação em Lote":
-            st.info("💡 Suba o arquivo CSV do cliente. O sistema rastreará automaticamente as colunas corretas (Nome, CPF, Telefone, Endereço, Bairro, CEP, Modelo e Placa).")
+            st.info("💡 Suba o arquivo CSV do cliente. O sistema rastreará automaticamente as colunas corretas (Nome, CPF, Telefone, Endereço, Bairro, CEP, Modelo e Placa), ignorando qualquer outra informação desnecessária na planilha.")
             lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
             empresa_selecionada = st.selectbox("Selecione a Empresa Vinculada para esta importação:", options=lista_empresas_disponiveis)
             
