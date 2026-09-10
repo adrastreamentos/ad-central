@@ -45,6 +45,14 @@ MODOS_FATURAMENTO = [
     "Plano Até 40 Veículos (Opção B - 4 Acionamentos)"
 ]
 
+# Configuração Padrão das Tabelas de Frota (Incluindo Tipo e Blindagem)
+FROTA_COL_CONFIG = {
+    "Tipo": st.column_config.SelectboxColumn("Tipo", options=["Carro", "Moto", "Caminhonete/SUV", "Van", "Caminhão", "Utilitário", "Outro"], default="Carro", required=True),
+    "Modelo/Ano": st.column_config.TextColumn("Modelo/Ano/Cor", required=True),
+    "Placa": st.column_config.TextColumn("Placa", required=True),
+    "Blindado": st.column_config.CheckboxColumn("Blindado?", default=False)
+}
+
 # ===================================================================================
 # ESTILIZAÇÃO CSS CORPORATIVA REFINADA
 # ===================================================================================
@@ -121,6 +129,7 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
                 <p><strong>Número da OS:</strong> #{r['id']}</p>
                 <p><strong>Data e Hora do Chamado:</strong> {r['data_hora']}</p>
                 <p><strong>Cliente:</strong> {r['cliente_nome']}</p>
+                <p><strong>Veículo Solicitado:</strong> {r.get('veiculo_desc', 'N/D')}</p>
                 <p><strong>Placa do Veículo:</strong> <span class="destaque">{r['placa']}</span></p>
                 <p><strong>Tipo de Serviço:</strong> {r['tipo_servico']} ({r.get('motivo','N/D')})</p>
                 <p><strong>Origem (Localização):</strong> {r.get('localizacao','N/D')}</p>
@@ -739,7 +748,8 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-    # ===================================================================================
+    
+# ===================================================================================
 # PORTAL DO CLIENTE (NPS E CAPTURA DE GPS) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
@@ -914,7 +924,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.1</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -952,7 +962,6 @@ with col_logout:
         st.query_params.clear()
         st.rerun()
 st.write("---")
-
 # ===================================================================================
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
@@ -1029,7 +1038,10 @@ if st.session_state.perfil == "Admin":
                             if pd.notna(cliente_dados.get('veiculos_lista')) and cliente_dados['veiculos_lista']:
                                 try:
                                     for v in json.loads(cliente_dados['veiculos_lista']):
-                                        if v.get('Placa'): lista_frota_opcoes.append(f"{v.get('Modelo/Ano', 'Veículo')} - Placa: {v.get('Placa')}")
+                                        if v.get('Placa'): 
+                                            blindado_str = " 🛡️ BLINDADO" if v.get('Blindado') in [True, 'true', 'Sim', 'SIM', '1'] else ""
+                                            tipo_str = v.get('Tipo', 'Carro')
+                                            lista_frota_opcoes.append(f"{tipo_str} {v.get('Modelo/Ano', '')}{blindado_str} - Placa: {v.get('Placa')}")
                                 except: pass 
                             if not lista_frota_opcoes:
                                 if pd.notna(cliente_dados.get('pla')) and str(cliente_dados['pla']).strip(): lista_frota_opcoes.append(f"{cliente_dados.get('vei', 'Veículo')} - Placa: {cliente_dados['pla']}")
@@ -1043,6 +1055,16 @@ if st.session_state.perfil == "Admin":
                                 
                                 placa_alvo = veiculo_sel_os.split("Placa: ")[1].strip().upper()
                                 veiculo_desc_alvo = veiculo_sel_os.split(" - Placa:")[0].strip()
+                                
+                                is_blindado = "BLINDADO" in veiculo_desc_alvo
+                                veiculo_blindado_os = st.radio("Veículo é Blindado?", ["Não", "Sim"], index=1 if is_blindado else 0, horizontal=True)
+                                
+                                # Atualiza a descrição caso o operador force a mudança de blindagem via Radio Button
+                                if veiculo_blindado_os == "Sim" and "BLINDADO" not in veiculo_desc_alvo:
+                                    veiculo_desc_alvo += " (BLINDADO)"
+                                elif veiculo_blindado_os == "Não" and "BLINDADO" in veiculo_desc_alvo:
+                                    veiculo_desc_alvo = veiculo_desc_alvo.replace(" 🛡️ BLINDADO", "").replace("🛡️ BLINDADO", "").replace("(BLINDADO)", "").strip()
+
                                 uf_cliente = str(cliente_dados['est']).strip().upper() if cliente_dados['est'] else "RN"
                                 plano_km_os, cidade_cliente, cliente_id_os, cliente_nome_os, empresa_os = str(cliente_dados.get('plano_km', 'N/D')), str(cliente_dados.get('cidade', '')).strip().upper(), str(c_target_os), str(cliente_dados['nome']), str(cliente_dados['emp_name'])
                                 tel_envio_link = apenas_numeros_letras(cliente_dados.get('tel', ''))
@@ -1069,7 +1091,7 @@ if st.session_state.perfil == "Admin":
                                     serv = str(o['tipo_servico']).upper()
                                     if "GUINCHO" in serv: uso_atual["GUINCHO"] += 1
                                     elif "SECA" in serv: uso_atual["PANE SECA"] += 1
-                                    elif "ELÉTRICA" in serv or "ELETRICA" in serv: uso_atual["PANE ELÉTRICA"] += 1
+                                    elif "ELÉTRICA" in serv: uso_atual["PANE ELÉTRICA"] += 1
                                     elif "BORRACHEIRO" in serv: uso_atual["BORRACHEIRO"] += 1
                                     elif "CHAVEIRO" in serv: uso_atual["CHAVEIRO"] += 1
                                 
@@ -1120,7 +1142,13 @@ if st.session_state.perfil == "Admin":
             st.info("📝 Digite as informações do atendimento avulso particular abaixo:")
             col_av1, col_av2 = st.columns(2)
             nome_avulso, tel_avulso = col_av1.text_input("Nome Completo do Cliente:"), col_av2.text_input("Telefone de Contato:")
-            veiculo_avulso, placa_avulso = col_av1.text_input("Veículo (Modelo/Ano/Cor):"), col_av2.text_input("Placa do Veículo:")
+            veiculo_avulso = col_av1.text_input("Veículo (Tipo/Modelo/Ano/Cor):")
+            placa_avulso = col_av2.text_input("Placa do Veículo:")
+            
+            veiculo_blindado_os = col_av1.radio("Veículo é Blindado?", ["Não", "Sim"], horizontal=True)
+            if veiculo_blindado_os == "Sim":
+                veiculo_avulso += " (BLINDADO)"
+                
             uf_cliente, cidade_cliente = col_av1.selectbox("Estado (UF) do Atendimento:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN")), col_av2.text_input("Cidade do Atendimento:")
             valor_cobrado_os = col_av1.text_input("Valor Cobrado do Particular (R$):", value="0,00")
             tipo_servico = st.selectbox("Tipo de Serviço:", ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Chaveiro"])
@@ -1286,6 +1314,8 @@ if st.session_state.perfil == "Admin":
             if obs_val.strip() == "" or obs_val.lower() == "nan": obs_val = "Nenhuma"
             st.write(f"**Observações Extras:** {obs_val}")
             
+            is_blindado_msg = "SIM 🛡️ (Atenção ao peso/capacidade da plataforma)" if "BLINDADO" in str(row_os.get('veiculo_desc', '')).upper() else "NÃO"
+            
             link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
             texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
             
@@ -1298,7 +1328,8 @@ if st.session_state.perfil == "Admin":
                               f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
                               f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
                               f"*Telefone do Cliente:* {tel_cliente_os}\n\n"
-                              f"*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n\n"
+                              f"*Veículo:* {row_os.get('veiculo_desc', 'N/D')} - Placa: {row_os.get('placa', 'N/D')}\n"
+                              f"*Veículo Blindado:* {is_blindado_msg}\n\n"
                               f"*Origem:* {row_os['localizacao']}\n"
                               f"*Destino:* {row_os['destino']}\n\n"
                               f"*Obs:* {obs_val}")
@@ -1471,12 +1502,12 @@ if st.session_state.perfil == "Admin":
                                             elif "ELÉTRICA" in serv_f or "ELETRICA" in serv_f: uso_atual_f["PANE ELÉTRICA"] += 1
                                             elif "BORRACHEIRO" in serv_f: uso_atual_f["BORRACHEIRO"] += 1
                                             elif "CHAVEIRO" in serv_f: uso_atual_f["CHAVEIRO"] += 1
-                                        col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
-                                        col_m1.metric("Guinchos", f"{uso_atual_f['GUINCHO']} / {LIMITES_ANUAIS['GUINCHO']}")
-                                        col_m2.metric("Pane Seca", f"{uso_atual_f['PANE SECA']} / {LIMITES_ANUAIS['PANE SECA']}")
-                                        col_m3.metric("Elétrica", f"{uso_atual_f['PANE ELÉTRICA']} / {LIMITES_ANUAIS['PANE ELÉTRICA']}")
-                                        col_m4.metric("Chaveiro", f"{uso_atual_f['CHAVEIRO']} / {LIMITES_ANUAIS['CHAVEIRO']}")
-                                        col_m5.metric("Borracheiro", f"{uso_atual_f['BORRACHEIRO']} / {LIMITES_ANUAIS['BORRACHEIRO']}")
+                                    col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
+                                    col_m1.metric("Guinchos", f"{uso_atual_f['GUINCHO']} / {LIMITES_ANUAIS['GUINCHO']}")
+                                    col_m2.metric("Pane Seca", f"{uso_atual_f['PANE SECA']} / {LIMITES_ANUAIS['PANE SECA']}")
+                                    col_m3.metric("Elétrica", f"{uso_atual_f['PANE ELÉTRICA']} / {LIMITES_ANUAIS['PANE ELÉTRICA']}")
+                                    col_m4.metric("Chaveiro", f"{uso_atual_f['CHAVEIRO']} / {LIMITES_ANUAIS['CHAVEIRO']}")
+                                    col_m5.metric("Borracheiro", f"{uso_atual_f['BORRACHEIRO']} / {LIMITES_ANUAIS['BORRACHEIRO']}")
                                 
                                 if st.button("❌ Fechar Ficha", key=f"btn_close_{emp}"):
                                     st.session_state[key_sel_admin] = ""
@@ -1505,8 +1536,8 @@ if st.session_state.perfil == "Admin":
             
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa - Adicione quantos quiser)**")
-            df_frota_editavel = pd.DataFrame([{"Modelo/Ano": "", "Placa": ""}])
-            frota_editada = st.data_editor(df_frota_editavel, num_rows="dynamic", use_container_width=True)
+            df_frota_editavel = pd.DataFrame([{"Tipo": "Carro", "Modelo/Ano": "", "Placa": "", "Blindado": False}])
+            frota_editada = st.data_editor(df_frota_editavel, column_config=FROTA_COL_CONFIG, num_rows="dynamic", use_container_width=True)
             st.write("---")
             
             lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
@@ -1534,12 +1565,16 @@ if st.session_state.perfil == "Admin":
             
             if st.button("Salvar Novo Cliente"):
                 nome, cpf, tel = nome_in.upper(), apenas_numeros_letras(cpf_raw), apenas_numeros_letras(tel_raw)
-                frota_limpa = frota_editada.dropna(how='all')
+                frota_limpa = frota_editada.dropna(subset=['Placa', 'Modelo/Ano'], how='any')
+                frota_limpa = frota_limpa[frota_limpa['Placa'].astype(str).str.strip() != ""]
                 frota_limpa['Placa'] = frota_limpa['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
+                
+                frota_limpa['Blindado'] = frota_limpa['Blindado'].fillna(False).astype(bool)
+                
                 frota_json_str = json.dumps(frota_limpa.to_dict('records'))
                 vei_prin = frota_limpa.iloc[0]['Modelo/Ano'] if not frota_limpa.empty else ""
                 pla_prin = frota_limpa.iloc[0]['Placa'] if not frota_limpa.empty else ""
-                if not nome or not pla_prin: st.error("Nome e ao menos 1 Placa de Veículo são obrigatórios.")
+                if not nome or not pla_prin: st.error("Nome e ao menos 1 Placa de Veículo (com modelo) são obrigatórios.")
                 else:
                     with st.spinner("Salvando novo cliente..."):
                         prox = int(df_clientes['id'].astype(float).max() + 1) if not df_clientes.empty else 1
@@ -1557,7 +1592,7 @@ if st.session_state.perfil == "Admin":
                             st.error(f"⚠️ Erro ao salvar cliente na nuvem: {erro}")
                         
         elif opcao_cli == "Importação em Lote":
-            st.info("💡 Suba o arquivo CSV do cliente. O sistema detectará automaticamente as colunas.")
+            st.info("💡 Suba o arquivo CSV do cliente. O sistema detectará automaticamente as colunas e incluirá os tipos e blindagens.")
             lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
             empresa_selecionada = st.selectbox("Selecione a Empresa Vinculada para esta importação:", options=lista_empresas_disponiveis)
             
@@ -1591,15 +1626,17 @@ if st.session_state.perfil == "Admin":
                         colunas_csv = [str(c).strip().lower() for c in df_import.columns]
                         
                         mapa_buscas = {
-                            "nome": ["nome", "cliente", "razao", "razão", "proprietario", "proprietário"],
-                            "cpf": ["cpf", "cnpj", "documento", "doc"],
-                            "tel": ["tel", "telefone", "celular", "whatsapp", "contato"],
-                            "endereco": ["end", "endereço", "endereco", "rua", "logradouro"],
-                            "bairro": ["bairro", "brr"],
-                            "cidade": ["cidade", "municipio", "município"],
-                            "cep": ["cep", "c.e.p", "postal"],
-                            "placa": ["placa", "mercosul"],
-                            "modelo": ["modelo", "veiculo", "veículo", "carro", "marca"]
+                            "nome": ["nome", "cliente", "razao", "razão", "proprietario", "proprietário", "empresa", "cadastro", "usuario", "titular", "associado", "condutor"],
+                            "cpf": ["cpf", "cnpj", "documento", "doc", "identificacao", "cgc", "cic"],
+                            "tel": ["tel", "telefone", "celular", "whatsapp", "contato", "fone", "cel", "zap", "movel"],
+                            "endereco": ["end", "endereço", "endereco", "rua", "logradouro", "avenida", "local"],
+                            "bairro": ["bairro", "brr", "distrito"],
+                            "cidade": ["cidade", "municipio", "município", "localidade"],
+                            "cep": ["cep", "c.e.p", "postal", "codigo postal"],
+                            "placa": ["placa", "mercosul", "plano", "veiculo_placa", "placas"],
+                            "modelo": ["modelo", "veiculo", "veículo", "carro", "marca", "ano", "descricao", "ano/modelo"],
+                            "tipo": ["tipo", "categoria", "classificacao", "classificação", "especie", "porte", "segmento", "tipo_veiculo"],
+                            "blindado": ["blindado", "blindagem", "armored", "blind", "protecao"]
                         }
                         
                         colunas_encontradas = {}
@@ -1648,7 +1685,15 @@ if st.session_state.perfil == "Admin":
                                             placa_v = str(v_row[colunas_encontradas['placa']]).strip().upper().replace("-", "").replace(" ", "")
                                             if len(placa_v) >= 6:
                                                 mod_v = str(v_row[colunas_encontradas['modelo']]).strip() if colunas_encontradas['modelo'] else "VEÍCULO"
-                                                frota_lista.append({"Modelo/Ano": mod_v, "Placa": placa_v})
+                                                tipo_v = str(v_row[colunas_encontradas['tipo']]).strip().capitalize() if colunas_encontradas.get('tipo') else "Carro"
+                                                
+                                                blindado_v = False
+                                                if colunas_encontradas.get('blindado'):
+                                                    val_blind = str(v_row[colunas_encontradas['blindado']]).strip().lower()
+                                                    if val_blind in ['sim', 's', 'true', '1', 'y', 'yes', 'x', 'blindado']:
+                                                        blindado_v = True
+                                                
+                                                frota_lista.append({"Tipo": tipo_v, "Modelo/Ano": mod_v, "Placa": placa_v, "Blindado": blindado_v})
                                                 
                                         if not frota_lista: continue 
                                         
@@ -1704,10 +1749,15 @@ if st.session_state.perfil == "Admin":
                         try: frota_inicial = json.loads(dados_ant['veiculos_lista'])
                         except: pass
                     if not frota_inicial:
-                        if pd.notna(dados_ant.get('vei')) and dados_ant['vei'] != 'nan': frota_inicial.append({"Modelo/Ano": dados_ant['vei'], "Placa": str(dados_ant['pla']).upper()})
-                        if pd.notna(dados_ant.get('vei_2')) and dados_ant['vei_2'] != 'nan' and dados_ant['vei_2']: frota_inicial.append({"Modelo/Ano": dados_ant['vei_2'], "Placa": str(dados_ant['pla_2']).upper()})
-                    if not frota_inicial: frota_inicial = [{"Modelo/Ano": "", "Placa": ""}]
-                    frota_editada = st.data_editor(pd.DataFrame(frota_inicial), num_rows="dynamic", use_container_width=True)
+                        if pd.notna(dados_ant.get('vei')) and dados_ant['vei'] != 'nan': frota_inicial.append({"Tipo": "Carro", "Modelo/Ano": dados_ant['vei'], "Placa": str(dados_ant['pla']).upper(), "Blindado": False})
+                        if pd.notna(dados_ant.get('vei_2')) and dados_ant['vei_2'] != 'nan' and dados_ant['vei_2']: frota_inicial.append({"Tipo": "Carro", "Modelo/Ano": dados_ant['vei_2'], "Placa": str(dados_ant['pla_2']).upper(), "Blindado": False})
+                    if not frota_inicial: frota_inicial = [{"Tipo": "Carro", "Modelo/Ano": "", "Placa": "", "Blindado": False}]
+                    
+                    for item in frota_inicial:
+                        if "Tipo" not in item: item["Tipo"] = "Carro"
+                        if "Blindado" not in item: item["Blindado"] = False
+
+                    frota_editada = st.data_editor(pd.DataFrame(frota_inicial), column_config=FROTA_COL_CONFIG, num_rows="dynamic", use_container_width=True)
                     st.write("---")
                     
                     lista_empresas_disponiveis = [str(e['nome']).upper() for _, e in df_empresas.iterrows()] if not df_empresas.empty else ["NENHUMA EMPRESA CADASTRADA"]
@@ -1734,8 +1784,11 @@ if st.session_state.perfil == "Admin":
                     
                     if st.button("Salvar Alterações"):
                         nome, cpf, tel = nome_in.upper(), apenas_numeros_letras(cpf_raw), apenas_numeros_letras(tel_raw)
-                        frota_limpa = frota_editada.dropna(how='all')
+                        frota_limpa = frota_editada.dropna(subset=['Placa', 'Modelo/Ano'], how='any')
+                        frota_limpa = frota_limpa[frota_limpa['Placa'].astype(str).str.strip() != ""]
                         frota_limpa['Placa'] = frota_limpa['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
+                        frota_limpa['Blindado'] = frota_limpa['Blindado'].fillna(False).astype(bool)
+                        
                         frota_json_str = json.dumps(frota_limpa.to_dict('records'))
                         vei_prin = frota_limpa.iloc[0]['Modelo/Ano'] if not frota_limpa.empty else ""
                         pla_prin = frota_limpa.iloc[0]['Placa'] if not frota_limpa.empty else ""
@@ -2453,7 +2506,8 @@ elif st.session_state.perfil == "Parceiro":
             
             st.write("---")
             st.write("🚗 **Frota do Cliente (Tabela Interativa)**")
-            frota_editada_p = st.data_editor(pd.DataFrame([{"Modelo/Ano": "", "Placa": ""}]), num_rows="dynamic", use_container_width=True)
+            df_frota_editavel_p = pd.DataFrame([{"Tipo": "Carro", "Modelo/Ano": "", "Placa": "", "Blindado": False}])
+            frota_editada_p = st.data_editor(df_frota_editavel_p, column_config=FROTA_COL_CONFIG, num_rows="dynamic", use_container_width=True)
             st.write("---")
             
             modo_fat_parceiro = "Tradicional"
@@ -2483,8 +2537,11 @@ elif st.session_state.perfil == "Parceiro":
             
             if st.button("Salvar Novo Registro"):
                 p_cpf = apenas_numeros_letras(p_cpf_raw)
-                frota_limpa_p = frota_editada_p.dropna(how='all')
+                frota_limpa_p = frota_editada_p.dropna(subset=['Placa', 'Modelo/Ano'], how='any')
+                frota_limpa_p = frota_limpa_p[frota_limpa_p['Placa'].astype(str).str.strip() != ""]
                 frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
+                frota_limpa_p['Blindado'] = frota_limpa_p['Blindado'].fillna(False).astype(bool)
+                
                 frota_json_str_p = json.dumps(frota_limpa_p.to_dict('records'))
                 vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                 pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
@@ -2530,10 +2587,15 @@ elif st.session_state.perfil == "Parceiro":
                         try: frota_inicial_p = json.loads(dados_part_ant['veiculos_lista'])
                         except: pass
                     if not frota_inicial_p:
-                        if pd.notna(dados_part_ant.get('vei')) and dados_part_ant['vei'] != 'nan': frota_inicial_p.append({"Modelo/Ano": dados_part_ant['vei'], "Placa": str(dados_part_ant['pla']).upper()})
-                        if pd.notna(dados_part_ant.get('vei_2')) and dados_part_ant['vei_2'] != 'nan' and dados_part_ant['vei_2']: frota_inicial_p.append({"Modelo/Ano": dados_part_ant['vei_2'], "Placa": str(dados_part_ant['pla_2']).upper()})
-                    if not frota_inicial_p: frota_inicial_p = [{"Modelo/Ano": "", "Placa": ""}]
-                    frota_editada_p = st.data_editor(pd.DataFrame(frota_inicial_p), num_rows="dynamic", use_container_width=True)
+                        if pd.notna(dados_part_ant.get('vei')) and dados_part_ant['vei'] != 'nan': frota_inicial_p.append({"Tipo": "Carro", "Modelo/Ano": dados_part_ant['vei'], "Placa": str(dados_part_ant['pla']).upper(), "Blindado": False})
+                        if pd.notna(dados_part_ant.get('vei_2')) and dados_part_ant['vei_2'] != 'nan' and dados_part_ant['vei_2']: frota_inicial_p.append({"Tipo": "Carro", "Modelo/Ano": dados_part_ant['vei_2'], "Placa": str(dados_part_ant['pla_2']).upper(), "Blindado": False})
+                    if not frota_inicial_p: frota_inicial_p = [{"Tipo": "Carro", "Modelo/Ano": "", "Placa": "", "Blindado": False}]
+                    
+                    for item in frota_inicial_p:
+                        if "Tipo" not in item: item["Tipo"] = "Carro"
+                        if "Blindado" not in item: item["Blindado"] = False
+
+                    frota_editada_p = st.data_editor(pd.DataFrame(frota_inicial_p), column_config=FROTA_COL_CONFIG, num_rows="dynamic", use_container_width=True)
                     st.write("---")
                     
                     modo_fat_parceiro = "Tradicional"
@@ -2555,8 +2617,11 @@ elif st.session_state.perfil == "Parceiro":
                     
                     if st.button("Salvar Alterações"):
                         p_cpf = apenas_numeros_letras(p_cpf_raw)
-                        frota_limpa_p = frota_editada_p.dropna(how='all')
+                        frota_limpa_p = frota_editada_p.dropna(subset=['Placa', 'Modelo/Ano'], how='any')
+                        frota_limpa_p = frota_limpa_p[frota_limpa_p['Placa'].astype(str).str.strip() != ""]
                         frota_limpa_p['Placa'] = frota_limpa_p['Placa'].astype(str).str.upper().str.replace("-","").str.replace(" ","")
+                        frota_limpa_p['Blindado'] = frota_limpa_p['Blindado'].fillna(False).astype(bool)
+                        
                         frota_json_str_p = json.dumps(frota_limpa_p.to_dict('records'))
                         vei_prin_p = frota_limpa_p.iloc[0]['Modelo/Ano'] if not frota_limpa_p.empty else ""
                         pla_prin_p = frota_limpa_p.iloc[0]['Placa'] if not frota_limpa_p.empty else ""
