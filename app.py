@@ -158,10 +158,17 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
 
     ass_html = ""
     ass_str = str(r.get('assinatura_cliente', ''))
-    if ass_str and ass_str.lower() != 'nan':
-        ass_html = f"<h3 style='color: #7B2CBF; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px;'>✍️ Assinatura do Cliente / Responsável</h3>"
-        ass_html += f"<p style='font-size: 14px; margin-bottom: 8px;'><strong>Documento Identificador (CPF/RG):</strong> <span class='destaque'>{doc_cliente}</span></p>"
-        ass_html += f"<img src='data:image/png;base64,{ass_str}' style='max-height: 120px; border: 2px solid #ddd; border-radius: 6px;' />"
+    if ass_str and ass_str.lower() not in ['nan', 'none', '']:
+        ass_html = f"""
+        <div style='background-color: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px solid #7B2CBF; margin-top: 25px;'>
+            <h3 style='color: #7B2CBF; margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 5px;'>✍️ Termo de Responsabilidade e Assinatura</h3>
+            <p style='font-size: 14px; margin-bottom: 8px;'><strong>Documento Identificador (CPF/RG):</strong> <span class='destaque'>{doc_cliente}</span></p>
+            <p style='font-size: 12px; color: #555; margin-bottom: 12px;'>O cliente ou responsável atesta que o serviço foi concluído e os dados do veículo conferem.</p>
+            <div style='text-align: center;'>
+                <img src='data:image/png;base64,{ass_str}' style='max-height: 140px; border: 2px solid #ddd; border-radius: 6px; background-color: #fff;' onerror="this.src='data:image/jpeg;base64,{ass_str}';" />
+            </div>
+        </div>
+        """
 
     html = f"""
     <html>
@@ -199,7 +206,7 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
     </html>
     """
     b64 = base64.b64encode(html.encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px;">📥 Baixar Extrato de OS (PDF/HTML)</a>'
+    return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px;">📥 Baixar Extrato de OS com Assinatura (PDF/HTML)</a>'
 
 @st.cache_data(ttl=60, show_spinner=False)
 def carregar_dados(tabela, col_obr):
@@ -807,7 +814,8 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-    # ===================================================================================
+
+# ===================================================================================
 # PORTAIS EXTERNOS (NPS, GPS DO CLIENTE E PORTAL DO GUINCHO)
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
@@ -1225,8 +1233,7 @@ elif portal_atual == "cliente_salvo":
     else:
         st.error("Erro ao receber as coordenadas. Tente novamente.")
     st.stop()
-
-# ===================================================================================
+    # ===================================================================================
 # CONTROLE DE SESSÃO E LOGIN
 # ===================================================================================
 if "logado" not in st.session_state:
@@ -1280,6 +1287,7 @@ with col_logout:
         st.query_params.clear()
         st.rerun()
 st.write("---")
+
 # ===================================================================================
 # INTERFACE 1: ADMIN MASTER
 # ===================================================================================
@@ -1619,20 +1627,11 @@ if st.session_state.perfil == "Admin":
 
     elif aba_selecionada == aba_pendencias_nome:
         st.markdown(f'<div class="section-title">{aba_pendencias_nome} (OS em Andamento)</div>', unsafe_allow_html=True)
-        
-        if st.session_state.get("nps_show"):
-            st.success("✅ OS Encerrada no Sistema! Agora, envie a pesquisa de satisfação para o cliente avaliar o atendimento:")
-            st.markdown(f'<a href="{st.session_state.get("nps_link", "#")}" target="_blank"><button style="background-color: #1E88E5; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; font-size: 14px;">⭐ Disparar Pesquisa de Satisfação (NPS) no WhatsApp do Cliente</button></a>', unsafe_allow_html=True)
-            if st.button("Sair / Limpar este aviso", use_container_width=True):
-                st.session_state.nps_show = False
-                st.rerun()
-            st.write("---")
 
         df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
         
         if df_abertas.empty: 
-            if not st.session_state.get("nps_show"):
-                st.success("Nenhum chamado pendente no momento! 🎉")
+            st.success("Nenhum chamado pendente no momento! 🎉")
         else:
             lista_abertas = []
             for _, r in df_abertas.iterrows():
@@ -1683,7 +1682,7 @@ if st.session_state.perfil == "Admin":
                 except: pass
                 
             ass_str = str(row_os.get('assinatura_cliente', ''))
-            if ass_str and ass_str.lower() != 'nan':
+            if ass_str and ass_str.lower() not in ['nan', 'none', '']:
                 st.write("**✍️ Assinatura do Cliente:**")
                 st.write(f"**Documento Identificador (CPF/RG):** {doc_cliente_nps}")
                 try: st.image(base64.b64decode(ass_str), width=200)
@@ -1733,14 +1732,22 @@ if st.session_state.perfil == "Admin":
             with col_btn2:
                 texto_btn_encerrar = "🔒 Auditar e Encerrar OS no Sistema" if status_dessa_os == 'CONCLUÍDO' else "🔒 Encerrar OS no Sistema"
                 if st.button(texto_btn_encerrar, key="btn_encerrar_os_adm", type="primary", use_container_width=True):
-                    with st.spinner("Encerrando OS e preparando envio de NPS..."):
+                    with st.spinner("Encerrando OS e abrindo WhatsApp para envio de NPS..."):
                         df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
                         sucesso, erro = salvar_dados(df_os, FILE_OS)
                         if sucesso:
                             registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
-                            st.session_state.nps_show = True
-                            st.session_state.nps_link = link_w_cli_nps
-                            time.sleep(1)
+                            st.success("✅ OS Encerrada com sucesso! O WhatsApp do cliente abrirá em nova aba automaticamente...")
+                            
+                            # Script inteligente para abrir a nova guia e limpar a tela na mesma hora
+                            js_auto_open = f"""
+                            <script>
+                                window.open("{link_w_cli_nps}", "_blank");
+                            </script>
+                            """
+                            components.html(js_auto_open, height=0, width=0)
+                            
+                            time.sleep(2.5) # Dá tempo ao navegador de executar o link antes do backend recarregar e limpar
                             st.rerun()
                         else: st.error(f"Erro na nuvem: {erro}")
 
