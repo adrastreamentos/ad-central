@@ -750,6 +750,50 @@ def gerar_texto_resumo_plano(dados_fat):
     else:
         return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
 
+def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais):
+    dados_fat = calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_atuais, df_empresas_atuais)
+    if dados_fat['modo_fat'] == 'Inativo': return "<p>Empresa inativa.</p>"
+    
+    df_os_temp = df_os_atuais.copy()
+    df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
+    os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora')
+
+    linhas_os_html = ""
+    if os_mes.empty: linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste ciclo.</td></tr>"
+    else:
+        for _, r in os_mes.iterrows():
+            is_exc = "<br><span style='color:red; font-size:10px;'>(Exceção/PIX)</span>" if str(r.get('valor_cobrado','0')) not in ['0.00', '0,00', '0', ''] else ""
+            linhas_os_html += f"<tr><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['id']}{is_exc}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{str(r['data_hora'])[:16]}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px; font-weight: bold;'>{r['placa']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['cliente_nome']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['tipo_servico']}</td><td style='border: 1px solid #ddd; padding: 8px; font-size: 12px;'>{r['localizacao']} ➔ {r['destino']}</td></tr>"
+
+    linhas_veiculos_html = ""
+    for idx_v, v in enumerate(dados_fat['veiculos']):
+        linhas_veiculos_html += f"<tr><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{idx_v + 1}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px; font-weight: bold;'>{v['placa']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['cliente']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['plano']}</td><td style='border: 1px solid #ddd; padding: 6px; font-size: 11px;'>{v['tipo_cobranca']}</td></tr>"
+
+    str_inicio = dados_fat['dt_inicio'].strftime('%d/%m/%Y')
+    str_fim = dados_fat['dt_fim'].strftime('%d/%m/%Y')
+    timestamp_arquivo = int(time.time())
+    modo_pdf = dados_fat['modo_fat']
+
+    if modo_pdf == "Performance (Escalonado)":
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. TABELA DE REFERÊNCIA (AMOSTRAGEM)</h3><p style="margin: 4px 0 10px 0; font-size: 12px; color: #666;">A tarifa mensal baseia-se na % de uso em relação a base (Mínimo de 30 veículos). Enquadramento atual de fechamento: <b>{dados_fat['faixa']}</b>.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Valor apurado pela tabela (Soma Placas Ativas): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p>"""
+        if dados_fat['fatura_total'] == 400.00 and dados_fat['soma_adicionais'] < 400.00:
+            secao_memoria += f"""<p style="margin: 4px 0; font-size: 13px; color: #E53935;">(+) Complemento de Piso Mínimo Garantido: <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p>"""
+        secao_memoria += f"""<hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
+        
+    elif "Frota Pequena" in modo_pdf or "Até 40 Veículos" in modo_pdf:
+        franquia_qtd = f"{dados_fat.get('acionamentos_isentos', 2)} guinchos"
+        uso_qtd = f"{dados_fat.get('total_ac', 0)} de {dados_fat.get('acionamentos_isentos', 2)}"
+        secao_tabela = f"""<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">3. INFORMAÇÕES DO PACOTE CONTRATADO</h3><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Plano:</strong> {modo_pdf}</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Franquia Inclusa:</strong> {franquia_qtd} mensais.</p><p style="margin: 4px 0 10px 0; font-size: 13px;"><strong>Consumo no Ciclo:</strong> {uso_qtd} utilizados.</p></div>"""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO DETALHADA</h3><p style="margin: 4px 0; font-size: 13px;">(+) Base do Pacote Mensal Fixo: <strong>R$ {dados_fat['valor_base']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Custo das Placas Ativas (Pré-Pago): <strong>R$ {dados_fat['soma_adicionais']:.2f}</strong></p><p style="margin: 4px 0; font-size: 13px;">(+) Adicional de Acionamentos Excedentes (Pós-Pago): <strong>R$ {dados_fat['soma_excedentes']:.2f}</strong></p><hr style="border: 0; border-top: 1px solid #ccc; margin: 10px 0;"><p style="margin: 8px 0; font-size: 18px; color: #7B2CBF; text-align: right;"><strong>VALOR TOTAL DA FATURA: R$ {dados_fat['fatura_total']:.2f}</strong></p></div>"""
+    else:
+        secao_tabela = ""
+        secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>"""
+
+    html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
+    b64 = base64.b64encode(html_content.encode('utf-8')).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
+    
 # ===================================================================================
 # PORTAIS EXTERNOS (NPS, GPS DO CLIENTE E PORTAL DO GUINCHO)
 # ===================================================================================
@@ -1167,7 +1211,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.5</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.6</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -1599,8 +1643,20 @@ if st.session_state.perfil == "Admin":
                 except: pass
             
             is_blindado_msg = "SIM 🛡️ (Atenção ao peso/capacidade da plataforma)" if "BLINDADO" in v_desc_wpp.upper() else "NÃO"
-            empresa_nome_wpp = str(row_os.get('empresa', 'AD Rastreamento')).upper()
-            if empresa_nome_wpp == 'CLIENTE PARTICULAR (AVULSO)': empresa_nome_wpp = 'AD RASTREAMENTO'
+            
+            # TRATAMENTO INTELIGENTE DO VALOR AVULSO (SÓ APARECE SE FOR PARTICULAR)
+            empresa_original_os = str(row_os.get('empresa', 'AD Rastreamento')).upper()
+            
+            valor_cobrado_str = str(row_os.get('valor_cobrado', '0,00')).strip()
+            if empresa_original_os == 'CLIENTE PARTICULAR (AVULSO)' and valor_cobrado_str not in ['', '0,00', '0.00', '0']:
+                linha_valor_particular = f"*Valor Particular:* R$ {valor_cobrado_str}\n"
+            else:
+                linha_valor_particular = ""
+                
+            # Troca o nome para AD Rastreamento se for cliente particular na mensagem e NPS
+            empresa_nome_wpp = empresa_original_os
+            if empresa_nome_wpp == 'CLIENTE PARTICULAR (AVULSO)': 
+                empresa_nome_wpp = 'AD RASTREAMENTO'
             
             link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
             texto_w_nps = f"Olá! Seu atendimento de assistência 24 horas pela *{empresa_nome_wpp}* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
@@ -1610,7 +1666,7 @@ if st.session_state.perfil == "Admin":
                               f"*Chamado Nº:* {row_os['id']}\n"
                               f"*Data/Hora:* {row_os['data_hora']}\n"
                               f"*Plano KM:* {row_os.get('plano_km', 'N/D')}\n"
-                              f"*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n"
+                              f"{linha_valor_particular}"
                               f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
                               f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
                               f"*Telefone:* {mascarar_telefone(tel_cliente_os)}\n\n"
@@ -2253,7 +2309,7 @@ if st.session_state.perfil == "Admin":
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Bairro/Cidade:** {p.get('bairro','N/D')} - {p.get('cidade','N/D')}")
                     texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na rede de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nA partir de agora você receberá nossos chamados de assistência 24h diretamente por aqui.\n\nSeja bem-vindo à nossa rede!")
                     link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
-                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: margin-bottom: 10px; font-size: 13px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 13px;">📲 Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     col_h1, col_h2 = st.columns(2)
                     if col_h1.button("✅ Aprovar no Sistema", key=f"apr_{p['id']}"):
                         df_prestadores.loc[df_prestadores['id'] == p['id'], 'homologado'] = 'Aprovado'
