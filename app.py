@@ -141,6 +141,23 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
     if df_os.empty: return "<p style='color: red;'>Erro: Nenhuma OS encontrada para gerar o relatório.</p>"
     r = df_os.iloc[0]
     
+    fotos_html = ""
+    fotos_str = str(r.get('fotos_vistoria', ''))
+    if fotos_str and fotos_str.lower() != 'nan' and '{' in fotos_str:
+        try:
+            fotos_dict = json.loads(fotos_str)
+            fotos_html = "<h3 style='color: #7B2CBF; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px;'>📸 Vistoria Fotográfica</h3><div style='display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;'>"
+            for k, label in [('frente', 'Frente'), ('traseira', 'Traseira'), ('lat_dir', 'Lateral Direita'), ('lat_esq', 'Lateral Esquerda')]:
+                if fotos_dict.get(k):
+                    fotos_html += f"<div style='text-align:center;'><p style='font-size:13px; font-weight:bold; margin-bottom:5px; color:#555;'>{label}</p><img src='data:image/jpeg;base64,{fotos_dict[k]}' style='max-height: 180px; border: 2px solid #ddd; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' /></div>"
+            fotos_html += "</div>"
+        except: pass
+
+    ass_html = ""
+    ass_str = str(r.get('assinatura_cliente', ''))
+    if ass_str and ass_str.lower() != 'nan':
+        ass_html = f"<h3 style='color: #7B2CBF; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px;'>✍️ Assinatura do Cliente / Responsável</h3><img src='data:image/png;base64,{ass_str}' style='max-height: 120px; border: 2px solid #ddd; border-radius: 6px; margin-top: 10px;' />"
+
     html = f"""
     <html>
         <head>
@@ -149,8 +166,8 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
             <style>
                 body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; }}
                 h2 {{ color: #7B2CBF; border-bottom: 2px solid #E53935; padding-bottom: 5px; }}
-                .info-box {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #7B2CBF; }}
-                .info-box p {{ margin: 8px 0; font-size: 14px; }}
+                .info-box {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; border-left: 4px solid #7B2CBF; line-height: 1.6; }}
+                .info-box p {{ margin: 6px 0; font-size: 14px; }}
                 .destaque {{ font-weight: bold; color: #E53935; }}
             </style>
         </head>
@@ -159,22 +176,25 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
             <div class="info-box">
                 <p><strong>Número da OS:</strong> #{r['id']}</p>
                 <p><strong>Data e Hora do Chamado:</strong> {r['data_hora']}</p>
-                <p><strong>Cliente:</strong> {r['cliente_nome']}</p>
+                <p><strong>Empresa Parceira:</strong> {r.get('empresa', 'N/D')}</p>
+                <p><strong>Cliente Atendido:</strong> {r['cliente_nome']}</p>
                 <p><strong>Veículo Solicitado:</strong> {r.get('veiculo_desc', 'N/D')}</p>
                 <p><strong>Placa do Veículo:</strong> <span class="destaque">{r['placa']}</span></p>
                 <p><strong>Tipo de Serviço:</strong> {r['tipo_servico']} ({r.get('motivo','N/D')})</p>
                 <p><strong>Origem (Localização):</strong> {r.get('localizacao','N/D')}</p>
                 <p><strong>Destino:</strong> {r.get('destino','N/D')}</p>
                 <p><strong>Observações:</strong> {r.get('obs','Nenhuma')}</p>
-                <p><strong>Prestador Acionado:</strong> {r['prestador']}</p>
+                <p><strong>Prestador Acionado / Guincheiro:</strong> {r.get('motorista_nome', r['prestador'])}</p>
             </div>
-            <br>
-            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;"><em>Documento gerado automaticamente pelo sistema operacional Central AD 24h.</em></p>
+            {fotos_html}
+            {ass_html}
+            <br><br>
+            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px; border-top: 1px solid #ccc; padding-top: 10px;"><em>Documento gerado automaticamente pelo sistema operacional Central AD 24h.</em></p>
         </body>
     </html>
     """
     b64 = base64.b64encode(html.encode('utf-8')).decode()
-    return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px;">📥 Baixar Extrato de OS (PDF/HTML)</a>'
+    return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px;">📥 Baixar Extrato da OS com Fotos (PDF/HTML)</a>'
 
 @st.cache_data(ttl=60, show_spinner=False)
 def carregar_dados(tabela, _col_obr):
@@ -800,6 +820,7 @@ if portal_atual == "guincho":
     motorista_os = str(os_info.get('motorista_nome', '')).strip()
     motorista_tel_raw = str(os_info.get('motorista_tel', '')).strip()
     
+    # Extrai a data de aceite embutida no telefone (Se houver)
     if "|" in motorista_tel_raw:
         tel_motorista_os = motorista_tel_raw.split("|")[0]
         data_aceite = motorista_tel_raw.split("|")[1]
@@ -814,12 +835,14 @@ if portal_atual == "guincho":
             data_formatada = d_obj.strftime("%d/%m/%Y às %H:%M")
         except: data_formatada = data_aceite
     
+    # Correção inteligente para motos antigas salvas como carro no portal do guincho
     v_desc_portal = str(os_info.get('veiculo_desc', 'N/D'))
     if "CARRO " in v_desc_portal.upper() and any(m in v_desc_portal.upper() for m in MARCAS_MOTO):
         v_desc_portal = v_desc_portal.replace("CARRO ", "MOTO ").replace("Carro ", "Moto ")
         
     is_dono = st.session_state.get(f"dono_{os_param}", False)
     
+    # TRAVA DE SEGURANÇA: Se já foi aceita e o celular atual não tem o cookie de dono
     if status_atual not in ['PENDENTE', 'EM ATENDIMENTO', 'CANCELADO']:
         if not is_dono:
             st.error("🔒 CHAMADO INDISPONÍVEL / JÁ ASSUMIDO")
@@ -845,6 +868,7 @@ if portal_atual == "guincho":
     
     st.write("---")
     
+    # ETAPA 1: PENDENTE / EM ATENDIMENTO (ACEITE)
     if status_atual in ['PENDENTE', 'EM ATENDIMENTO']:
         st.info("🚨 **Este chamado está disponível para atendimento.**")
         st.write(f"**Placa:** `{mascarar_placa(placa_real)}`")
@@ -910,6 +934,7 @@ if portal_atual == "guincho":
                             time.sleep(1.5)
                             st.rerun()
                     
+    # ETAPA 2: A CAMINHO (VALIDAÇÃO FÍSICA)
     elif status_atual == 'A CAMINHO':
         st.success(f"🚚 Você assumiu este chamado. Dirija-se ao local de origem.")
         
@@ -931,24 +956,26 @@ if portal_atual == "guincho":
             else:
                 st.error("Placa incorreta. Verifique o veículo ou tente novamente.")
                 
+        # ETAPA 3: VISTORIA E ASSINATURA (DESBLOQUEADO)
         if st.session_state.vistoria_liberada:
             st.write("---")
             st.markdown("### 📸 Vistoria Fotográfica")
             st.write("Tire as 4 fotos obrigatórias do veículo (toque no botão para abrir a câmera):")
             
+            # Aqui a imagem aparece imediatamente após a foto ser tirada
             c_cam1, c_cam2 = st.columns(2)
             with c_cam1: 
                 frente = st.file_uploader("📸 Frente", type=['jpg', 'jpeg', 'png'])
-                if frente: st.image(frente, use_container_width=True)
+                if frente: st.image(frente, use_container_width=True, caption="Prévia Frente")
             with c_cam2: 
                 traseira = st.file_uploader("📸 Traseira", type=['jpg', 'jpeg', 'png'])
-                if traseira: st.image(traseira, use_container_width=True)
+                if traseira: st.image(traseira, use_container_width=True, caption="Prévia Traseira")
             with c_cam1: 
                 lat_dir = st.file_uploader("📸 Lat. Direita", type=['jpg', 'jpeg', 'png'])
-                if lat_dir: st.image(lat_dir, use_container_width=True)
+                if lat_dir: st.image(lat_dir, use_container_width=True, caption="Prévia Direita")
             with c_cam2: 
                 lat_esq = st.file_uploader("📸 Lat. Esquerda", type=['jpg', 'jpeg', 'png'])
-                if lat_esq: st.image(lat_esq, use_container_width=True)
+                if lat_esq: st.image(lat_esq, use_container_width=True, caption="Prévia Esquerda")
             
             st.markdown("### ✍️ Assinatura do Condutor")
             st.info("Peça para o responsável pelo veículo assinar no quadro abaixo:")
@@ -984,15 +1011,11 @@ if portal_atual == "guincho":
                         dict_fotos = {"frente": b_frente, "traseira": b_traseira, "lat_dir": b_dir, "lat_esq": b_esq}
                         
                         b64_assinatura = ""
-                        if CANVAS_AVAILABLE and canvas_result is not None:
-                            try:
-                                if canvas_result.image_data is not None:
-                                    img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-                                    buf = io.BytesIO()
-                                    img_ass.save(buf, format="PNG")
-                                    b64_assinatura = base64.b64encode(buf.getvalue()).decode()
-                            except Exception:
-                                pass # Ignora silenciosamente para não travar o processo
+                        if CANVAS_AVAILABLE and canvas_result.image_data is not None:
+                            img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+                            buf = io.BytesIO()
+                            img_ass.save(buf, format="PNG")
+                            b64_assinatura = base64.b64encode(buf.getvalue()).decode()
                         elif not CANVAS_AVAILABLE and assinatura_foto:
                             b64_assinatura = comprimir_imagem_b64(assinatura_foto)
                             
@@ -1004,6 +1027,7 @@ if portal_atual == "guincho":
                         time.sleep(2)
                         st.rerun()
                         
+    # ETAPA 4: EM TRÂNSITO E DESEMBARQUE
     elif status_atual == 'EM TRÂNSITO':
         st.info("🚚 Veículo embarcado. Você está a caminho do destino.")
         st.markdown(f"**🏁 Destino Final:** {os_info.get('destino', 'N/D')}")
@@ -1023,7 +1047,6 @@ if portal_atual == "guincho":
         st.write("Nenhuma ação pendente para este chamado. Obrigado e boa viagem de retorno!")
     
     st.stop()
-
 
 elif portal_atual == "nps":
     st.markdown('<div class="main-title">Pesquisa de Qualidade</div>', unsafe_allow_html=True)
@@ -1195,7 +1218,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.5</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.4</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -1226,7 +1249,7 @@ with col_user:
     st.markdown(f"<div style='font-size: 16px; font-weight: 700; color: #4a148c; padding-top: 5px;'>Central AD 24h | Operador: <span style='color: #E53935;'>{st.session_state.user}</span></div>", unsafe_allow_html=True)
 with col_refresh:
     if st.button("🔄 Atualizar", use_container_width=True):
-        st.cache_data.clear()
+        st.cache_data.clear() # Limpa o cache ao forçar atualização manual
         st.rerun()
 with col_logout:
     if st.button("Sair / Logoff", key="btn_logout_master", use_container_width=True):
@@ -1601,12 +1624,8 @@ if st.session_state.perfil == "Admin":
             st.write(f"**Base/Grupo Acionado:** {prestador_info}")
             
             motorista_n = str(row_os.get('motorista_nome', '')).strip()
-            motorista_tel_raw = str(row_os.get('motorista_tel', '')).strip()
-            if "|" in motorista_tel_raw: tel_motorista_os = motorista_tel_raw.split("|")[0]
-            else: tel_motorista_os = motorista_tel_raw
-                
             if motorista_n and motorista_n.lower() != 'nan':
-                st.markdown(f'<div class="alert-box alert-success" style="padding: 10px; margin-top: 10px;">🚚 <b>Guincheiro Responsável:</b> {motorista_n} | <b>Tel:</b> {tel_motorista_os}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="alert-box alert-success" style="padding: 10px; margin-top: 10px;">🚚 <b>Guincheiro Responsável:</b> {motorista_n} | <b>Tel:</b> {row_os.get("motorista_tel", "").split("|")[0]}</div>', unsafe_allow_html=True)
             
             obs_val = str(row_os.get('obs', ''))
             if obs_val.strip() == "" or obs_val.lower() == "nan": obs_val = "Nenhuma"
@@ -1632,22 +1651,14 @@ if st.session_state.perfil == "Admin":
             
             is_blindado_msg = "SIM 🛡️ (Atenção ao peso/capacidade da plataforma)" if "BLINDADO" in v_desc_wpp.upper() else "NÃO"
             link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
-            texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
+            texto_w_nps = f"Olá! Seu atendimento de assistência 24 horas pela *{str(row_os.get('empresa', 'Nossa Central')).upper()}* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
             
-            valor_cobrado_os_str = row_os.get('valor_cobrado', '0,00')
-            empresa_str_wpp = str(row_os['empresa']).upper()
-            
-            # Lógica Inteligente para Ocultar Valor Particular
-            valor_particular_str = ""
-            if "AVULSO" in empresa_str_wpp or "PARTICULAR" in empresa_str_wpp:
-                valor_particular_str = f"*Valor Particular:* R$ {valor_cobrado_os_str}\n"
-            
-            texto_whatsapp = (f"*{empresa_str_wpp} - ASSISTÊNCIA 24H*\n"
+            texto_whatsapp = (f"*{str(row_os.get('empresa', 'CENTRAL')).upper()} - ASSISTÊNCIA 24H*\n"
                               f"-----------------------------------------\n"
                               f"*Chamado Nº:* {row_os['id']}\n"
                               f"*Data/Hora:* {row_os['data_hora']}\n"
                               f"*Plano KM:* {row_os.get('plano_km', 'N/D')}\n"
-                              f"{valor_particular_str}"
+                              f"*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n"
                               f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
                               f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
                               f"*Telefone:* {mascarar_telefone(tel_cliente_os)}\n\n"
