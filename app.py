@@ -773,8 +773,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-    
-# ===================================================================================
+    # ===================================================================================
 # PORTAIS EXTERNOS (NPS, GPS DO CLIENTE E PORTAL DO GUINCHO)
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
@@ -801,7 +800,6 @@ if portal_atual == "guincho":
     motorista_os = str(os_info.get('motorista_nome', '')).strip()
     motorista_tel_raw = str(os_info.get('motorista_tel', '')).strip()
     
-    # Extrai a data de aceite embutida no telefone (Se houver)
     if "|" in motorista_tel_raw:
         tel_motorista_os = motorista_tel_raw.split("|")[0]
         data_aceite = motorista_tel_raw.split("|")[1]
@@ -816,14 +814,12 @@ if portal_atual == "guincho":
             data_formatada = d_obj.strftime("%d/%m/%Y às %H:%M")
         except: data_formatada = data_aceite
     
-    # Correção inteligente para motos antigas salvas como carro no portal do guincho
     v_desc_portal = str(os_info.get('veiculo_desc', 'N/D'))
     if "CARRO " in v_desc_portal.upper() and any(m in v_desc_portal.upper() for m in MARCAS_MOTO):
         v_desc_portal = v_desc_portal.replace("CARRO ", "MOTO ").replace("Carro ", "Moto ")
         
     is_dono = st.session_state.get(f"dono_{os_param}", False)
     
-    # TRAVA DE SEGURANÇA: Se já foi aceita e o celular atual não tem o cookie de dono
     if status_atual not in ['PENDENTE', 'EM ATENDIMENTO', 'CANCELADO']:
         if not is_dono:
             st.error("🔒 CHAMADO INDISPONÍVEL / JÁ ASSUMIDO")
@@ -849,7 +845,6 @@ if portal_atual == "guincho":
     
     st.write("---")
     
-    # ETAPA 1: PENDENTE / EM ATENDIMENTO (ACEITE)
     if status_atual in ['PENDENTE', 'EM ATENDIMENTO']:
         st.info("🚨 **Este chamado está disponível para atendimento.**")
         st.write(f"**Placa:** `{mascarar_placa(placa_real)}`")
@@ -915,7 +910,6 @@ if portal_atual == "guincho":
                             time.sleep(1.5)
                             st.rerun()
                     
-    # ETAPA 2: A CAMINHO (VALIDAÇÃO FÍSICA)
     elif status_atual == 'A CAMINHO':
         st.success(f"🚚 Você assumiu este chamado. Dirija-se ao local de origem.")
         
@@ -937,7 +931,6 @@ if portal_atual == "guincho":
             else:
                 st.error("Placa incorreta. Verifique o veículo ou tente novamente.")
                 
-        # ETAPA 3: VISTORIA E ASSINATURA (DESBLOQUEADO)
         if st.session_state.vistoria_liberada:
             st.write("---")
             st.markdown("### 📸 Vistoria Fotográfica")
@@ -991,11 +984,15 @@ if portal_atual == "guincho":
                         dict_fotos = {"frente": b_frente, "traseira": b_traseira, "lat_dir": b_dir, "lat_esq": b_esq}
                         
                         b64_assinatura = ""
-                        if CANVAS_AVAILABLE and canvas_result.image_data is not None:
-                            img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
-                            buf = io.BytesIO()
-                            img_ass.save(buf, format="PNG")
-                            b64_assinatura = base64.b64encode(buf.getvalue()).decode()
+                        if CANVAS_AVAILABLE and canvas_result is not None:
+                            try:
+                                if canvas_result.image_data is not None:
+                                    img_ass = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
+                                    buf = io.BytesIO()
+                                    img_ass.save(buf, format="PNG")
+                                    b64_assinatura = base64.b64encode(buf.getvalue()).decode()
+                            except Exception:
+                                pass # Ignora silenciosamente para não travar o processo
                         elif not CANVAS_AVAILABLE and assinatura_foto:
                             b64_assinatura = comprimir_imagem_b64(assinatura_foto)
                             
@@ -1007,7 +1004,6 @@ if portal_atual == "guincho":
                         time.sleep(2)
                         st.rerun()
                         
-    # ETAPA 4: EM TRÂNSITO E DESEMBARQUE
     elif status_atual == 'EM TRÂNSITO':
         st.info("🚚 Veículo embarcado. Você está a caminho do destino.")
         st.markdown(f"**🏁 Destino Final:** {os_info.get('destino', 'N/D')}")
@@ -1183,7 +1179,8 @@ elif portal_atual == "cliente_salvo":
     else:
         st.error("Erro ao receber as coordenadas. Tente novamente.")
     st.stop()
-    # ===================================================================================
+
+# ===================================================================================
 # CONTROLE DE SESSÃO E LOGIN
 # ===================================================================================
 if "logado" not in st.session_state:
@@ -1198,7 +1195,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.4</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.5</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -1229,7 +1226,7 @@ with col_user:
     st.markdown(f"<div style='font-size: 16px; font-weight: 700; color: #4a148c; padding-top: 5px;'>Central AD 24h | Operador: <span style='color: #E53935;'>{st.session_state.user}</span></div>", unsafe_allow_html=True)
 with col_refresh:
     if st.button("🔄 Atualizar", use_container_width=True):
-        st.cache_data.clear() # Limpa o cache ao forçar atualização manual
+        st.cache_data.clear()
         st.rerun()
 with col_logout:
     if st.button("Sair / Logoff", key="btn_logout_master", use_container_width=True):
@@ -1637,12 +1634,20 @@ if st.session_state.perfil == "Admin":
             link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
             texto_w_nps = f"Olá! Seu atendimento com a *assistência 24 horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: {link_nps_cliente}"
             
-            texto_whatsapp = (f"*{str(row_os['empresa']).upper()} - ASSISTÊNCIA 24H*\n"
+            valor_cobrado_os_str = row_os.get('valor_cobrado', '0,00')
+            empresa_str_wpp = str(row_os['empresa']).upper()
+            
+            # Lógica Inteligente para Ocultar Valor Particular
+            valor_particular_str = ""
+            if "AVULSO" in empresa_str_wpp or "PARTICULAR" in empresa_str_wpp:
+                valor_particular_str = f"*Valor Particular:* R$ {valor_cobrado_os_str}\n"
+            
+            texto_whatsapp = (f"*{empresa_str_wpp} - ASSISTÊNCIA 24H*\n"
                               f"-----------------------------------------\n"
                               f"*Chamado Nº:* {row_os['id']}\n"
                               f"*Data/Hora:* {row_os['data_hora']}\n"
                               f"*Plano KM:* {row_os.get('plano_km', 'N/D')}\n"
-                              f"*Valor Particular:* R$ {row_os.get('valor_cobrado', '0,00')}\n"
+                              f"{valor_particular_str}"
                               f"*Serviço:* {row_os['tipo_servico']} | *Motivo:* {row_os['motivo']}\n\n"
                               f"*Cliente:* {str(row_os['cliente_nome']).upper()}\n"
                               f"*Telefone:* {mascarar_telefone(tel_cliente_os)}\n\n"
