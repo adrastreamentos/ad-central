@@ -149,23 +149,19 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
             fotos_dict = json.loads(fotos_str)
             doc_cliente = fotos_dict.get('doc_cliente', 'N/D')
             
-            fotos_html = "<div style='margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px;'><h3 style='color: #7B2CBF; margin-bottom: 5px;'>📸 Vistoria Fotográfica</h3><div style='display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;'>"
+            fotos_html = "<h3 style='color: #7B2CBF; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px;'>📸 Vistoria Fotográfica</h3><div style='display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;'>"
             for k, label in [('frente', 'Frente'), ('traseira', 'Traseira'), ('lat_dir', 'Lateral Direita'), ('lat_esq', 'Lateral Esquerda')]:
                 if fotos_dict.get(k):
                     fotos_html += f"<div style='text-align:center;'><p style='font-size:13px; font-weight:bold; margin-bottom:5px; color:#555;'>{label}</p><img src='data:image/jpeg;base64,{fotos_dict[k]}' style='max-height: 180px; border: 2px solid #ddd; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);' /></div>"
-            fotos_html += "</div></div>"
+            fotos_html += "</div>"
         except: pass
 
     ass_html = ""
     ass_str = str(r.get('assinatura_cliente', ''))
-    if ass_str and str(ass_str).strip() and str(ass_str).lower() != 'nan':
-        ass_html = f"""
-        <div style='margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px;'>
-            <h3 style='color: #7B2CBF; margin-bottom: 5px;'>✍️ Assinatura do Cliente / Responsável</h3>
-            <p style='font-size: 14px; margin-bottom: 8px;'><strong>Documento Identificador (CPF/RG):</strong> <span class='destaque'>{doc_cliente}</span></p>
-            <img src='data:image/png;base64,{ass_str.strip()}' style='max-height: 120px; border: 2px solid #ddd; border-radius: 6px;' />
-        </div>
-        """
+    if ass_str and ass_str.lower() != 'nan':
+        ass_html = f"<h3 style='color: #7B2CBF; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px;'>✍️ Assinatura do Cliente / Responsável</h3>"
+        ass_html += f"<p style='font-size: 14px; margin-bottom: 8px;'><strong>Documento Identificador (CPF/RG):</strong> <span class='destaque'>{doc_cliente}</span></p>"
+        ass_html += f"<img src='data:image/png;base64,{ass_str}' style='max-height: 120px; border: 2px solid #ddd; border-radius: 6px;' />"
 
     html = f"""
     <html>
@@ -262,7 +258,7 @@ FILE_NPS = "nps"
 col_cli = ['id','nome','cpf','tel','endereco','bairro','cidade','cep','plano_km','est','emp_name','status','vei','pla','vei_2','pla_2','veiculos_lista', 'data_cadastro']
 col_emp = ['cnpj','nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento', 'data_ativacao']
 col_pre = ['id','nome','cpf','tipo','telefone','endereco','bairro','cidade','cep','est','status','homologado','senha','frota']
-col_os = ['id','data_hora','cliente_id','cliente_nome','cliente_tel','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado', 'motorista_nome', 'motorista_tel', 'fotos_vistoria', 'assinatura_cliente']
+col_os = ['id','data_hora','cliente_id','cliente_nome','cliente_tel','placa','empresa','tipo_servico','motivo','prestador','localizacao','destino','obs','status_os','veiculo_desc','plano_km','valor_cobrado','motorista_nome','motorista_tel','fotos_vistoria','assinatura_cliente']
 col_fin = ['id', 'mes_ano', 'empresa', 'valor_faturado', 'valor_pago', 'status']
 col_logs = ['data_hora', 'usuario', 'acao', 'detalhes']
 col_loc = ['placa', 'data_hora', 'link_maps']
@@ -811,13 +807,271 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #7B2CBF; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #7B2CBF; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #7B2CBF; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #7B2CBF;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #7B2CBF; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-    
-# ===================================================================================
-# PORTAL DO CLIENTE (NPS E CAPTURA DE GPS) - DEVE RODAR ANTES DO LOGIN DA CENTRAL
+    # ===================================================================================
+# PORTAIS EXTERNOS (NPS, GPS DO CLIENTE E PORTAL DO GUINCHO)
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
 
-if portal_atual == "nps":
+if portal_atual == "guincho":
+    st.markdown('<div class="main-title" style="font-size:26px;">Portal do Prestador</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">AD Assistência 24h</div>', unsafe_allow_html=True)
+    
+    os_param = st.query_params.get("os", "")
+    if not os_param:
+        st.error("Número do chamado não identificado no link.")
+        st.stop()
+        
+    os_relacionada = df_os[df_os['id'].astype(str) == str(os_param)]
+    if os_relacionada.empty:
+        st.error("Ordem de serviço não encontrada no sistema.")
+        st.stop()
+        
+    os_info = os_relacionada.iloc[0]
+    status_atual = str(os_info.get('status_os', '')).upper()
+    placa_real = str(os_info.get('placa', '')).strip().upper()
+    tel_cliente_real = str(os_info.get('cliente_tel', ''))
+    
+    motorista_os = str(os_info.get('motorista_nome', '')).strip()
+    motorista_tel_raw = str(os_info.get('motorista_tel', '')).strip()
+    
+    # Extrai a data de aceite embutida no telefone (Se houver) para a Trava de Segurança
+    if "|" in motorista_tel_raw:
+        tel_motorista_os = motorista_tel_raw.split("|")[0]
+        data_aceite = motorista_tel_raw.split("|")[1]
+    else:
+        tel_motorista_os = motorista_tel_raw
+        data_aceite = "N/D"
+        
+    data_formatada = ""
+    if data_aceite != "N/D":
+        try:
+            d_obj = datetime.strptime(data_aceite, "%Y-%m-%d %H:%M:%S")
+            data_formatada = d_obj.strftime("%d/%m/%Y às %H:%M")
+        except: data_formatada = data_aceite
+    
+    # Correção inteligente para motos antigas salvas como carro no portal do guincho
+    v_desc_portal = str(os_info.get('veiculo_desc', 'N/D'))
+    if "CARRO " in v_desc_portal.upper() and any(m in v_desc_portal.upper() for m in MARCAS_MOTO):
+        v_desc_portal = v_desc_portal.replace("CARRO ", "MOTO ").replace("Carro ", "Moto ")
+        
+    is_dono = st.session_state.get(f"dono_{os_param}", False)
+    
+    # TRAVA DE SEGURANÇA: Bloqueia acesso se outro guincheiro clicar no link
+    if status_atual not in ['PENDENTE', 'EM ATENDIMENTO', 'CANCELADO']:
+        if not is_dono:
+            st.error("🔒 CHAMADO INDISPONÍVEL / JÁ ASSUMIDO")
+            if data_formatada: st.warning(f"A ordem de serviço foi aceita por **{motorista_os}** em {data_formatada}.")
+            else: st.warning(f"A ordem de serviço já foi aceita e assumida por **{motorista_os}**.")
+            
+            st.info("Se você é este prestador e a página recarregou, confirme seu WhatsApp abaixo para retornar ao chamado:")
+            tel_recuperacao = st.text_input("Seu WhatsApp (com DDD):", key="tel_rec")
+            if st.button("Recuperar Acesso", use_container_width=True):
+                if apenas_numeros_letras(tel_recuperacao) == tel_motorista_os and tel_motorista_os != "":
+                    st.session_state[f"dono_{os_param}"] = True
+                    st.success("Acesso recuperado! Redirecionando...")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Telefone incorreto. Você não é o prestador que assumiu esta OS.")
+            st.stop()
+    
+    st.markdown(f"**📍 Origem:** {os_info.get('localizacao', 'N/D')}")
+    st.markdown(f"**🏁 Destino:** {os_info.get('destino', 'N/D')}")
+    st.markdown(f"**🚙 Veículo:** {v_desc_portal}")
+    st.markdown(f"**🛠️ Serviço:** {os_info.get('tipo_servico', '')} ({os_info.get('motivo', '')})")
+    
+    st.write("---")
+    
+    # ETAPA 1: PENDENTE / EM ATENDIMENTO (ACEITE)
+    if status_atual in ['PENDENTE', 'EM ATENDIMENTO']:
+        st.info("🚨 **Este chamado está disponível para atendimento.**")
+        st.write(f"**Placa:** `{mascarar_placa(placa_real)}`")
+        st.write(f"**Telefone do Cliente:** `{mascarar_telefone(tel_cliente_real)}`")
+        
+        st.markdown("### Assumir Ocorrência")
+        st.write("Digite seu WhatsApp para buscar seu cadastro ou criar um novo:")
+        
+        tel_mot_raw = st.text_input("Seu Telefone/WhatsApp (com DDD):")
+        tel_limpo = apenas_numeros_letras(tel_mot_raw)
+        
+        if tel_limpo and len(tel_limpo) >= 10:
+            df_prestadores_atual = carregar_dados(FILE_PRESTADORES, col_pre)
+            prestador_existente = df_prestadores_atual[df_prestadores_atual['telefone'] == tel_limpo]
+            
+            if not prestador_existente.empty:
+                nome_mot = str(prestador_existente.iloc[0]['nome']).upper()
+                st.success(f"👋 Olá novamente, **{nome_mot}**! Seu cadastro foi encontrado.")
+                if st.button("✅ ACEITAR CHAMADO", type="primary", use_container_width=True):
+                    df_check = carregar_dados(FILE_OS, col_os)
+                    os_check = df_check[df_check['id'].astype(str) == str(os_param)]
+                    
+                    if not os_check.empty and str(os_check.iloc[0]['status_os']).upper() not in ['PENDENTE', 'EM ATENDIMENTO']:
+                        st.error(f"❌ Poxa! Este chamado já foi assumido por outro prestador.")
+                    else:
+                        hora_agora = obter_hora_str()
+                        tel_save = f"{tel_limpo}|{hora_agora}"
+                        df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'motorista_nome', 'motorista_tel']] = ['A CAMINHO', nome_mot, tel_save]
+                        salvar_dados(df_os, FILE_OS)
+                        st.session_state[f"dono_{os_param}"] = True
+                        st.success("✅ Chamado assumido com sucesso! Dirija-se ao local.")
+                        time.sleep(1.5)
+                        st.rerun()
+            else:
+                st.warning("Número não encontrado. Faça seu cadastro rápido para assumir a OS e passar a receber nossos chamados:")
+                nome_mot = st.text_input("Seu Nome / Nome da sua Base:")
+                c_est, c_cid = st.columns(2)
+                est_mot = c_est.selectbox("Estado (UF):", ESTADOS_BR, index=ESTADOS_BR.index("RN"))
+                cid_mot = c_cid.text_input("Cidade:")
+                bairro_mot = st.text_input("Bairro:")
+                
+                if st.button("✅ CADASTRAR E ACEITAR CHAMADO", type="primary", use_container_width=True):
+                    if not nome_mot or not cid_mot:
+                        st.error("Preencha seu Nome e Cidade para continuar.")
+                    else:
+                        df_check = carregar_dados(FILE_OS, col_os)
+                        os_check = df_check[df_check['id'].astype(str) == str(os_param)]
+                        
+                        if not os_check.empty and str(os_check.iloc[0]['status_os']).upper() not in ['PENDENTE', 'EM ATENDIMENTO']:
+                            st.error(f"❌ Poxa! Este chamado já foi assumido por outro prestador.")
+                        else:
+                            prox_p = int(df_prestadores_atual['id'].astype(float).max() + 1) if not df_prestadores_atual.empty else 1
+                            novo_p = pd.DataFrame([{'id': str(prox_p), 'nome': nome_mot.upper(), 'cpf': '', 'tipo': 'Guincho', 'telefone': tel_limpo, 'endereco': '', 'bairro': bairro_mot.upper(), 'cidade': cid_mot.upper(), 'cep': '', 'est': est_mot, 'status': 'Ativo', 'homologado': 'Pendente', 'senha': 'admin', 'frota': '[]'}])
+                            df_p_temp = pd.concat([df_prestadores_atual, novo_p], ignore_index=True)
+                            salvar_dados(df_p_temp, FILE_PRESTADORES)
+                            
+                            hora_agora = obter_hora_str()
+                            tel_save = f"{tel_limpo}|{hora_agora}"
+                            df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'motorista_nome', 'motorista_tel']] = ['A CAMINHO', nome_mot.upper(), tel_save]
+                            salvar_dados(df_os, FILE_OS)
+                            st.session_state[f"dono_{os_param}"] = True
+                            st.success("✅ Cadastro criado e chamado assumido com sucesso! Dirija-se ao local.")
+                            time.sleep(1.5)
+                            st.rerun()
+                    
+    # ETAPA 2: A CAMINHO (VALIDAÇÃO FÍSICA)
+    elif status_atual == 'A CAMINHO':
+        st.success(f"🚚 Você assumiu este chamado. Dirija-se ao local de origem.")
+        
+        link_w_cli = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(tel_cliente_real)}"
+        st.markdown(f"**📞 Contato Liberado do Cliente:** {tel_cliente_real}")
+        st.markdown(f'<a href="{link_w_cli}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px; width: 100%; border: none; border-radius: 5px; font-weight: bold; margin-bottom: 15px;">Falar com Cliente no WhatsApp</button></a>', unsafe_allow_html=True)
+        
+        st.markdown("### Validação Física (Chegada)")
+        st.info("Ao chegar no local, digite a placa completa do veículo para liberar o checklist de embarque.")
+        placa_digitada = st.text_input("Digite a Placa Completa do Veículo (Só letras e números):")
+        
+        if "vistoria_liberada" not in st.session_state:
+            st.session_state.vistoria_liberada = False
+            
+        if st.button("Validar Placa", use_container_width=True):
+            if apenas_numeros_letras(placa_digitada).upper() == apenas_numeros_letras(placa_real).upper():
+                st.session_state.vistoria_liberada = True
+                st.success("Placa validada! Preencha o checklist abaixo.")
+            else:
+                st.error("Placa incorreta. Verifique o veículo ou tente novamente.")
+                
+        # ETAPA 3: VISTORIA E ASSINATURA (DESBLOQUEADO)
+        if st.session_state.vistoria_liberada:
+            st.write("---")
+            st.markdown("### 📸 Vistoria Fotográfica")
+            st.write("Tire as 4 fotos obrigatórias do veículo (toque no botão para abrir a câmera):")
+            
+            # Câmera Nativa que burla o bloqueio do WhatsApp
+            c_cam1, c_cam2 = st.columns(2)
+            with c_cam1: 
+                frente = st.file_uploader("📸 Frente", type=['jpg', 'jpeg', 'png'])
+                if frente: st.image(frente, use_container_width=True)
+            with c_cam2: 
+                traseira = st.file_uploader("📸 Traseira", type=['jpg', 'jpeg', 'png'])
+                if traseira: st.image(traseira, use_container_width=True)
+            with c_cam1: 
+                lat_dir = st.file_uploader("📸 Lat. Direita", type=['jpg', 'jpeg', 'png'])
+                if lat_dir: st.image(lat_dir, use_container_width=True)
+            with c_cam2: 
+                lat_esq = st.file_uploader("📸 Lat. Esquerda", type=['jpg', 'jpeg', 'png'])
+                if lat_esq: st.image(lat_esq, use_container_width=True)
+            
+            st.markdown("### ✍️ Assinatura do Condutor")
+            doc_cliente_input = st.text_input("Documento Identificador do Cliente (CPF ou RG):", placeholder="Obrigatório para validar a assinatura")
+            
+            st.info("Peça para o responsável pelo veículo assinar no quadro abaixo:")
+            
+            canvas_result = None
+            assinatura_foto = None
+            
+            if CANVAS_AVAILABLE:
+                canvas_result = st_canvas(
+                    fill_color="rgba(255, 165, 0, 0.3)",
+                    stroke_width=3,
+                    stroke_color="#000000",
+                    background_color="#EEEEEE",
+                    height=200,
+                    drawing_mode="freedraw",
+                    key="canvas_assinatura",
+                )
+            else:
+                st.warning("O módulo de assinatura digital está desativado no momento.")
+                assinatura_foto = st.file_uploader("Tire uma foto do Documento e da Assinatura do Cliente", type=['jpg', 'jpeg', 'png'])
+                if assinatura_foto: st.image(assinatura_foto, use_container_width=True)
+                
+            st.write("")
+            if st.button("🚀 FINALIZAR CHECKLIST E INICIAR TRANSPORTE", type="primary", use_container_width=True):
+                if not frente or not traseira or not lat_dir or not lat_esq:
+                    st.error("As 4 fotos são obrigatórias para liberar o transporte.")
+                elif not doc_cliente_input:
+                    st.error("O número do Documento (CPF/RG) do cliente é obrigatório.")
+                else:
+                    with st.spinner("Processando imagens e enviando para a Central..."):
+                        b_frente = comprimir_imagem_b64(frente)
+                        b_traseira = comprimir_imagem_b64(traseira)
+                        b_dir = comprimir_imagem_b64(lat_dir)
+                        b_esq = comprimir_imagem_b64(lat_esq)
+                        dict_fotos = {"frente": b_frente, "traseira": b_traseira, "lat_dir": b_dir, "lat_esq": b_esq, "doc_cliente": doc_cliente_input}
+                        
+                        b64_assinatura = ""
+                        if CANVAS_AVAILABLE and canvas_result is not None:
+                            try:
+                                img_data = getattr(canvas_result, 'image_data', None)
+                                if img_data is not None:
+                                    img_ass = Image.fromarray(img_data.astype('uint8'), 'RGBA')
+                                    buf = io.BytesIO()
+                                    img_ass.save(buf, format="PNG")
+                                    b64_assinatura = base64.b64encode(buf.getvalue()).decode()
+                            except Exception:
+                                pass
+                        elif not CANVAS_AVAILABLE and assinatura_foto:
+                            b64_assinatura = comprimir_imagem_b64(assinatura_foto)
+                            
+                        df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'fotos_vistoria', 'assinatura_cliente']] = ['EM TRÂNSITO', json.dumps(dict_fotos), b64_assinatura]
+                        salvar_dados(df_os, FILE_OS)
+                        
+                        st.success("✅ Vistoria registrada com sucesso! Transporte autorizado.")
+                        st.session_state.vistoria_liberada = False
+                        time.sleep(2)
+                        st.rerun()
+                        
+    # ETAPA 4: EM TRÂNSITO E DESEMBARQUE (Guincheiro Conclui a Rota, NÃO envia NPS)
+    elif status_atual == 'EM TRÂNSITO':
+        st.info("🚚 Veículo embarcado. Você está a caminho do destino.")
+        st.markdown(f"**🏁 Destino Final:** {os_info.get('destino', 'N/D')}")
+        st.markdown(f"**Observações Extras:** {os_info.get('obs', 'Nenhuma')}")
+        
+        st.write("---")
+        if st.button("🛑 DESEMBARCAR E CONCLUIR ROTA", type="primary", use_container_width=True):
+            with st.spinner("Avisando a central..."):
+                df_os.loc[df_os['id'].astype(str) == str(os_param), 'status_os'] = 'CONCLUÍDO'
+                salvar_dados(df_os, FILE_OS)
+                st.success("🎉 Parabéns! Entrega finalizada com sucesso. A Central foi notificada para auditar o chamado.")
+                time.sleep(2)
+                st.rerun()
+                
+    elif status_atual in ['CONCLUÍDO', 'ENCERRADO', 'CANCELADO']:
+        st.success(f"🔒 Este chamado encontra-se {status_atual}.")
+        st.write("A sua entrega foi finalizada. A Central administrativa já foi informada. Obrigado e boa viagem de retorno!")
+    
+    st.stop()
+
+elif portal_atual == "nps":
     st.markdown('<div class="main-title">Pesquisa de Qualidade</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Assistência 24h</div>', unsafe_allow_html=True)
     os_param = st.query_params.get("os", "")
@@ -879,7 +1133,7 @@ if portal_atual == "nps":
         st.rerun()
     st.stop()
 
-if portal_atual == "cliente":
+elif portal_atual == "cliente":
     st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
     placa_param = st.query_params.get("placa", "N/D")
@@ -987,7 +1241,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v13.0</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v13.0 (Estável)</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -1362,13 +1616,23 @@ if st.session_state.perfil == "Admin":
                             st.query_params["nav"] = aba_pendencias_nome
                             st.rerun()
                         else: st.error(f"⚠️ Erro ao salvar OS na nuvem: {erro}")
-                            elif aba_selecionada == aba_pendencias_nome:
+
+    elif aba_selecionada == aba_pendencias_nome:
         st.markdown(f'<div class="section-title">{aba_pendencias_nome} (OS em Andamento)</div>', unsafe_allow_html=True)
         
+        if st.session_state.get("nps_show"):
+            st.success("✅ OS Encerrada no Sistema! Agora, envie a pesquisa de satisfação para o cliente avaliar o atendimento:")
+            st.markdown(f'<a href="{st.session_state.get("nps_link", "#")}" target="_blank"><button style="background-color: #1E88E5; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; font-size: 14px;">⭐ Disparar Pesquisa de Satisfação (NPS) no WhatsApp do Cliente</button></a>', unsafe_allow_html=True)
+            if st.button("Sair / Limpar este aviso", use_container_width=True):
+                st.session_state.nps_show = False
+                st.rerun()
+            st.write("---")
+
         df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
         
         if df_abertas.empty: 
-            st.success("Nenhum chamado pendente no momento! 🎉")
+            if not st.session_state.get("nps_show"):
+                st.success("Nenhum chamado pendente no momento! 🎉")
         else:
             lista_abertas = []
             for _, r in df_abertas.iterrows():
@@ -1383,15 +1647,14 @@ if st.session_state.perfil == "Admin":
             tel_prestador_final = prestador_info.split("Telefone/Zap: ")[1].strip() if "Telefone/Zap: " in prestador_info else ""
             
             cli_id_os = str(row_os['cliente_id'])
-            df_cli_orig = df_clientes[df_clientes['id'].astype(str) == cli_id_os]
-            tel_cliente_os = df_cli_orig.iloc[0]['tel'] if not df_cli_orig.empty else ""
+            tel_cliente_os = str(row_os.get('cliente_tel', ''))
             
             v_desc_wpp = str(row_os.get('veiculo_desc', 'N/D'))
             if "CARRO " in v_desc_wpp.upper() and any(m in v_desc_wpp.upper() for m in MARCAS_MOTO):
                 v_desc_wpp = v_desc_wpp.replace("CARRO ", "MOTO ").replace("Carro ", "Moto ")
             
             if status_dessa_os == 'CONCLUÍDO':
-                st.success("🏁 **ATENÇÃO:** O guincheiro finalizou a entrega e marcou esta OS como CONCLUÍDA. Por favor, audite os dados abaixo e encerre a OS para limpar a tela.")
+                st.success("🏁 **ATENÇÃO:** O guincheiro finalizou a entrega e marcou esta OS como CONCLUÍDA. Por favor, audite os dados abaixo e encerre a OS para liberar a pesquisa de satisfação (NPS).")
             
             st.write(f"**Cliente:** {row_os['cliente_nome']} | **Veículo:** {v_desc_wpp} - {row_os.get('placa', '')}")
             st.write(f"**Origem:** {row_os['localizacao']} | **Destino:** {row_os['destino']}")
@@ -1420,7 +1683,7 @@ if st.session_state.perfil == "Admin":
                 except: pass
                 
             ass_str = str(row_os.get('assinatura_cliente', ''))
-            if ass_str and str(ass_str).strip() and str(ass_str).lower() != 'nan':
+            if ass_str and ass_str.lower() != 'nan':
                 st.write("**✍️ Assinatura do Cliente:**")
                 st.write(f"**Documento Identificador (CPF/RG):** {doc_cliente_nps}")
                 try: st.image(base64.b64decode(ass_str), width=200)
@@ -1466,17 +1729,18 @@ if st.session_state.perfil == "Admin":
                 if status_dessa_os != 'CONCLUÍDO':
                     st.markdown(f'<a href="{link_w}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📲 1. Enviar OS para o Prestador</button></a>', unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<a href="{link_w_cli_nps}" target="_blank"><button style="background-color: #1E88E5; color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">⭐ 1. Enviar Pesquisa (NPS) ao Cliente</button></a>', unsafe_allow_html=True)
+                    st.info("OS já concluída pelo guincheiro. Realize a auditoria ao lado.")
             with col_btn2:
-                texto_btn_encerrar = "🔒 2. Auditar e Encerrar OS no Sistema" if status_dessa_os == 'CONCLUÍDO' else "🔒 2. Encerrar OS no Sistema"
+                texto_btn_encerrar = "🔒 Auditar e Encerrar OS no Sistema" if status_dessa_os == 'CONCLUÍDO' else "🔒 Encerrar OS no Sistema"
                 if st.button(texto_btn_encerrar, key="btn_encerrar_os_adm", type="primary", use_container_width=True):
-                    with st.spinner("Encerrando OS..."):
+                    with st.spinner("Encerrando OS e preparando envio de NPS..."):
                         df_os.loc[df_os['id'].astype(str) == os_id_alvo, 'status_os'] = "ENCERRADO"
                         sucesso, erro = salvar_dados(df_os, FILE_OS)
                         if sucesso:
                             registrar_atividade(st.session_state.user, "ENCERRAMENTO OS", f"Finalizou o chamado {os_id_alvo}")
-                            st.success(f"🎉 Chamado Nº {os_id_alvo} Encerrado com sucesso!")
-                            time.sleep(1.5)
+                            st.session_state.nps_show = True
+                            st.session_state.nps_link = link_w_cli_nps
+                            time.sleep(1)
                             st.rerun()
                         else: st.error(f"Erro na nuvem: {erro}")
 
