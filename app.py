@@ -90,7 +90,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===================================================================================
-# FUNÇÕES GLOBAIS E LEITURA DE DADOS NA NUVEM
+# FUNÇÕES GLOBAIS E LEITURA DE DADOS NA NUVEM (AGORA COM CACHE DE ALTA PERFORMANCE)
 # ===================================================================================
 def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
@@ -173,19 +173,20 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
     b64 = base64.b64encode(html.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="{nome_arquivo}.html" target="_blank" style="display: inline-block; padding: 10px 20px; background-color: #E53935; color: white; text-align: center; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px;">📥 Baixar Extrato de OS (PDF/HTML)</a>'
 
-def carregar_dados(tabela, col_obr):
+@st.cache_data(ttl=60, show_spinner=False)
+def carregar_dados(tabela, _col_obr):
     try:
         res = supabase.table(tabela).select("*").execute()
-        df = pd.DataFrame(res.data) if res.data else pd.DataFrame(columns=col_obr)
+        df = pd.DataFrame(res.data) if res.data else pd.DataFrame(columns=_col_obr)
         df.columns = df.columns.str.strip().str.lower()
-        for col in col_obr:
+        for col in _col_obr:
             if col not in df.columns: 
                 df[col] = datetime.now().strftime("%Y-%m-%d") if col == 'data_cadastro' else "" 
         for col in df.columns: 
             df[col] = df[col].fillna("").astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
         return df
     except Exception as e: 
-        return pd.DataFrame(columns=col_obr)
+        return pd.DataFrame(columns=_col_obr)
 
 def salvar_dados(df, tabela):
     try:
@@ -195,6 +196,7 @@ def salvar_dados(df, tabela):
         registros = df_limpo.to_dict(orient="records")
         if registros:
             supabase.table(tabela).upsert(registros).execute()
+        st.cache_data.clear() # Limpa o cache ao salvar para acelerar a sincronização
         return True, "Sucesso"
     except Exception as e:
         return False, str(e)
@@ -202,6 +204,7 @@ def salvar_dados(df, tabela):
 def deletar_registro_banco(tabela, coluna_id, valor_id):
     try:
         supabase.table(tabela).delete().eq(coluna_id, str(valor_id)).execute()
+        st.cache_data.clear() # Limpa o cache ao excluir
         return True, "Sucesso"
     except Exception as e:
         return False, str(e)
@@ -814,7 +817,6 @@ if portal_atual == "guincho":
             if not nome_mot or not tel_mot:
                 st.error("Preencha seu nome e telefone para poder assumir.")
             else:
-                # Verificação de concorrência em tempo real
                 df_check = carregar_dados(FILE_OS, col_os)
                 os_check = df_check[df_check['id'].astype(str) == str(os_param)]
                 
@@ -887,7 +889,6 @@ if portal_atual == "guincho":
                     st.error("As 4 fotos fotográficas são obrigatórias para liberar o transporte.")
                 else:
                     with st.spinner("Processando imagens e enviando para a Central..."):
-                        # Comprimindo as imagens para base64 para caberem direto na tabela
                         b_frente = comprimir_imagem_b64(frente)
                         b_traseira = comprimir_imagem_b64(traseira)
                         b_dir = comprimir_imagem_b64(lat_dir)
@@ -903,7 +904,6 @@ if portal_atual == "guincho":
                         elif not CANVAS_AVAILABLE and assinatura_foto:
                             b64_assinatura = comprimir_imagem_b64(assinatura_foto)
                             
-                        # Atualiza tudo e muda o status
                         df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'fotos_vistoria', 'assinatura_cliente']] = ['EM TRÂNSITO', json.dumps(dict_fotos), b64_assinatura]
                         salvar_dados(df_os, FILE_OS)
                         
