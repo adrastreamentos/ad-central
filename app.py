@@ -798,10 +798,49 @@ if portal_atual == "guincho":
     placa_real = str(os_info.get('placa', '')).strip().upper()
     tel_cliente_real = str(os_info.get('cliente_tel', ''))
     
+    motorista_os = str(os_info.get('motorista_nome', '')).strip()
+    motorista_tel_raw = str(os_info.get('motorista_tel', '')).strip()
+    
+    # Extrai a data de aceite embutida no telefone (Se houver)
+    if "|" in motorista_tel_raw:
+        tel_motorista_os = motorista_tel_raw.split("|")[0]
+        data_aceite = motorista_tel_raw.split("|")[1]
+    else:
+        tel_motorista_os = motorista_tel_raw
+        data_aceite = "N/D"
+        
+    data_formatada = ""
+    if data_aceite != "N/D":
+        try:
+            d_obj = datetime.strptime(data_aceite, "%Y-%m-%d %H:%M:%S")
+            data_formatada = d_obj.strftime("%d/%m/%Y às %H:%M")
+        except: data_formatada = data_aceite
+    
     # Correção inteligente para motos antigas salvas como carro no portal do guincho
     v_desc_portal = str(os_info.get('veiculo_desc', 'N/D'))
     if "CARRO " in v_desc_portal.upper() and any(m in v_desc_portal.upper() for m in MARCAS_MOTO):
         v_desc_portal = v_desc_portal.replace("CARRO ", "MOTO ").replace("Carro ", "Moto ")
+        
+    is_dono = st.session_state.get(f"dono_{os_param}", False)
+    
+    # TRAVA DE SEGURANÇA: Se já foi aceita e o celular atual não tem o cookie de dono
+    if status_atual not in ['PENDENTE', 'EM ATENDIMENTO', 'CANCELADO']:
+        if not is_dono:
+            st.error("🔒 CHAMADO INDISPONÍVEL / JÁ ASSUMIDO")
+            if data_formatada: st.warning(f"A ordem de serviço foi aceita por **{motorista_os}** em {data_formatada}.")
+            else: st.warning(f"A ordem de serviço já foi aceita e assumida por **{motorista_os}**.")
+            
+            st.info("Se você é este prestador e a página recarregou, confirme seu WhatsApp abaixo para retornar ao chamado:")
+            tel_recuperacao = st.text_input("Seu WhatsApp (com DDD):", key="tel_rec")
+            if st.button("Recuperar Acesso", use_container_width=True):
+                if apenas_numeros_letras(tel_recuperacao) == tel_motorista_os and tel_motorista_os != "":
+                    st.session_state[f"dono_{os_param}"] = True
+                    st.success("Acesso recuperado! Redirecionando...")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Telefone incorreto. Você não é o prestador que assumiu esta OS.")
+            st.stop()
     
     st.markdown(f"**📍 Origem:** {os_info.get('localizacao', 'N/D')}")
     st.markdown(f"**🏁 Destino:** {os_info.get('destino', 'N/D')}")
@@ -836,8 +875,11 @@ if portal_atual == "guincho":
                     if not os_check.empty and str(os_check.iloc[0]['status_os']).upper() not in ['PENDENTE', 'EM ATENDIMENTO']:
                         st.error(f"❌ Poxa! Este chamado já foi assumido por outro prestador.")
                     else:
-                        df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'motorista_nome', 'motorista_tel']] = ['A CAMINHO', nome_mot, tel_limpo]
+                        hora_agora = obter_hora_str()
+                        tel_save = f"{tel_limpo}|{hora_agora}"
+                        df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'motorista_nome', 'motorista_tel']] = ['A CAMINHO', nome_mot, tel_save]
                         salvar_dados(df_os, FILE_OS)
+                        st.session_state[f"dono_{os_param}"] = True
                         st.success("✅ Chamado assumido com sucesso! Dirija-se ao local.")
                         time.sleep(1.5)
                         st.rerun()
@@ -864,8 +906,11 @@ if portal_atual == "guincho":
                             df_p_temp = pd.concat([df_prestadores_atual, novo_p], ignore_index=True)
                             salvar_dados(df_p_temp, FILE_PRESTADORES)
                             
-                            df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'motorista_nome', 'motorista_tel']] = ['A CAMINHO', nome_mot.upper(), tel_limpo]
+                            hora_agora = obter_hora_str()
+                            tel_save = f"{tel_limpo}|{hora_agora}"
+                            df_os.loc[df_os['id'].astype(str) == str(os_param), ['status_os', 'motorista_nome', 'motorista_tel']] = ['A CAMINHO', nome_mot.upper(), tel_save]
                             salvar_dados(df_os, FILE_OS)
+                            st.session_state[f"dono_{os_param}"] = True
                             st.success("✅ Cadastro criado e chamado assumido com sucesso! Dirija-se ao local.")
                             time.sleep(1.5)
                             st.rerun()
@@ -899,10 +944,18 @@ if portal_atual == "guincho":
             st.write("Tire as 4 fotos obrigatórias do veículo (toque no botão para abrir a câmera):")
             
             c_cam1, c_cam2 = st.columns(2)
-            with c_cam1: frente = st.file_uploader("📸 Frente", type=['jpg', 'jpeg', 'png'])
-            with c_cam2: traseira = st.file_uploader("📸 Traseira", type=['jpg', 'jpeg', 'png'])
-            with c_cam1: lat_dir = st.file_uploader("📸 Lat. Direita", type=['jpg', 'jpeg', 'png'])
-            with c_cam2: lat_esq = st.file_uploader("📸 Lat. Esquerda", type=['jpg', 'jpeg', 'png'])
+            with c_cam1: 
+                frente = st.file_uploader("📸 Frente", type=['jpg', 'jpeg', 'png'])
+                if frente: st.image(frente, use_container_width=True)
+            with c_cam2: 
+                traseira = st.file_uploader("📸 Traseira", type=['jpg', 'jpeg', 'png'])
+                if traseira: st.image(traseira, use_container_width=True)
+            with c_cam1: 
+                lat_dir = st.file_uploader("📸 Lat. Direita", type=['jpg', 'jpeg', 'png'])
+                if lat_dir: st.image(lat_dir, use_container_width=True)
+            with c_cam2: 
+                lat_esq = st.file_uploader("📸 Lat. Esquerda", type=['jpg', 'jpeg', 'png'])
+                if lat_esq: st.image(lat_esq, use_container_width=True)
             
             st.markdown("### ✍️ Assinatura do Condutor")
             st.info("Peça para o responsável pelo veículo assinar no quadro abaixo:")
@@ -923,6 +976,7 @@ if portal_atual == "guincho":
             else:
                 st.warning("O módulo de assinatura digital está desativado no momento.")
                 assinatura_foto = st.file_uploader("Tire uma foto do Documento do Cliente", type=['jpg', 'jpeg', 'png'])
+                if assinatura_foto: st.image(assinatura_foto, use_container_width=True)
                 
             st.write("")
             if st.button("🚀 FINALIZAR CHECKLIST E INICIAR TRANSPORTE", type="primary", use_container_width=True):
@@ -1144,7 +1198,7 @@ if not st.session_state.logado:
         st.session_state.update({"logado": True, "user": nome_parc.upper(), "perfil": "Parceiro", "empresa_vinculada": nome_parc})
 
 if not st.session_state.logado:
-    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.3</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">AD Rastreamento Veicular <span style="font-size: 14px; color: #ccc;">🚀 v12.4</span></div>', unsafe_allow_html=True)
     col_esp1, col_meio, col_esp2 = st.columns([1, 2, 1])
     with col_meio:
         st.markdown('<div class="subtitle">⚡ Operação Atendimento (Acesso Restrito)</div>', unsafe_allow_html=True)
@@ -1550,8 +1604,12 @@ if st.session_state.perfil == "Admin":
             st.write(f"**Base/Grupo Acionado:** {prestador_info}")
             
             motorista_n = str(row_os.get('motorista_nome', '')).strip()
+            motorista_tel_raw = str(row_os.get('motorista_tel', '')).strip()
+            if "|" in motorista_tel_raw: tel_motorista_os = motorista_tel_raw.split("|")[0]
+            else: tel_motorista_os = motorista_tel_raw
+                
             if motorista_n and motorista_n.lower() != 'nan':
-                st.markdown(f'<div class="alert-box alert-success" style="padding: 10px; margin-top: 10px;">🚚 <b>Guincheiro Responsável:</b> {motorista_n} | <b>Tel:</b> {row_os.get("motorista_tel", "")}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="alert-box alert-success" style="padding: 10px; margin-top: 10px;">🚚 <b>Guincheiro Responsável:</b> {motorista_n} | <b>Tel:</b> {tel_motorista_os}</div>', unsafe_allow_html=True)
             
             obs_val = str(row_os.get('obs', ''))
             if obs_val.strip() == "" or obs_val.lower() == "nan": obs_val = "Nenhuma"
