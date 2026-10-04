@@ -664,9 +664,9 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         if "Frota Pequena" in modo_fat_calc:
             valor_base, acionamentos_isentos, taxa_50, taxa_100 = 300.00, 2, 50.00, 85.00
         elif "Opção A" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 2, 50.00, 85.00
+            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 2, 85.00, 100.00
         elif "Opção B" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 4, 85.00, 130.00
+            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 650.00, 4, 150.00, 190.00
 
         for v in lista_veiculos_emp:
             p_km = str(v['plano'])
@@ -1455,7 +1455,7 @@ if st.session_state.perfil == "Admin":
                                     if bloqueio_60: st.markdown(f'<div class="alert-box alert-danger" style="font-size: 14px; text-align: center;">🚫 ALERTA: REGRA DOS 60 DIAS ATIVA 🚫<br><span style="font-size: 13px; font-weight: bold;">{msg_bloqueio_60}</span></div>', unsafe_allow_html=True)
                                     if limite_excedido: st.markdown(f'<div class="alert-box alert-danger" style="font-size: 14px; text-align: center;">🚫 ALERTA: LIMITE ANUAL ESTOURADO 🚫<br><span style="font-size: 13px; font-weight: bold;">Esta placa já utilizou o limite máximo de {tipo_servico} no ciclo de contrato atual.</span></div>', unsafe_allow_html=True)
                                         
-                                    liberar_excecao = st.checkbox("⚠️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção")
+                                    liberar_excecao = st.checkbox("⚠️️ Ciente dos bloqueios acima: Liberar Atendimento por Exceção")
                                     if liberar_excecao: 
                                         valor_excecao_val = st.text_input("Valor do Serviço Extra a ser Cobrado (R$):", value="0,00")
                                         valor_cobrado_os = valor_excecao_val
@@ -1688,7 +1688,7 @@ if st.session_state.perfil == "Admin":
                 try: st.image(base64.b64decode(ass_str), width=200)
                 except: pass
             
-            is_blindado_msg = "SIM 🛡️ (Atenção ao peso/capacidade da plataforma)" if "BLINDADO" in v_desc_wpp.upper() else "NÃO"
+            is_blindado_msg = "SIM 🛡 (Atenção ao peso/capacidade da plataforma)" if "BLINDADO" in v_desc_wpp.upper() else "NÃO"
             empresa_nome_wpp = str(row_os.get('empresa', 'AD Rastreamento')).upper()
             if empresa_nome_wpp == 'CLIENTE PARTICULAR (AVULSO)': empresa_nome_wpp = 'AD RASTREAMENTO'
             
