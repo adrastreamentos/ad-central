@@ -2876,4 +2876,4 @@ elif st.session_state.perfil == "Parceiro":
                         if pd.notna(cli_data_p.get('pla_2')) and str(cli_data_p['pla_2']).strip(): lista_frota_ficha.append(str(cli_data_p['pla_2']).upper().strip())
                     
                     if lista_frota_ficha:
-                        placa_sel_ficha = st.selectbox("🚗 Selecione a Pl
+                        placa_sel_ficha = st.selectbox("🚗 Selecione a Placa para ver o Saldo Operacional no Ano:", lista_frota_ficha, key=f"sel_placa_part_{cli_sel_part}")
