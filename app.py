@@ -1,6 +1,44 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone# =========================================================
+                            # INÍCIO DO NOVO VISUAL EM CARTÕES (SUBSTITUINDO A TABELA)
+                            # =========================================================
+                            html_cards = """
+                            <style>
+                            .client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+                            .client-card { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); border-left: 4px solid #7B2CBF; transition: transform 0.2s; }
+                            .client-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.06); }
+                            .c-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+                            .c-name { font-size: 15px; font-weight: bold; color: #1e293b; margin: 0; line-height: 1.2; text-transform: uppercase; }
+                            .c-status { padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+                            .c-ativo { background-color: #e8f5e9; color: #2e7d32; }
+                            .c-inativo { background-color: #ffebee; color: #c62828; }
+                            .c-info { font-size: 13px; color: #64748b; margin: 4px 0; }
+                            .c-hist { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 11px; color: #94a3b8; }
+                            </style>
+                            <div class="client-grid">
+                            """
+                            
+                            for _, r_cli in df_emp_filtrada.iterrows():
+                                status_class = "c-ativo" if str(r_cli['status']).strip() == "Ativo" else "c-inativo"
+                                html_cards += f"""
+                                <div class="client-card">
+                                    <div class="c-head">
+                                        <p class="c-name">{r_cli['nome']}</p>
+                                        <span class="c-status {status_class}">{r_cli['status']}</span>
+                                    </div>
+                                    <p class="c-info">📄 <b>CPF/CNPJ:</b> {r_cli['cpf']}</p>
+                                    <p class="c-info">📞 <b>Tel:</b> {r_cli['tel']}</p>
+                                    <p class="c-info">📍 <b>Local:</b> {r_cli['cidade']}</p>
+                                    <p class="c-info">🛣️ <b>Plano:</b> {r_cli.get('plano_km', 'N/D')}</p>
+                                    <div class="c-hist">🔄 <b>Últimos Chamados:</b><br>{r_cli['Histórico']}</div>
+                                </div>
+                                """
+                            html_cards += "</div>"
+                            st.markdown(html_cards, unsafe_allow_html=True)
+                            # =========================================================
+                            # FIM DO NOVO VISUAL EM CARTÕES
+                            # =========================================================
 import os
 import urllib.parse
 import base64
