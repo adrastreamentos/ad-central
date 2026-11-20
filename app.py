@@ -21,7 +21,12 @@ try:
 except ImportError:
     CANVAS_AVAILABLE = False
 
-st.set_page_config(page_title="Central 24h - AD Rastreamento", layout="wide", page_icon="🔒")
+st.set_page_config(
+    page_title="Central 24h - AD Rastreamento",
+    layout="wide",
+    page_icon="🔒",
+    initial_sidebar_state="expanded"
+)
 
 # ===================================================================================
 # CONEXÃO COM O BANCO DE DADOS EM NUVEM (SUPABASE)
@@ -75,7 +80,8 @@ st.markdown("""
 
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    header[data-testid="stHeader"] {background-color: transparent !important;}
+    [data-testid="stToolbar"] {visibility: hidden;}
 
     .stApp {
         background-color: #F4F6F9;
@@ -90,6 +96,70 @@ st.markdown("""
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-thumb { background: #6A1B9A; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #D32F2F; }
+
+    /* Barra Lateral Esquerda (Menu de Navegação) */
+    section[data-testid="stSidebar"] {
+        background-color: #FFFFFF;
+        border-right: 1px solid #E2E8F0;
+        box-shadow: 2px 0 12px rgba(106, 27, 154, 0.06);
+    }
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-top: 1.2rem;
+    }
+    .sidebar-brand-box {
+        background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 70%, #D32F2F 100%);
+        color: #FFFFFF;
+        padding: 14px 16px;
+        border-radius: 12px;
+        text-align: center;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 12px rgba(106, 27, 154, 0.18);
+    }
+    .sidebar-brand-title {
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+    }
+    .sidebar-brand-sub {
+        font-size: 11px;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-top: 2px;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] {
+        background-color: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        gap: 6px;
+        display: flex;
+        flex-direction: column;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label {
+        width: 100% !important;
+        background-color: #F8FAFC !important;
+        border: 1px solid #E2E8F0 !important;
+        border-left: 4px solid transparent !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        margin: 0 !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        border-color: #6A1B9A !important;
+        border-left: 4px solid #D32F2F !important;
+        background-color: #F3E5F5 !important;
+    }
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(90deg, #F3E5F5 0%, #FFFFFF 100%) !important;
+        border-color: #6A1B9A !important;
+        border-left: 4px solid #D32F2F !important;
+        color: #4A148C !important;
+        font-weight: 800 !important;
+        box-shadow: 0 2px 6px rgba(106, 27, 154, 0.12);
+    }
 
     /* Cabeçalho Executivo e Títulos */
     .main-title {
@@ -158,7 +228,7 @@ st.markdown("""
         color: #D32F2F;
     }
 
-    /* Menu de Navegação Horizontal estilo Painel Modelo 3 */
+    /* Menu de Navegação Horizontal interno (Submenus) */
     div[role="radiogroup"] {
         background-color: #FFFFFF;
         padding: 8px 12px;
@@ -1126,8 +1196,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #6A1B9A; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #6A1B9A; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #6A1B9A; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #6A1B9A; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-
-# ===================================================================================
+    # ===================================================================================
 # PORTAIS EXTERNOS (NPS, GPS DO CLIENTE E PORTAL DO GUINCHO)
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
@@ -1635,7 +1704,14 @@ if st.session_state.perfil == "Admin":
         else:
             aba_atual_admin = opcoes_admin[0]
             
-    aba_selecionada = st.radio("Navegação Principal:", opcoes_admin, index=opcoes_admin.index(aba_atual_admin), horizontal=True, label_visibility="collapsed")
+    with st.sidebar:
+        st.markdown("""
+            <div class="sidebar-brand-box">
+                <div class="sidebar-brand-title">🔒 CENTRAL AD 24H</div>
+                <div class="sidebar-brand-sub">Menu de Navegação</div>
+            </div>
+        """, unsafe_allow_html=True)
+        aba_selecionada = st.radio("Navegação Principal:", opcoes_admin, index=opcoes_admin.index(aba_atual_admin), label_visibility="collapsed")
     
     if aba_selecionada != aba_atual_admin:
         st.query_params["nav"] = aba_selecionada
@@ -2569,8 +2645,7 @@ if st.session_state.perfil == "Admin":
                                 registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE", detalhes_del)
                                 st.success("🗑️ Cliente excluído permanentemente!"); st.session_state.cli_del_confirm = None; st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
                         if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()
-
-    elif aba_selecionada == "🏢 Empresas":
+                            elif aba_selecionada == "🏢 Empresas":
         st.markdown('<div class="section-title">🏢 Empresas Parceiras</div>', unsafe_allow_html=True)
         if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
         opcoes_radio_emp = ["Listar", "Incluir Nova", "Editar", "Excluir"]
@@ -3083,7 +3158,8 @@ if st.session_state.perfil == "Admin":
                             st.error(f"Erro ao ler arquivo: {e}")
                     else:
                         st.error("Nome de arquivo não reconhecido. Use os nomes originais gerados pelo sistema (ex: banco_clientes.csv)")
-                # ===================================================================================
+
+# ===================================================================================
 # INTERFACE 2: PARCEIROS
 # ===================================================================================
 elif st.session_state.perfil == "Parceiro":
@@ -3091,7 +3167,15 @@ elif st.session_state.perfil == "Parceiro":
     aba_atual_parc = st.query_params.get("nav", opcoes_parc[0])
     if aba_atual_parc not in opcoes_parc: aba_atual_parc = opcoes_parc[0]
     
-    aba_selecionada = st.radio("Navegação do Parceiro:", opcoes_parc, index=opcoes_parc.index(aba_atual_parc), horizontal=True, label_visibility="collapsed")
+    with st.sidebar:
+        st.markdown("""
+            <div class="sidebar-brand-box">
+                <div class="sidebar-brand-title">🔒 CENTRAL AD 24H</div>
+                <div class="sidebar-brand-sub">Portal do Parceiro</div>
+            </div>
+        """, unsafe_allow_html=True)
+        aba_selecionada = st.radio("Navegação do Parceiro:", opcoes_parc, index=opcoes_parc.index(aba_atual_parc), label_visibility="collapsed")
+    
     if aba_selecionada != aba_atual_parc:
         st.query_params["nav"] = aba_selecionada
         st.rerun()
