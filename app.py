@@ -2646,7 +2646,7 @@ if st.session_state.perfil == "Admin":
                                 st.success("🗑️ Cliente excluído permanentemente!"); st.session_state.cli_del_confirm = None; st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
                         if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()    
     elif aba_selecionada == "🏢 Empresas":
-            st.markdown('<div class="section-title">🏢 Empresas Parceiras</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">🏢 Empresas Parceiras</div>', unsafe_allow_html=True)
         if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
         opcoes_radio_emp = ["Listar", "Incluir Nova", "Editar", "Excluir"]
         idx_radio_emp = opcoes_radio_emp.index(st.session_state.aba_emp) if st.session_state.aba_emp in opcoes_radio_emp else 0
