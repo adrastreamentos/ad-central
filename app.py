@@ -9,6 +9,7 @@ import requests
 import json
 import numpy as np
 import calendar
+import re
 import streamlit.components.v1 as components
 import plotly.express as px
 from supabase import create_client
@@ -27,6 +28,14 @@ st.set_page_config(
     page_icon="🔒",
     initial_sidebar_state="expanded"
 )
+
+# ===================================================================================
+# CONTROLE DE TEMA (CLARO / ESCURO)
+# ===================================================================================
+if "tema_app" not in st.session_state:
+    st.session_state.tema_app = "Claro"
+
+is_dark = (st.session_state.tema_app == "Escuro")
 
 # ===================================================================================
 # CONEXÃO COM O BANCO DE DADOS EM NUVEM (SUPABASE)
@@ -68,222 +77,402 @@ FROTA_COL_CONFIG = {
 MARCAS_MOTO = ['YAMAHA', 'HONDA', 'SUZUKI', 'KAWASAKI', 'SHINERAY', 'DAFRA', 'TRAXX', 'BROS', 'TITAN', 'BIZ', 'XRE', 'POP', 'PCX', 'NMAX', 'CB']
 
 # ===================================================================================
-# ESTILIZAÇÃO CSS CORPORATIVA REFINADA (MODELO 3 - ROXO, VERMELHO E BRANCO)
+# ESTILIZAÇÃO CSS CORPORATIVA DINÂMICA (CLARO / ESCURO + SETINHA LATERAL SEMPRE VISÍVEL)
 # ===================================================================================
-st.markdown("""
+if is_dark:
+    COR_BG_APP = "#0F172A"
+    COR_BG_CARD = "#1E293B"
+    COR_BG_CARD_ALT = "#162032"
+    COR_BG_SIDEBAR = "#111827"
+    COR_BG_INPUT = "#0F172A"
+    COR_BORDA = "#334155"
+    COR_TEXTO = "#F1F5F9"
+    COR_TEXTO_SEC = "#CBD5E1"
+    COR_ROXO_TXT = "#D8B4FE"
+    COR_ROXO_DEST = "#C084FC"
+    COR_VERM_TXT = "#FCA5A5"
+    COR_VERDE_TXT = "#86EFAC"
+    COR_OPEN_OS_BG = "#2A1215"
+    COR_INFO_BG = "#1E1B2E"
+    COR_INFO_BORDER = "#7E22CE"
+    COR_ALERT_DANGER_BG = "#3B1318"
+    COR_ALERT_DANGER_TXT = "#FECACA"
+    COR_ALERT_SUCCESS_BG = "#0F2E1D"
+    COR_ALERT_SUCCESS_TXT = "#BBF7D0"
+    COR_ICON_BG = "#2E1065"
+    COR_ICON_RED_BG = "#450A0A"
+    COR_RADIO_HOVER = "#2E1065"
+    COR_RADIO_ACTIVE = "linear-gradient(90deg, #3B0764 0%, #1E293B 100%)"
+    COR_HR = "#334155"
+else:
+    COR_BG_APP = "#F4F6F9"
+    COR_BG_CARD = "#FFFFFF"
+    COR_BG_CARD_ALT = "#F8FAFC"
+    COR_BG_SIDEBAR = "#FFFFFF"
+    COR_BG_INPUT = "#FFFFFF"
+    COR_BORDA = "#E2E8F0"
+    COR_TEXTO = "#1E293B"
+    COR_TEXTO_SEC = "#5A6A85"
+    COR_ROXO_TXT = "#4A148C"
+    COR_ROXO_DEST = "#6A1B9A"
+    COR_VERM_TXT = "#D32F2F"
+    COR_VERDE_TXT = "#2E7D32"
+    COR_OPEN_OS_BG = "#FFF5F5"
+    COR_INFO_BG = "#FFFFFF"
+    COR_INFO_BORDER = "#E1BEE7"
+    COR_ALERT_DANGER_BG = "#FFEBEE"
+    COR_ALERT_DANGER_TXT = "#B71C1C"
+    COR_ALERT_SUCCESS_BG = "#E8F5E9"
+    COR_ALERT_SUCCESS_TXT = "#1B5E20"
+    COR_ICON_BG = "#F3E5F5"
+    COR_ICON_RED_BG = "#FFEBEE"
+    COR_RADIO_HOVER = "#F3E5F5"
+    COR_RADIO_ACTIVE = "linear-gradient(90deg, #F3E5F5 0%, #FFFFFF 100%)"
+    COR_HR = "#E2E8F0"
+
+CSS_DARK_EXTRA = """
+    /* Reforço de contraste no Modo Escuro para componentes nativos do Streamlit */
+    .stApp, .stApp p, .stApp span, .stApp label, .stApp li, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+    div[data-testid="stMarkdownContainer"] p,
+    div[data-testid="stMarkdownContainer"] li,
+    div[data-testid="stMarkdownContainer"] strong {
+        color: #F1F5F9;
+    }
+    div[data-testid="stCaptionContainer"] p {
+        color: #CBD5E1 !important;
+    }
+    div[data-testid="stMetric"] {
+        background-color: #1E293B;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 10px 14px;
+    }
+    div[data-testid="stMetricLabel"] p, div[data-testid="stMetricValue"] {
+        color: #F1F5F9 !important;
+    }
+    input, textarea, select,
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="base-input"],
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="textarea"] > div {
+        background-color: #0F172A !important;
+        color: #F1F5F9 !important;
+        border-color: #475569 !important;
+    }
+    div[data-baseweb="select"] span, div[data-baseweb="select"] div {
+        color: #F1F5F9 !important;
+    }
+    ul[data-baseweb="menu"], div[data-baseweb="popover"] > div {
+        background-color: #1E293B !important;
+        color: #F1F5F9 !important;
+        border: 1px solid #475569 !important;
+    }
+    li[role="option"]:hover {
+        background-color: #3B0764 !important;
+    }
+    details[data-testid="stExpander"] {
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
+        border-radius: 10px !important;
+    }
+    details[data-testid="stExpander"] summary {
+        color: #F1F5F9 !important;
+    }
+    div[data-testid="stForm"] {
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
+        border-radius: 10px !important;
+        padding: 14px !important;
+    }
+    div[data-testid="stFileUploader"] section {
+        background-color: #0F172A !important;
+        border-color: #475569 !important;
+        color: #F1F5F9 !important;
+    }
+    table {
+        background-color: #1E293B !important;
+        color: #F1F5F9 !important;
+    }
+    th, td {
+        color: #F1F5F9 !important;
+        border-color: #334155 !important;
+    }
+""" if is_dark else ""
+
+st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-    html, body, [class*="css"] {
+    html, body, [class*="css"] {{
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
+    }}
 
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header[data-testid="stHeader"] {background-color: transparent !important;}
-    [data-testid="stToolbar"] {visibility: hidden;}
+    /* Oculta apenas itens indesejados sem NUNCA esconder o botão de reabrir a barra lateral */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    [data-testid="stMainMenu"] {{visibility: hidden;}}
+    [data-testid="stToolbarActions"] {{visibility: hidden;}}
+    [data-testid="stAppDeployButton"], .stDeployButton {{display: none !important;}}
+    header[data-testid="stHeader"] {{
+        background: transparent !important;
+        visibility: visible !important;
+    }}
 
-    .stApp {
-        background-color: #F4F6F9;
-    }
+    /* Botão da setinha de recolher/reabrir a barra lateral SEMPRE visível e destacado */
+    [data-testid="stExpandSidebarButton"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"] {{
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }}
+    [data-testid="stExpandSidebarButton"] button,
+    [data-testid="collapsedControl"] button,
+    [data-testid="stSidebarCollapseButton"] button {{
+        background-color: #6A1B9A !important;
+        color: #FFFFFF !important;
+        border: 2px solid #FFFFFF !important;
+        border-radius: 8px !important;
+        box-shadow: 0 3px 10px rgba(106, 27, 154, 0.35) !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }}
+    [data-testid="stExpandSidebarButton"] button:hover,
+    [data-testid="collapsedControl"] button:hover,
+    [data-testid="stSidebarCollapseButton"] button:hover {{
+        background-color: #D32F2F !important;
+        color: #FFFFFF !important;
+    }}
+    [data-testid="stExpandSidebarButton"] svg,
+    [data-testid="collapsedControl"] svg,
+    [data-testid="stSidebarCollapseButton"] svg {{
+        fill: #FFFFFF !important;
+        color: #FFFFFF !important;
+        stroke: #FFFFFF !important;
+    }}
 
-    .block-container {
-        padding-top: 1.2rem !important;
+    .stApp {{
+        background-color: {COR_BG_APP};
+        color: {COR_TEXTO};
+    }}
+
+    .block-container {{
+        padding-top: 2.2rem !important;
         padding-bottom: 2rem !important;
         max-width: 98% !important;
-    }
+    }}
 
-    ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-thumb { background: #6A1B9A; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #D32F2F; }
+    ::-webkit-scrollbar {{ width: 8px; height: 8px; }}
+    ::-webkit-scrollbar-thumb {{ background: #6A1B9A; border-radius: 4px; }}
+    ::-webkit-scrollbar-thumb:hover {{ background: #D32F2F; }}
 
     /* Barra Lateral Esquerda (Menu de Navegação) */
-    section[data-testid="stSidebar"] {
-        background-color: #FFFFFF;
-        border-right: 1px solid #E2E8F0;
-        box-shadow: 2px 0 12px rgba(106, 27, 154, 0.06);
-    }
-    section[data-testid="stSidebar"] > div:first-child {
-        padding-top: 1.2rem;
-    }
-    .sidebar-brand-box {
+    section[data-testid="stSidebar"] {{
+        background-color: {COR_BG_SIDEBAR};
+        border-right: 1px solid {COR_BORDA};
+        box-shadow: 2px 0 12px rgba(106, 27, 154, 0.08);
+    }}
+    section[data-testid="stSidebar"] > div:first-child {{
+        padding-top: 0.8rem;
+    }}
+    .sidebar-brand-box {{
         background: linear-gradient(135deg, #4A148C 0%, #6A1B9A 70%, #D32F2F 100%);
-        color: #FFFFFF;
+        color: #FFFFFF !important;
         padding: 14px 16px;
         border-radius: 12px;
         text-align: center;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 12px rgba(106, 27, 154, 0.18);
-    }
-    .sidebar-brand-title {
+        margin-bottom: 14px;
+        box-shadow: 0 4px 12px rgba(106, 27, 154, 0.22);
+    }}
+    .sidebar-brand-title {{
         font-size: 16px;
         font-weight: 900;
         letter-spacing: 0.5px;
-    }
-    .sidebar-brand-sub {
+        color: #FFFFFF !important;
+    }}
+    .sidebar-brand-sub {{
         font-size: 11px;
-        opacity: 0.9;
+        opacity: 0.92;
         text-transform: uppercase;
         letter-spacing: 0.8px;
         margin-top: 2px;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] {
-        background-color: transparent;
-        border: none;
-        box-shadow: none;
-        padding: 0;
+        color: #FFFFFF !important;
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] {{
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
         gap: 6px;
         display: flex;
         flex-direction: column;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] label {
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label {{
         width: 100% !important;
-        background-color: #F8FAFC !important;
-        border: 1px solid #E2E8F0 !important;
+        background-color: {COR_BG_CARD_ALT} !important;
+        border: 1px solid {COR_BORDA} !important;
         border-left: 4px solid transparent !important;
         border-radius: 8px !important;
         padding: 10px 14px !important;
         margin: 0 !important;
         font-weight: 600 !important;
+        color: {COR_TEXTO} !important;
         transition: all 0.2s ease;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label p {{
+        color: {COR_TEXTO} !important;
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {{
         border-color: #6A1B9A !important;
         border-left: 4px solid #D32F2F !important;
-        background-color: #F3E5F5 !important;
-    }
-    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
-        background: linear-gradient(90deg, #F3E5F5 0%, #FFFFFF 100%) !important;
+        background-color: {COR_RADIO_HOVER} !important;
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {{
+        background: {COR_RADIO_ACTIVE} !important;
         border-color: #6A1B9A !important;
         border-left: 4px solid #D32F2F !important;
-        color: #4A148C !important;
+        color: {COR_ROXO_TXT} !important;
         font-weight: 800 !important;
-        box-shadow: 0 2px 6px rgba(106, 27, 154, 0.12);
-    }
+        box-shadow: 0 2px 6px rgba(106, 27, 154, 0.16);
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {{
+        color: {COR_ROXO_TXT} !important;
+        font-weight: 800 !important;
+    }}
 
     /* Cabeçalho Executivo e Títulos */
-    .main-title {
+    .main-title {{
         font-size: 30px;
         font-weight: 900;
-        background: linear-gradient(90deg, #6A1B9A 0%, #D32F2F 100%);
+        background: linear-gradient(90deg, {COR_ROXO_DEST} 0%, #EF4444 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
         margin-bottom: 4px;
         letter-spacing: -0.5px;
-    }
-    .subtitle {
+    }}
+    .subtitle {{
         font-size: 13px;
-        color: #5A6A85;
+        color: {COR_TEXTO_SEC};
         text-align: center;
         margin-bottom: 22px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 1.2px;
-    }
-    .section-title {
+    }}
+    .section-title {{
         font-size: 18px !important;
         font-weight: 800 !important;
-        color: #4A148C !important;
-        background: #FFFFFF;
+        color: {COR_ROXO_TXT} !important;
+        background: {COR_BG_CARD};
         padding: 12px 18px;
         border-radius: 10px;
+        border: 1px solid {COR_BORDA};
         border-left: 5px solid #D32F2F;
-        box-shadow: 0 2px 6px rgba(106, 27, 154, 0.06);
+        box-shadow: 0 2px 6px rgba(106, 27, 154, 0.08);
         margin-top: 5px !important;
         margin-bottom: 16px !important;
         display: flex;
         align-items: center;
         gap: 8px;
-    }
+    }}
 
     /* Barra Superior do Sistema */
-    .ad-topbar {
+    .ad-topbar {{
         background: linear-gradient(90deg, #4A148C 0%, #6A1B9A 65%, #D32F2F 100%);
-        color: #FFFFFF;
+        color: #FFFFFF !important;
         padding: 14px 22px;
         border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        box-shadow: 0 4px 14px rgba(106, 27, 154, 0.18);
+        box-shadow: 0 4px 14px rgba(106, 27, 154, 0.22);
         margin-bottom: 8px;
-    }
-    .ad-topbar-brand {
+    }}
+    .ad-topbar * {{
+        color: #FFFFFF !important;
+    }}
+    .ad-topbar-brand {{
         display: flex;
         align-items: center;
         gap: 12px;
-    }
-    .ad-badge-logo {
+    }}
+    .ad-badge-logo {{
         background: #FFFFFF;
-        color: #6A1B9A;
+        color: #6A1B9A !important;
         font-weight: 900;
         font-size: 16px;
         padding: 6px 10px;
         border-radius: 8px;
         letter-spacing: 0.5px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-    }
-    .ad-badge-logo span {
-        color: #D32F2F;
-    }
+    }}
+    .ad-badge-logo span {{
+        color: #D32F2F !important;
+    }}
 
     /* Menu de Navegação Horizontal interno (Submenus) */
-    div[role="radiogroup"] {
-        background-color: #FFFFFF;
+    div[role="radiogroup"] {{
+        background-color: {COR_BG_CARD};
         padding: 8px 12px;
         border-radius: 12px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        border: 1px solid {COR_BORDA};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         gap: 6px;
-    }
-    div[role="radiogroup"] label {
-        background-color: #F8FAFC !important;
-        border: 1px solid #E2E8F0 !important;
+    }}
+    div[role="radiogroup"] label {{
+        background-color: {COR_BG_CARD_ALT} !important;
+        border: 1px solid {COR_BORDA} !important;
         border-radius: 8px !important;
         padding: 6px 14px !important;
+        color: {COR_TEXTO} !important;
         transition: all 0.2s ease;
-    }
-    div[role="radiogroup"] label:hover {
+    }}
+    div[role="radiogroup"] label:hover {{
         border-color: #6A1B9A !important;
-        background-color: #F3E5F5 !important;
-    }
+        background-color: {COR_RADIO_HOVER} !important;
+    }}
 
     /* Botões Principais */
-    div.stButton > button:first-child {
+    div.stButton > button:first-child {{
         background: linear-gradient(135deg, #6A1B9A 0%, #7B2CBF 100%);
-        color: #FFFFFF;
+        color: #FFFFFF !important;
         border: none;
         border-radius: 8px;
         font-weight: 700;
         font-size: 13.5px;
         padding: 0.55rem 1rem;
-        box-shadow: 0 3px 8px rgba(106, 27, 154, 0.2);
+        box-shadow: 0 3px 8px rgba(106, 27, 154, 0.25);
         transition: all 0.2s ease;
-    }
-    div.stButton > button:first-child:hover {
+    }}
+    div.stButton > button:first-child p {{
+        color: #FFFFFF !important;
+    }}
+    div.stButton > button:first-child:hover {{
         background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
-        color: #FFFFFF;
-        box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
+        color: #FFFFFF !important;
+        box-shadow: 0 4px 12px rgba(211, 47, 47, 0.35);
         transform: translateY(-1px);
-    }
+    }}
 
     /* Alertas e Caixas de Informação */
-    .alert-box {
+    .alert-box {{
         padding: 14px 16px;
         border-radius: 10px;
         margin: 12px 0;
         border-left: 5px solid;
         font-weight: 600;
         font-size: 14px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-    }
-    .alert-danger { background-color: #FFEBEE; color: #B71C1C; border-color: #D32F2F; }
-    .alert-success { background-color: #E8F5E9; color: #1B5E20; border-color: #2E7D32; }
-    .info-box {
-        background-color: #FFFFFF;
-        color: #4A148C;
-        border: 1px solid #E1BEE7;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }}
+    .alert-danger {{ background-color: {COR_ALERT_DANGER_BG}; color: {COR_ALERT_DANGER_TXT}; border-color: #D32F2F; }}
+    .alert-success {{ background-color: {COR_ALERT_SUCCESS_BG}; color: {COR_ALERT_SUCCESS_TXT}; border-color: #2E7D32; }}
+    .info-box {{
+        background-color: {COR_INFO_BG};
+        color: {COR_ROXO_TXT};
+        border: 1px solid {COR_INFO_BORDER};
         border-left: 5px solid #6A1B9A;
         padding: 14px 18px;
         border-radius: 10px;
@@ -291,32 +480,32 @@ st.markdown("""
         font-weight: 600;
         line-height: 1.6;
         font-size: 14px;
-        box-shadow: 0 2px 8px rgba(106, 27, 154, 0.05);
-    }
+        box-shadow: 0 2px 8px rgba(106, 27, 154, 0.08);
+    }}
 
     /* Cards de Indicadores (KPIs estilo Imagem 3) */
-    .metric-card {
-        background-color: #FFFFFF;
+    .metric-card {{
+        background-color: {COR_BG_CARD};
         border-radius: 12px;
         padding: 18px 20px;
         text-align: left;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
         margin-bottom: 12px;
-        border: 1px solid #E2E8F0;
+        border: 1px solid {COR_BORDA};
         border-top: 4px solid #6A1B9A;
         position: relative;
         overflow: hidden;
-    }
-    .metric-card.red-accent {
+    }}
+    .metric-card.red-accent {{
         border-top: 4px solid #D32F2F;
-    }
-    .metric-header {
+    }}
+    .metric-header {{
         display: flex;
         align-items: center;
         justify-content: space-between;
         margin-bottom: 8px;
-    }
-    .metric-icon {
+    }}
+    .metric-icon {{
         width: 40px;
         height: 40px;
         border-radius: 10px;
@@ -324,87 +513,88 @@ st.markdown("""
         align-items: center;
         justify-content: center;
         font-size: 20px;
-        background: #F3E5F5;
-        color: #6A1B9A;
-    }
-    .metric-icon.red-bg {
-        background: #FFEBEE;
-        color: #D32F2F;
-    }
-    .metric-title {
-        color: #64748B;
+        background: {COR_ICON_BG};
+        color: {COR_ROXO_DEST};
+    }}
+    .metric-icon.red-bg {{
+        background: {COR_ICON_RED_BG};
+        color: {COR_VERM_TXT};
+    }}
+    .metric-title {{
+        color: {COR_TEXTO_SEC};
         font-size: 12px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.6px;
-    }
-    .metric-value {
+    }}
+    .metric-value {{
         font-size: 28px;
         font-weight: 900;
         margin-top: 2px;
-        color: #1E293B;
-    }
-    .val-pago { color: #2E7D32; }
-    .val-atrasado { color: #D32F2F; }
+        color: {COR_TEXTO};
+    }}
+    .val-pago {{ color: {COR_VERDE_TXT} !important; }}
+    .val-atrasado {{ color: {COR_VERM_TXT} !important; }}
 
-    /* Containers do Dashboard e Coluna Lateral (Estilo Imagem 3) */
-    .dash-box {
-        background: #FFFFFF;
+    /* Containers do Dashboard e Coluna Lateral */
+    .dash-box {{
+        background: {COR_BG_CARD};
         border-radius: 12px;
         padding: 18px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        border: 1px solid {COR_BORDA};
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         margin-bottom: 16px;
-    }
-    .dash-box-title {
+        color: {COR_TEXTO};
+    }}
+    .dash-box-title {{
         font-size: 15px;
         font-weight: 800;
-        color: #4A148C;
+        color: {COR_ROXO_TXT};
         margin-bottom: 12px;
         padding-bottom: 8px;
-        border-bottom: 2px solid #F1F5F9;
+        border-bottom: 2px solid {COR_HR};
         display: flex;
         align-items: center;
         justify-content: space-between;
-    }
+    }}
 
-    /* Item de Serviço na Coluna Lateral Direita (Modelo 3) */
-    .service-feed-item {
-        background: #F8FAFC;
-        border: 1px solid #E2E8F0;
+    /* Item de Serviço na Coluna Lateral Direita */
+    .service-feed-item {{
+        background: {COR_BG_CARD_ALT};
+        border: 1px solid {COR_BORDA};
         border-left: 4px solid #6A1B9A;
         border-radius: 8px;
         padding: 10px 12px;
-        margin-bottom: 10px;
-    }
-    .service-feed-item.open-os {
+        margin-bottom: 6px;
+    }}
+    .service-feed-item.open-os {{
         border-left-color: #D32F2F;
-        background: #FFF5F5;
-    }
-    .service-feed-top {
+        background: {COR_OPEN_OS_BG};
+    }}
+    .service-feed-top {{
         display: flex;
         justify-content: space-between;
         align-items: center;
         font-size: 12px;
         font-weight: 800;
-        color: #4A148C;
+        color: {COR_ROXO_TXT};
         margin-bottom: 4px;
-    }
-    .service-badge {
+    }}
+    .service-badge {{
         padding: 2px 8px;
         border-radius: 12px;
         font-size: 10px;
         font-weight: 800;
         text-transform: uppercase;
-    }
-    .badge-red { background: #D32F2F; color: #FFFFFF; }
-    .badge-purple { background: #6A1B9A; color: #FFFFFF; }
-    .badge-green { background: #2E7D32; color: #FFFFFF; }
+    }}
+    .badge-red {{ background: #D32F2F; color: #FFFFFF !important; }}
+    .badge-purple {{ background: #6A1B9A; color: #FFFFFF !important; }}
+    .badge-green {{ background: #2E7D32; color: #FFFFFF !important; }}
 
     /* Leitor de Imagens de Vistoria e Assinatura */
-    .inspection-reader-header {
+    .inspection-reader-header {{
         background: linear-gradient(90deg, #6A1B9A 0%, #D32F2F 100%);
-        color: white;
+        color: white !important;
         padding: 10px 16px;
         border-radius: 8px 8px 0 0;
         font-weight: 800;
@@ -413,20 +603,25 @@ st.markdown("""
         align-items: center;
         justify-content: space-between;
         margin-top: 12px;
-    }
-    .inspection-reader-body {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
+    }}
+    .inspection-reader-header * {{
+        color: white !important;
+    }}
+    .inspection-reader-body {{
+        background: {COR_BG_CARD};
+        border: 1px solid {COR_BORDA};
         border-top: none;
         border-radius: 0 0 8px 8px;
         padding: 14px;
         margin-bottom: 14px;
-    }
-    div[data-testid="stImage"] img {
+    }}
+    div[data-testid="stImage"] img {{
         border-radius: 8px;
-        border: 2px solid #E2E8F0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
+        border: 2px solid {COR_BORDA};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }}
+
+    {CSS_DARK_EXTRA}
     </style>
 """, unsafe_allow_html=True)
 
@@ -620,7 +815,7 @@ df_loc = carregar_dados(FILE_LOC, col_loc)
 df_nps = carregar_dados(FILE_NPS, col_nps)
 
 # ===================================================================================
-# DASHBOARD REESTRUTURADO E COMPACTO (LAYOUT MODELO 3 - CONTADORES + COLUNA LATERAL)
+# DASHBOARD REESTRUTURADO (CONTADORES + GRÁFICOS + ÚLTIMOS 5 REGISTROS CLICÁVEIS)
 # ===================================================================================
 def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, servicos_df):
     data_atual = obter_hora_brasilia().strftime("%d/%m/%Y às %H:%M")
@@ -697,6 +892,8 @@ def gerar_laudo_atendimentos_html(empresa_filtro, total_veiculos, total_os, serv
 def renderizar_dashboard(empresa_filtro="Todas"):
     st.markdown(f'<div class="section-title">📈 Painel Operacional 24h — Escopo: {empresa_filtro.upper()}</div>', unsafe_allow_html=True)
 
+    cor_chart_txt = "#F1F5F9" if is_dark else "#1E293B"
+
     if empresa_filtro != "Todas":
         df_os_dash = df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy()
         df_cli_dash = df_clientes[(df_clientes['emp_name'].str.upper() == empresa_filtro.upper()) & (df_clientes['status'].str.strip() == 'Ativo')].copy()
@@ -724,7 +921,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
     os_em_andamento = len(df_os_dash[~df_os_dash['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
     os_concluidas = len(df_os_dash[df_os_dash['status_os'].str.upper() == 'ENCERRADO'])
 
-    # LINHA DE CONTADORES NO TOPO (ESTILO IMAGEM 3)
+    # LINHA DE CONTADORES NO TOPO
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"""
         <div class="metric-card">
@@ -732,7 +929,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 <span class="metric-title">Frota Ativa Mapeada</span>
                 <div class="metric-icon">🚗</div>
             </div>
-            <div class="metric-value" style="color: #6A1B9A;">{total_veiculos}</div>
+            <div class="metric-value" style="color: {COR_ROXO_DEST};">{total_veiculos}</div>
         </div>
     """, unsafe_allow_html=True)
     c2.markdown(f"""
@@ -741,7 +938,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 <span class="metric-title">Total Atendimentos</span>
                 <div class="metric-icon">🛠️</div>
             </div>
-            <div class="metric-value" style="color: #4A148C;">{total_os}</div>
+            <div class="metric-value" style="color: {COR_ROXO_TXT};">{total_os}</div>
         </div>
     """, unsafe_allow_html=True)
     c3.markdown(f"""
@@ -750,7 +947,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 <span class="metric-title">Chamados em Aberto</span>
                 <div class="metric-icon red-bg">🚨</div>
             </div>
-            <div class="metric-value" style="color: #D32F2F;">{os_em_andamento}</div>
+            <div class="metric-value" style="color: {COR_VERM_TXT};">{os_em_andamento}</div>
         </div>
     """, unsafe_allow_html=True)
     c4.markdown(f"""
@@ -759,12 +956,16 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 <span class="metric-title">Concluídos / Auditados</span>
                 <div class="metric-icon">✅</div>
             </div>
-            <div class="metric-value" style="color: #2E7D32;">{os_concluidas}</div>
+            <div class="metric-value" style="color: {COR_VERDE_TXT};">{os_concluidas}</div>
         </div>
     """, unsafe_allow_html=True)
 
     if total_os > 0:
-        # ESTRUTURA MODELO 3: ÁREA PRINCIPAL DE GRÁFICOS (ESQUERDA) + COLUNA DE SERVIÇOS (DIREITA)
+        chave_sel_os = f"dash_os_detalhe_{empresa_filtro}"
+        if chave_sel_os not in st.session_state:
+            st.session_state[chave_sel_os] = None
+
+        # ÁREA PRINCIPAL DE GRÁFICOS (ESQUERDA) + COLUNA DE ÚLTIMOS 5 REGISTROS CLICÁVEIS (DIREITA)
         col_main_charts, col_side_feed = st.columns([2.2, 1.1])
 
         with col_main_charts:
@@ -772,7 +973,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
 
             with col_chart1:
                 st.markdown('<div class="dash-box">', unsafe_allow_html=True)
-                st.markdown('<div class="dash-box-title"><span>🛠️ Incidência por Serviço</span><span style="font-size:11px; color:#6A1B9A;">DISTRIBUIÇÃO</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="dash-box-title"><span>🛠️ Incidência por Serviço</span><span style="font-size:11px; color:{COR_ROXO_DEST};">DISTRIBUIÇÃO</span></div>', unsafe_allow_html=True)
                 
                 servicos_counts = df_os_dash['tipo_servico'].value_counts().reset_index()
                 servicos_counts.columns = ['Serviço', 'Quantidade']
@@ -787,23 +988,26 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 )
                 fig_incidencia.update_traces(textposition='inside', textinfo='percent')
                 fig_incidencia.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color=cor_chart_txt),
                     margin=dict(t=10, b=10, l=10, r=10),
                     height=240,
-                    legend=dict(orientation="h", y=-0.15, x=0.5, xanchor="center")
+                    legend=dict(orientation="h", y=-0.15, x=0.5, xanchor="center", font=dict(color=cor_chart_txt))
                 )
                 st.plotly_chart(fig_incidencia, use_container_width=True)
 
-                st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
+                st.markdown(f"<hr style='margin: 8px 0; border-color: {COR_HR};'>", unsafe_allow_html=True)
                 for _, r in servicos_counts.iterrows():
                     col_s_nome, col_s_qtd = st.columns([3, 2])
                     col_s_nome.write(f"• **{r['Serviço']}**")
-                    col_s_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']}</b> <span style='color: #6A1B9A; font-size: 12px; font-weight:700;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
+                    col_s_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']}</b> <span style='color: {COR_ROXO_DEST}; font-size: 12px; font-weight:700;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
 
             with col_chart2:
                 st.markdown('<div class="dash-box">', unsafe_allow_html=True)
-                st.markdown('<div class="dash-box-title"><span>🚦 Status dos Chamados</span><span style="font-size:11px; color:#D32F2F;">OPERAÇÃO</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="dash-box-title"><span>🚦 Status dos Chamados</span><span style="font-size:11px; color:{COR_VERM_TXT};">OPERAÇÃO</span></div>', unsafe_allow_html=True)
                 
                 status_counts = df_os_dash['status_os'].value_counts().reset_index()
                 status_counts.columns = ['Status', 'Quantidade']
@@ -818,25 +1022,29 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 )
                 fig_status.update_traces(textposition='inside', textinfo='percent')
                 fig_status.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(color=cor_chart_txt),
                     margin=dict(t=10, b=10, l=10, r=10),
                     height=240,
-                    legend=dict(orientation="h", y=-0.15, x=0.5, xanchor="center")
+                    legend=dict(orientation="h", y=-0.15, x=0.5, xanchor="center", font=dict(color=cor_chart_txt))
                 )
                 st.plotly_chart(fig_status, use_container_width=True)
 
-                st.markdown("<hr style='margin: 8px 0;'>", unsafe_allow_html=True)
+                st.markdown(f"<hr style='margin: 8px 0; border-color: {COR_HR};'>", unsafe_allow_html=True)
                 for _, r in status_counts.iterrows():
                     col_st_nome, col_st_qtd = st.columns([3, 2])
                     col_st_nome.write(f"• **{r['Status']}**")
-                    col_st_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']}</b> <span style='color: #D32F2F; font-size: 12px; font-weight:700;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
+                    col_st_qtd.markdown(f"<div style='text-align: right;'><b>{r['Quantidade']}</b> <span style='color: {COR_VERM_TXT}; font-size: 12px; font-weight:700;'>({r['Porcentagem']:.1f}%)</span></div>", unsafe_allow_html=True)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
 
         with col_side_feed:
             st.markdown('<div class="dash-box">', unsafe_allow_html=True)
-            st.markdown('<div class="dash-box-title"><span>⚡ Últimos Serviços Registrados</span><span style="font-size:11px; color:#6A1B9A;">TEMPO REAL</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="dash-box-title"><span>⚡ Últimos 5 Registros</span><span style="font-size:11px; color:{COR_ROXO_DEST};">CLIQUE P/ ABRIR</span></div>', unsafe_allow_html=True)
             df_ultimos = df_os_dash.tail(5).iloc[::-1]
-            for _, r_ult in df_ultimos.iterrows():
+            for idx_u, r_ult in df_ultimos.iterrows():
+                os_id_u = str(r_ult.get('id', '')).strip()
                 st_os_val = str(r_ult.get('status_os', '')).upper()
                 is_open = st_os_val not in ['ENCERRADO', 'CANCELADO']
                 item_cls = "service-feed-item open-os" if is_open else "service-feed-item"
@@ -844,14 +1052,83 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 st.markdown(f"""
                     <div class="{item_cls}">
                         <div class="service-feed-top">
-                            <span>OS #{r_ult.get('id','')} • Placa: {r_ult.get('placa','N/D')}</span>
+                            <span>OS #{os_id_u} • Placa: {r_ult.get('placa','N/D')}</span>
                             <span class="service-badge {badge_cls}">{st_os_val}</span>
                         </div>
-                        <div style="font-size:12.5px; font-weight:700; color:#1E293B;">🛠️ {r_ult.get('tipo_servico','')} — {str(r_ult.get('cliente_nome',''))[:26]}</div>
-                        <div style="font-size:11px; color:#64748B; margin-top:2px;">🕒 {str(r_ult.get('data_hora',''))[:16]} | 🏢 {str(r_ult.get('empresa',''))[:22]}</div>
+                        <div style="font-size:12.5px; font-weight:700; color:{COR_TEXTO};">🛠️ {r_ult.get('tipo_servico','')} — {str(r_ult.get('cliente_nome',''))[:26]}</div>
+                        <div style="font-size:11px; color:{COR_TEXTO_SEC}; margin-top:2px;">🕒 {str(r_ult.get('data_hora',''))[:16]} | 🏢 {str(r_ult.get('empresa',''))[:22]}</div>
                     </div>
                 """, unsafe_allow_html=True)
+                if st.button(f"🔎 Abrir Atendimento OS #{os_id_u}", key=f"btn_dash_reg_{empresa_filtro}_{os_id_u}_{idx_u}", use_container_width=True):
+                    st.session_state[chave_sel_os] = os_id_u
+                    st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
+
+        # FICHA COMPLETA DO ATENDIMENTO QUANDO CLICAR EM UM DOS ÚLTIMOS 5 REGISTROS
+        os_det_id = st.session_state.get(chave_sel_os)
+        if os_det_id:
+            df_os_det = df_os_dash[df_os_dash['id'].astype(str) == str(os_det_id)]
+            if not df_os_det.empty:
+                r_det = df_os_det.iloc[0]
+                obs_det = str(r_det.get('obs', '')).strip()
+                if not obs_det or obs_det.lower() == 'nan':
+                    obs_det = "Nenhuma"
+                mot_nome_det = str(r_det.get('motorista_nome', '')).strip()
+                mot_tel_det = str(r_det.get('motorista_tel', '')).split("|")[0].strip()
+                if not mot_nome_det or mot_nome_det.lower() == 'nan':
+                    mot_txt_det = "Ainda não assumido pelo portal"
+                else:
+                    mot_txt_det = f"{mot_nome_det} ({mot_tel_det})" if mot_tel_det else mot_nome_det
+
+                st.markdown(f"""
+                    <div class="dash-box" style="border: 2px solid #6A1B9A; border-left: 6px solid #D32F2F;">
+                        <div class="dash-box-title">
+                            <span>📋 Detalhes Completos do Atendimento — OS #{r_det.get('id','')}</span>
+                            <span class="service-badge badge-purple">{str(r_det.get('status_os','')).upper()}</span>
+                        </div>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>🕒 Data/Hora:</strong> {r_det.get('data_hora','N/D')} &nbsp;|&nbsp; <strong>🏢 Empresa:</strong> {r_det.get('empresa','N/D')} &nbsp;|&nbsp; <strong>🛣️ Plano KM:</strong> {r_det.get('plano_km','N/D')}</p>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>👤 Cliente:</strong> {r_det.get('cliente_nome','N/D')} &nbsp;|&nbsp; <strong>📞 Telefone:</strong> {r_det.get('cliente_tel','N/D')}</p>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>🚙 Veículo:</strong> {r_det.get('veiculo_desc','N/D')} &nbsp;|&nbsp; <strong>🏷️ Placa:</strong> <span style="color:{COR_VERM_TXT}; font-weight:800;">{r_det.get('placa','N/D')}</span></p>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>🛠️ Serviço:</strong> {r_det.get('tipo_servico','N/D')} &nbsp;|&nbsp; <strong>⚠️ Motivo:</strong> {r_det.get('motivo','N/D')} &nbsp;|&nbsp; <strong>💰 Valor Extra:</strong> R$ {r_det.get('valor_cobrado','0,00')}</p>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>📍 Origem:</strong> {r_det.get('localizacao','N/D')}</p>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>🏁 Destino:</strong> {r_det.get('destino','N/D')}</p>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>🔧 Base Acionada:</strong> {r_det.get('prestador','N/D')}</p>
+                        <p style="margin: 6px 0; font-size: 14px;"><strong>🚚 Guincheiro / Motorista:</strong> {mot_txt_det}</p>
+                        <p style="margin: 6px 0; font-size: 13.5px; color:{COR_TEXTO_SEC};"><strong>📝 Observações:</strong> {obs_det}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                fotos_det_str = str(r_det.get('fotos_vistoria', ''))
+                doc_det = "N/D"
+                if fotos_det_str and fotos_det_str.lower() != 'nan' and '{' in fotos_det_str:
+                    try:
+                        fotos_det_dict = json.loads(fotos_det_str)
+                        doc_det = fotos_det_dict.get('doc_cliente', 'N/D')
+                        st.markdown('<div class="inspection-reader-header"><span>📸 Fotos da Vistoria (Embarque)</span><span>4 ÂNGULOS</span></div>', unsafe_allow_html=True)
+                        st.markdown('<div class="inspection-reader-body">', unsafe_allow_html=True)
+                        cd1, cd2, cd3, cd4 = st.columns(4)
+                        if fotos_det_dict.get('frente'): cd1.image(base64.b64decode(fotos_det_dict['frente']), caption="1. Frente", use_container_width=True)
+                        if fotos_det_dict.get('traseira'): cd2.image(base64.b64decode(fotos_det_dict['traseira']), caption="2. Traseira", use_container_width=True)
+                        if fotos_det_dict.get('lat_dir'): cd3.image(base64.b64decode(fotos_det_dict['lat_dir']), caption="3. Lat. Direita", use_container_width=True)
+                        if fotos_det_dict.get('lat_esq'): cd4.image(base64.b64decode(fotos_det_dict['lat_esq']), caption="4. Lat. Esquerda", use_container_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    except: pass
+
+                ass_det_str = str(r_det.get('assinatura_cliente', ''))
+                if ass_det_str and ass_det_str.lower() not in ['nan', 'none', '']:
+                    st.markdown(f'<div class="inspection-reader-header"><span>✍️ Assinatura Digital do Condutor</span><span>DOC: {doc_det}</span></div>', unsafe_allow_html=True)
+                    st.markdown('<div class="inspection-reader-body">', unsafe_allow_html=True)
+                    try: st.image(base64.b64decode(ass_det_str), width=240)
+                    except: pass
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                c_det_b1, c_det_b2 = st.columns(2)
+                with c_det_b1:
+                    st.markdown(exportar_pdf_html_oficial(df_os_det, df_clientes, f"relatorio_os_{os_det_id}"), unsafe_allow_html=True)
+                with c_det_b2:
+                    if st.button("❌ Fechar Detalhes do Atendimento", key=f"btn_fechar_det_{empresa_filtro}", use_container_width=True):
+                        st.session_state[chave_sel_os] = None
+                        st.rerun()
 
         st.write("---")
         if "exibir_laudo" not in st.session_state:
@@ -862,10 +1139,10 @@ def renderizar_dashboard(empresa_filtro="Todas"):
                 st.session_state.exibir_laudo = True
                 st.rerun()
         else:
-            st.markdown("""
-            <div style="background-color: #FFFFFF; border: 2px solid #6A1B9A; border-left: 6px solid #D32F2F; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
-                <h3 style="color: #6A1B9A; margin-top:0; font-size: 18px;">📋 Laudo Executivo de Atendimentos 24h</h3>
-                <p style="color: #555; font-size: 13px; margin-bottom: 0;">Análise consolidada e inteligência de ocorrências da frota no período.</p>
+            st.markdown(f"""
+            <div class="dash-box" style="border: 2px solid #6A1B9A; border-left: 6px solid #D32F2F; margin-bottom: 16px;">
+                <h3 style="color: {COR_ROXO_TXT}; margin-top:0; font-size: 18px;">📋 Laudo Executivo de Atendimentos 24h</h3>
+                <p style="color: {COR_TEXTO_SEC}; font-size: 13px; margin-bottom: 0;">Análise consolidada e inteligência de ocorrências da frota no período.</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -894,8 +1171,7 @@ def renderizar_dashboard(empresa_filtro="Todas"):
 
     else:
         st.info("Nenhuma ordem de serviço registrada para montar os indicadores do período.")
-
-# ===================================================================================
+                # ===================================================================================
 # TABELAS DE PREÇOS E FAIXAS
 # ===================================================================================
 TABELA_ESCALONADO = {
@@ -920,9 +1196,11 @@ def obter_faixa_escalonado(taxa_uso):
     return "Enquadramento Teto (> 70%)", TABELA_ESCALONADO["Enquadramento Teto (> 70%)"]
 
 # ===================================================================================
-# FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO ATUALIZADO)
+# FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO ATUALIZADO E SEM DIVERGÊNCIAS)
 # ===================================================================================
 def colorir_status(val):
+    if is_dark:
+        return 'color: #86EFAC; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #FCA5A5; font-weight: bold;'
     return 'color: #2e7d32; font-weight: bold;' if str(val).strip() == 'Ativo' else 'color: #c62828; font-weight: bold;'
 
 def formatar_status_financeiro(val):
@@ -930,8 +1208,51 @@ def formatar_status_financeiro(val):
     elif str(val).strip() == 'Atrasado': return 'background-color: #ffebee; color: #c62828; font-weight: bold;'
     else: return 'background-color: #fff8e1; color: #f57f17; font-weight: bold;'
 
+def formatar_moeda_float(valor):
+    try:
+        s = str(valor).strip().replace("R$", "").replace(" ", "")
+        if "," in s and "." in s:
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", ".")
+        return float(s) if s else 0.0
+    except:
+        return 0.0
+
+def obter_meses_referencia():
+    hoje = obter_hora_brasilia()
+    mes_atual = f"{hoje.month:02d}/{hoje.year}"
+    m_ant = hoje.month - 1
+    y_ant = hoje.year
+    if m_ant <= 0:
+        m_ant = 12
+        y_ant -= 1
+    mes_anterior = f"{m_ant:02d}/{y_ant}"
+    return mes_atual, mes_anterior
+
+def normalizar_mes_ano(texto):
+    if not texto:
+        return None
+    limpo = str(texto).strip().replace("-", "/").replace(".", "/")
+    m = re.match(r'^(\d{1,2})/(\d{4})$', limpo)
+    if not m:
+        return None
+    mes_num = int(m.group(1))
+    ano_num = int(m.group(2))
+    if 1 <= mes_num <= 12 and 2020 <= ano_num <= 2100:
+        return f"{mes_num:02d}/{ano_num}"
+    return None
+
+def mes_ano_para_tupla(mes_ano_str):
+    try:
+        m, y = str(mes_ano_str).strip().split("/")
+        return (int(y), int(m))
+    except:
+        hoje = obter_hora_brasilia()
+        return (hoje.year, hoje.month)
+
 def get_ultimos_3_meses():
-    hoje = datetime.now()
+    hoje = obter_hora_brasilia()
     meses = []
     for i in range(3):
         m = hoje.month - i
@@ -1109,9 +1430,83 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         'total_ac': total_ac, 'acionamentos_isentos': acionamentos_isentos
     }
 
+def sincronizar_financeiro_competencia(mes_filtro, df_fin_atual, df_emp_atual, df_cli_atual, df_os_atual):
+    """Garante persistência no Supabase e evita divergência entre mês atual e meses anteriores."""
+    df_fin_work = df_fin_atual.copy()
+    if df_fin_work.empty or 'id' not in df_fin_work.columns:
+        df_fin_work = pd.DataFrame(columns=col_fin)
+
+    mes_atual_str, _ = obter_meses_referencia()
+    eh_mes_passado = mes_ano_para_tupla(mes_filtro) < mes_ano_para_tupla(mes_atual_str)
+
+    try:
+        mes_s, ano_s = mes_filtro.split('/')
+    except:
+        hoje = obter_hora_brasilia()
+        mes_s, ano_s = f"{hoje.month:02d}", str(hoje.year)
+
+    empresas_ativas = df_emp_atual[df_emp_atual['status'].str.upper() == 'ATIVO']
+    alterou_banco = False
+
+    # 1. Garante que toda empresa ativa tenha lançamento nesta competência
+    for _, emp_row in empresas_ativas.iterrows():
+        nome_emp = str(emp_row['nome']).strip().upper()
+        if not nome_emp:
+            continue
+        id_unico = f"{nome_emp}_{mes_filtro}"
+        modo_fat = str(emp_row.get('modo_faturamento', 'Tradicional')).strip()
+
+        mask_reg = (df_fin_work['mes_ano'].str.strip() == mes_filtro) & (df_fin_work['empresa'].str.upper() == nome_emp)
+
+        if not mask_reg.any():
+            val_inicial = "0.00"
+            if modo_fat != "Tradicional":
+                dados_calc = calcular_fatura_parceiro(nome_emp, mes_s, ano_s, df_cli_atual, df_os_atual, df_emp_atual)
+                val_inicial = f"{dados_calc['fatura_total']:.2f}"
+            novo_fin = pd.DataFrame([{
+                'id': id_unico,
+                'mes_ano': mes_filtro,
+                'empresa': nome_emp,
+                'valor_faturado': val_inicial,
+                'valor_pago': '0.00',
+                'status': 'Pendente'
+            }])
+            df_fin_work = pd.concat([df_fin_work, novo_fin], ignore_index=True)
+            alterou_banco = True
+        else:
+            # Se já existe registro, atualiza apenas quando NÃO está pago e:
+            # - no mês atual/vigente (para manter atualizado em tempo real), OU
+            # - em mês passado SOMENTE se o valor salvo estiver zerado (para recuperar faturas que ficaram 0.00 antes)
+            idx_list = df_fin_work[mask_reg].index.tolist()
+            for idx_r in idx_list:
+                status_reg = str(df_fin_work.at[idx_r, 'status']).strip()
+                val_salvo = formatar_moeda_float(df_fin_work.at[idx_r, 'valor_faturado'])
+                if modo_fat != 'Tradicional' and status_reg != 'Pago':
+                    if (not eh_mes_passado) or (eh_mes_passado and val_salvo == 0.0):
+                        dados_calc = calcular_fatura_parceiro(nome_emp, mes_s, ano_s, df_cli_atual, df_os_atual, df_emp_atual)
+                        novo_val_str = f"{dados_calc['fatura_total']:.2f}"
+                        if f"{val_salvo:.2f}" != novo_val_str:
+                            df_fin_work.at[idx_r, 'valor_faturado'] = novo_val_str
+                            alterou_banco = True
+
+    if alterou_banco:
+        salvar_dados(df_fin_work, FILE_FINANCEIRO)
+
+    # Inclui empresas ativas + qualquer empresa que já tenha lançamento gravado naquela competência (preserva histórico)
+    nomes_ativos = set(empresas_ativas['nome'].str.strip().str.upper().tolist())
+    df_fin_mes = df_fin_work[df_fin_work['mes_ano'].str.strip() == mes_filtro].copy()
+    if not df_fin_mes.empty:
+        df_fin_mes = df_fin_mes[
+            df_fin_mes['empresa'].str.upper().isin(nomes_ativos) |
+            (df_fin_mes['valor_faturado'].apply(formatar_moeda_float) > 0) |
+            (df_fin_mes['valor_pago'].apply(formatar_moeda_float) > 0)
+        ].drop_duplicates(subset=['empresa'], keep='last').sort_values(by='empresa')
+
+    return df_fin_work, df_fin_mes
+
 def gerar_texto_resumo_plano(dados_fat):
     modo = dados_fat.get('modo_fat', 'Tradicional')
-    if modo == 'Inativo': return "<b style='color:#c62828;'>🚫 Empresa Inativa. Sem faturamento gerado.</b>"
+    if modo == 'Inativo': return f"<b style='color:{COR_VERM_TXT};'>🚫 Empresa Inativa. Sem faturamento gerado.</b>"
     
     tot_v = dados_fat.get('total_v', 0)
     taxa = dados_fat.get('taxa', 0.0)
@@ -1127,12 +1522,12 @@ def gerar_texto_resumo_plano(dados_fat):
     
     if modo == "Performance (Escalonado)":
         texto = f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Frota Apurada:</b> {tot_v} veículos ativos (Base Mínima: 30).<br>"
-        if taxa == 0.0: texto += f"🎯 <b style='color:#2e7d32;'>Taxa de Acionamento: 0.0% (Mês zerado)</b><br>"
+        if taxa == 0.0: texto += f"🎯 <b style='color:{COR_VERDE_TXT};'>Taxa de Acionamento: 0.0% (Mês zerado)</b><br>"
         else: texto += f"🎯 <b>Taxa de Acionamento:</b> {taxa:.1f}%<br>"
             
         texto += f"📈 <b>Enquadramento Comercial:</b> {faixa}<br>"
         if fat_tot == 400.00 and exc > 0:
-            texto += f"💰 <b>Fatura Atualizada: R$ 400,00</b> <span style='color:#D32F2F; font-size:14px;'>(Piso Mínimo Garantido Atingido. Valor Real das Placas seria R$ {placas_tot:.2f})</span>"
+            texto += f"💰 <b>Fatura Atualizada: R$ 400,00</b> <span style='color:{COR_VERM_TXT}; font-size:14px;'>(Piso Mínimo Garantido Atingido. Valor Real das Placas seria R$ {placas_tot:.2f})</span>"
         else:
             texto += f"💰 <b>Fatura Mapeada:</b> R$ {fat_tot:.2f}"
         return texto
@@ -1146,9 +1541,9 @@ def gerar_texto_resumo_plano(dados_fat):
             detalhe_exc = []
             if dados_fat.get('qtd_exc_50', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_50']}x excedente(s) de 50km")
             if dados_fat.get('qtd_exc_100', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_100']}x excedente(s) de 100km")
-            texto += f"💰 <b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:#D32F2F; font-size:14px;'>(R$ {base:.2f} Fixo + R$ {placas_tot:.2f} Placas + Adicional Extra: R$ {exc:.2f} de {' e '.join(detalhe_exc)})</span>"
+            texto += f"💰 <b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:{COR_VERM_TXT}; font-size:14px;'>(R$ {base:.2f} Fixo + R$ {placas_tot:.2f} Placas + Adicional Extra: R$ {exc:.2f} de {' e '.join(detalhe_exc)})</span>"
         else:
-            texto += f"💰 <b>Fatura Atual: R$ {fat_tot:.2f}</b> <span style='color:#2e7d32; font-size:14px;'>(Operando perfeitamente dentro da franquia do pacote)</span>"
+            texto += f"💰 <b>Fatura Atual: R$ {fat_tot:.2f}</b> <span style='color:{COR_VERDE_TXT}; font-size:14px;'>(Operando perfeitamente dentro da franquia do pacote)</span>"
         return texto
     else:
         return f"{periodo_str}<br>📊 <b>Plano Ativo:</b> {modo}<br>🚗 <b>Base Apurada:</b> {tot_v} veículos<br>💰 <b>Faturamento:</b> Lançamento Manual gerido pela Central"
@@ -1196,7 +1591,8 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #6A1B9A; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #6A1B9A; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #6A1B9A; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem ➔ Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #6A1B9A; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">📄 Baixar Extrato Oficial e Auditável (PDF)</button></a>'
-    # ===================================================================================
+
+# ===================================================================================
 # PORTAIS EXTERNOS (NPS, GPS DO CLIENTE E PORTAL DO GUINCHO)
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
@@ -1480,13 +1876,13 @@ elif portal_atual == "nps":
     st.write(f"**Data do Chamado:** {os_info['data_hora'][:10]}")
     st.write("---")
     
-    st.markdown("<h4 style='color: #6A1B9A; font-size: 15px;'>1. Em uma escala de 0 a 10, o quanto você recomendaria a assistência 24 horas para um amigo ou familiar?</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='color: {COR_ROXO_DEST}; font-size: 15px;'>1. Em uma escala de 0 a 10, o quanto você recomendaria a assistência 24 horas para um amigo ou familiar?</h4>", unsafe_allow_html=True)
     nota_nps = st.slider("Arraste para dar sua nota:", min_value=0, max_value=10, value=10)
     
-    st.markdown("<h4 style='color: #6A1B9A; margin-top: 15px; font-size: 15px;'>2. Como você avalia a agilidade e educação do nosso Operador da Central?</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='color: {COR_ROXO_DEST}; margin-top: 15px; font-size: 15px;'>2. Como você avalia a agilidade e educação do nosso Operador da Central?</h4>", unsafe_allow_html=True)
     nota_central = st.feedback("stars", key="fb_central")
     
-    st.markdown("<h4 style='color: #6A1B9A; margin-top: 15px; font-size: 15px;'>3. Como você avalia o atendimento presencial do Motorista do Guincho?</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='color: {COR_ROXO_DEST}; margin-top: 15px; font-size: 15px;'>3. Como você avalia o atendimento presencial do Motorista do Guincho?</h4>", unsafe_allow_html=True)
     nota_guincho = st.feedback("stars", key="fb_guincho")
     
     comentario = st.text_area("Gostaria de deixar um comentário, elogio ou sugestão? (Opcional)")
@@ -1656,9 +2052,9 @@ if not st.session_state.logado:
     st.stop()
 
 # ===================================================================================
-# HEADER DO SISTEMA (QUANDO LOGADO - ESTILO BARRA CORPORATIVA MODELO 3)
+# HEADER DO SISTEMA (BARRA CORPORATIVA + BOTÃO CLARO/ESCURO + ATUALIZAR + SAIR)
 # ===================================================================================
-col_user, col_refresh, col_logout = st.columns([6.5, 1.8, 1.7])
+col_user, col_tema, col_refresh, col_logout = st.columns([5.4, 1.5, 1.6, 1.5])
 with col_user: 
     st.markdown(f"""
         <div class="ad-topbar">
@@ -1674,27 +2070,43 @@ with col_user:
             </div>
         </div>
     """, unsafe_allow_html=True)
+with col_tema:
+    st.write("")
+    label_tema = "☀️ Modo Claro" if is_dark else "🌙 Modo Escuro"
+    if st.button(label_tema, key="btn_toggle_tema_topo", use_container_width=True):
+        st.session_state.tema_app = "Claro" if is_dark else "Escuro"
+        st.rerun()
 with col_refresh:
     st.write("")
-    if st.button("🔄 Atualizar Painel", use_container_width=True):
+    if st.button("🔄 Atualizar", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 with col_logout:
     st.write("")
-    if st.button("🚪 Sair / Logoff", key="btn_logout_master", use_container_width=True):
+    if st.button("🚪 Sair", key="btn_logout_master", use_container_width=True):
         st.session_state.logado = False
         st.query_params.clear()
         st.rerun()
-        st.write("---")
-
-# ===================================================================================
-# INTERFACE 1: ADMIN MASTER
+                # ===================================================================================
+# INTERFACE 1: ADMIN MASTER (PARTE A - MENU LATERAL E ABAS 1 A 5)
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     qtd_pendencias = len(df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
     aba_pendencias_nome = f"🚨 Pendências ({qtd_pendencias})"
     
-    opcoes_admin = ["📈 Dashboard", "📋 Nova OS", aba_pendencias_nome, "📊 Relatórios & PDF", "👤 Clientes", "🏢 Empresas", "🔧 Prestadores", "⭐ Satisfação (NPS)", "💰 Financeiro", "🕵️ Auditoria", "💾 Dados"]
+    opcoes_admin = [
+        "📈 Dashboard",
+        "📋 Nova OS",
+        aba_pendencias_nome,
+        "🏢 Empresas",
+        "👤 Clientes",
+        "🔧 Prestadores",
+        "⭐ Satisfação (NPS)",
+        "💰 Financeiro",
+        "🕵️ Auditoria",
+        "📊 Relatórios & PDF",
+        "💾 Dados"
+    ]
     
     aba_atual_admin = st.query_params.get("nav", opcoes_admin[0])
     
@@ -2069,11 +2481,11 @@ if st.session_state.perfil == "Admin":
                         <span>📋 Ficha Operacional — OS #{row_os['id']} ({row_os.get('empresa', 'AD Rastreamento')})</span>
                         <span class="service-badge badge-red">{status_dessa_os}</span>
                     </div>
-                    <p style="margin: 6px 0; font-size: 14px;"><strong>👤 Cliente:</strong> {row_os['cliente_nome']} &nbsp;|&nbsp; <strong>🚙 Veículo:</strong> {v_desc_wpp} &nbsp;|&nbsp; <strong>🏷️ Placa:</strong> <span style="color:#D32F2F; font-weight:800;">{row_os.get('placa', '')}</span></p>
+                    <p style="margin: 6px 0; font-size: 14px;"><strong>👤 Cliente:</strong> {row_os['cliente_nome']} &nbsp;|&nbsp; <strong>🚙 Veículo:</strong> {v_desc_wpp} &nbsp;|&nbsp; <strong>🏷️ Placa:</strong> <span style="color:{COR_VERM_TXT}; font-weight:800;">{row_os.get('placa', '')}</span></p>
                     <p style="margin: 6px 0; font-size: 14px;"><strong>📍 Origem:</strong> {row_os['localizacao']}</p>
                     <p style="margin: 6px 0; font-size: 14px;"><strong>🏁 Destino:</strong> {row_os['destino']}</p>
                     <p style="margin: 6px 0; font-size: 14px;"><strong>🔧 Base/Grupo Acionado:</strong> {prestador_info}</p>
-                    <p style="margin: 6px 0; font-size: 13px; color:#555;"><strong>📝 Observações Extras:</strong> {obs_val}</p>
+                    <p style="margin: 6px 0; font-size: 13px; color:{COR_TEXTO_SEC};"><strong>📝 Observações Extras:</strong> {obs_val}</p>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -2167,67 +2579,130 @@ if st.session_state.perfil == "Admin":
                             st.rerun()
                         else: st.error(f"Erro na nuvem: {erro}")
 
-    elif aba_selecionada == "📊 Relatórios & PDF":
-        st.markdown('<div class="section-title">📊 Chamados e Relatórios</div>', unsafe_allow_html=True)
-        os_id_edit = st.text_input("Digite o ID da OS para editar ou excluir:")
-        if os_id_edit:
-            os_encontrada = df_os[df_os['id'].astype(str) == str(os_id_edit)]
-            if not os_encontrada.empty:
-                row_os = os_encontrada.iloc[0]
-                with st.form(f"form_edit_os_{os_id_edit}"):
-                    st.write(f"**Empresa:** {row_os.get('empresa','')} | **Cliente:** {row_os.get('cliente_nome','')} | **Data:** {row_os.get('data_hora','')}")
-                    c_os1, c_os2 = st.columns(2)
-                    nova_placa = c_os1.text_input("Placa do Veículo:", value=row_os['placa'])
-                    status_opcoes = ["PENDENTE", "EM ATENDIMENTO", "A CAMINHO", "EM TRÂNSITO", "CONCLUÍDO", "ENCERRADO", "CANCELADO"]
-                    idx_stat = status_opcoes.index(row_os['status_os'].upper()) if row_os['status_os'].upper() in status_opcoes else 0
-                    novo_status = c_os2.selectbox("Status da OS:", status_opcoes, index=idx_stat)
-                    if st.form_submit_button("Salvar Correção da OS"):
-                        with st.spinner("Atualizando OS..."):
-                            df_os.loc[df_os['id'].astype(str) == str(os_id_edit), ['placa', 'status_os']] = [nova_placa.upper(), novo_status]
-                            sucesso, erro = salvar_dados(df_os, FILE_OS)
-                            if sucesso:
-                                registrar_atividade(st.session_state.user, "CORREÇÃO DE OS", f"Editou a OS ID: {os_id_edit} | Nova Placa: {nova_placa.upper()} | Novo Status: {novo_status}")
-                                st.success("✅ OS atualizada com sucesso! O cálculo de acionamento foi reajustado."); time.sleep(1.5); st.rerun()
-                            else: st.error(f"Erro na nuvem: {erro}")
-                
-                if "os_del_confirm" not in st.session_state: st.session_state.os_del_confirm = None
-                if st.session_state.os_del_confirm != os_id_edit:
-                    if st.button("🗑️ Excluir esta OS permanentemente", key=f"btn_del_os_{os_id_edit}"): st.session_state.os_del_confirm = os_id_edit; st.rerun()
-                if st.session_state.get("os_del_confirm") == os_id_edit:
-                    st.error(f"⚠️ Atenção: Deseja realmente excluir a OS {os_id_edit}?")
-                    col_s, col_n = st.columns(2)
-                    if col_s.button("✅ Sim, excluir OS", key=f"btn_sim_del_os_{os_id_edit}"):
-                        with st.spinner("Excluindo..."):
-                            os_apagada = df_os[df_os['id'].astype(str) == str(os_id_edit)].iloc[0]
-                            detalhes_exclusao_os = f"Apagou OS ID: {os_id_edit} | Cliente: {os_apagada['cliente_nome']} | Placa: {os_apagada['placa']} | Empresa: {os_apagada['empresa']}"
-                            
-                            deletar_registro_banco(FILE_OS, "id", str(os_id_edit))
-                            df_os = df_os[df_os['id'].astype(str) != str(os_id_edit)]
-                            
-                            registrar_atividade(st.session_state.user, "EXCLUSÃO OS", detalhes_exclusao_os)
-                            st.success("🗑️ OS excluída! Taxa de acionamento atualizada."); st.session_state.os_del_confirm = None; time.sleep(1.5); st.rerun()
-                    if col_n.button("❌ Não, cancelar", key=f"btn_nao_del_os_{os_id_edit}"): st.session_state.os_del_confirm = None; st.rerun()
-            else: st.warning("Nenhuma OS encontrada com esse ID.")
-
-        st.write("---")
-        st.markdown("##### ✅ Histórico e Gerar PDF (OS Finalizadas)")
-        df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
-        if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
-        else:
-            busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para encontrar o relatório:")
-            if busca_os_relatorio:
-                df_filtrado_fechadas = df_fechadas[df_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False)]
-                if df_filtrado_fechadas.empty: st.warning("Nenhum acionamento finalizado encontrado.")
-                else:
-                    lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
-                    os_escolhida_str = st.selectbox("Selecione qual acionamento deseja gerar o PDF:", options=lista_os_dele)
-                    os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
-                    df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
-                    st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
+    elif aba_selecionada == "🏢 Empresas":
+        st.markdown('<div class="section-title">🏢 Empresas Parceiras</div>', unsafe_allow_html=True)
+        if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
+        opcoes_radio_emp = ["Listar", "Incluir Nova", "Editar", "Excluir"]
+        idx_radio_emp = opcoes_radio_emp.index(st.session_state.aba_emp) if st.session_state.aba_emp in opcoes_radio_emp else 0
+        opcao_emp = st.radio("Ação Empresas:", opcoes_radio_emp, horizontal=True, index=idx_radio_emp)
+        st.session_state.aba_emp = opcao_emp
         
-        st.write("---")
-        st.markdown("##### 🗃️ Tabela Geral de Chamados")
-        st.dataframe(df_os, use_container_width=True)
+        if opcao_emp == "Listar":
+            busca_emp_lista = st.text_input("🔍 Buscar Empresa na Lista (Nome ou CNPJ):")
+            if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
+            else: 
+                df_view_emp = df_empresas.copy()
+                if busca_emp_lista: df_view_emp = df_view_emp[df_view_emp['nome'].str.contains(busca_emp_lista, case=False, na=False) | df_view_emp['cnpj'].str.contains(busca_emp_lista, case=False, na=False)]
+                st.dataframe(df_view_emp.style.map(colorir_status, subset=['status']), use_container_width=True)
+        elif opcao_emp == "Incluir Nova":
+            c1, c2 = st.columns(2)
+            n_emp_in = c1.text_input("Nome da Empresa:", value=st.session_state.get("emp_inc_nome", ""))
+            st.session_state.emp_inc_nome = n_emp_in
+            cnpj_raw = c2.text_input("CNPJ da Empresa:", value=st.session_state.get("emp_inc_cnpj", ""))
+            st.session_state.emp_inc_cnpj = cnpj_raw
+            resp_in = c1.text_input("Nome do Responsável:", value=st.session_state.get("emp_inc_resp", ""))
+            st.session_state.emp_inc_resp = resp_in
+            tel_e_raw = c2.text_input("Telefone da Central 24h:", value=st.session_state.get("emp_inc_tel", ""))
+            st.session_state.emp_inc_tel = tel_e_raw
+            mail_in = c1.text_input("E-mail corporativo:", value=st.session_state.get("emp_inc_mail", ""))
+            st.session_state.emp_inc_mail = mail_in
+            est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
+            
+            c_v1, c_v2, c_v3 = st.columns(3)
+            stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0)
+            modo_fat_e = c_v2.selectbox("Modo de Faturamento:", MODOS_FATURAMENTO, index=0)
+            dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=OPCOES_DIAS_VENC.index("30"))
+
+            if st.button("Salvar Nova Empresa"):
+                cnpj = apenas_numeros_letras(cnpj_raw)
+                if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
+                else:
+                    with st.spinner("Salvando empresa..."):
+                        dt_ativacao = datetime.now().strftime("%Y-%m-%d") if stat_e == 'Ativo' else ''
+                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e, 'modo_faturamento': modo_fat_e, 'dia_vencimento': dia_v_e, 'data_ativacao': dt_ativacao}])
+                        df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
+                        sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
+                        if sucesso:
+                            registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()} (CNPJ: {cnpj})")
+                            st.success("✅ Empresa cadastrada com sucesso!"); st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
+                        else:
+                            st.error(f"Erro na nuvem: {erro}")
+        elif opcao_emp == "Editar":
+            if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
+            else:
+                opcoes_emp = {str(r['cnpj']): f"{str(r['nome']).upper()} | CNPJ: {str(r['cnpj'])}" for _, r in df_empresas.iterrows()}
+                e_target = st.selectbox("🔎 Selecione a Empresa para Editar:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x])
+                if e_target != "":
+                    dados_e_ant = df_empresas[df_empresas['cnpj'].astype(str) == e_target].iloc[0]
+                    c1, c2 = st.columns(2)
+                    n_emp_in = c1.text_input("Nome da Empresa:", value=dados_e_ant['nome'])
+                    cnpj_raw = c2.text_input("CNPJ da Empresa:", value=dados_e_ant['cnpj'])
+                    resp_in = c1.text_input("Nome do Responsável:", value=dados_e_ant['responsavel'])
+                    tel_e_raw = c2.text_input("Telefone da Central 24h:", value=dados_e_ant['telefone'])
+                    mail_in = c1.text_input("E-mail corporativo:", value=dados_e_ant['email'])
+                    idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if str(dados_e_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
+                    est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e)
+                    
+                    c_v1, c_v2, c_v3 = st.columns(3)
+                    stat_ant = str(dados_e_ant.get('status', 'Inativo')).strip()
+                    stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(stat_ant) if stat_ant in ["Ativo", "Inativo"] else 0)
+                    
+                    modo_fat_ant = str(dados_e_ant.get('modo_faturamento', 'Tradicional')).strip()
+                    idx_modo_fat = MODOS_FATURAMENTO.index(modo_fat_ant) if modo_fat_ant in MODOS_FATURAMENTO else 0
+                    modo_fat_e = c_v2.selectbox("Modo de Faturamento:", MODOS_FATURAMENTO, index=idx_modo_fat)
+                    
+                    venc_ant = str(dados_e_ant.get('dia_vencimento', '30')).strip()
+                    if not venc_ant or venc_ant == 'nan': venc_ant = "30"
+                    
+                    opcoes_dias_edit = OPCOES_DIAS_VENC if venc_ant in OPCOES_DIAS_VENC else OPCOES_DIAS_VENC + [venc_ant]
+                    idx_venc = opcoes_dias_edit.index(venc_ant)
+                    dia_v_e = c_v3.selectbox("Dia do Vencimento:", opcoes_dias_edit, index=idx_venc)
+
+                    if st.button("Salvar Alterações"):
+                        cnpj = apenas_numeros_letras(cnpj_raw)
+                        if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
+                        else:
+                            with st.spinner("Atualizando dados da empresa..."):
+                                dt_ativacao = str(dados_e_ant.get('data_ativacao', ''))
+                                
+                                if stat_ant != 'Ativo' and stat_e == 'Ativo':
+                                    dt_ativacao = datetime.now().strftime("%Y-%m-%d")
+                                    dia_v_e = str(datetime.now().day)
+                                
+                                elif modo_fat_ant == 'Tradicional' and modo_fat_e != 'Tradicional':
+                                    dt_ativacao = datetime.now().strftime("%Y-%m-%d") 
+                                    dia_v_e = str(datetime.now().day) 
+                                    st.info(f"🔄 Migração de plano detectada! O ciclo de 30 dias foi resetado para iniciar a partir de hoje ({dt_ativacao}).")
+                                    
+                                df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento', 'data_ativacao']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e, modo_fat_e, dia_v_e, dt_ativacao]
+                                sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "EDIÇÃO EMPRESA", f"Editou a empresa {n_emp_in.upper()} (Plano alterado para {modo_fat_e})")
+                                    st.success("✅ Empresa atualizada com sucesso e regras de ciclo aplicadas!"); st.session_state.aba_emp = "Listar"; time.sleep(2.5); st.rerun()
+                                else: st.error(f"Erro na nuvem: {erro}")
+        elif opcao_emp == "Excluir":
+            if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
+            else:
+                opcoes_emp = {str(r['cnpj']): f"{str(r['nome']).upper()} | CNPJ: {str(r['cnpj'])}" for _, r in df_empresas.iterrows()}
+                e_target_del = st.selectbox("🔎 Selecione a Empresa para EXCLUIR:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x])
+                if e_target_del != "":
+                    if "emp_del_confirm" not in st.session_state: st.session_state.emp_del_confirm = None
+                    if st.session_state.emp_del_confirm != e_target_del:
+                        if st.button("🗑️ Excluir permanentemente"): st.session_state.emp_del_confirm = e_target_del; st.rerun()
+                    if st.session_state.get("emp_del_confirm") == e_target_del:
+                        st.error(f"⚠️ Tem certeza que deseja excluir a empresa **{opcoes_emp[e_target_del]}**?")
+                        col_sim, col_nao = st.columns(2)
+                        if col_sim.button("✅ Sim, excluir empresa"):
+                            with st.spinner("Excluindo empresa do Supabase..."):
+                                emp_apagada = df_empresas[df_empresas['cnpj'] == e_target_del].iloc[0]
+                                detalhes_emp = f"Apagou a empresa -> CNPJ: {e_target_del} | Nome: {emp_apagada['nome']} | Resp: {emp_apagada.get('responsavel', '')}"
+                                
+                                deletar_registro_banco(FILE_EMPRESAS, "cnpj", str(e_target_del))
+                                df_empresas = df_empresas[df_empresas['cnpj'] != e_target_del]
+                                
+                                registrar_atividade(st.session_state.user, "EXCLUSÃO EMPRESA", detalhes_emp)
+                                st.success("🗑️ Empresa excluída permanentemente!"); st.session_state.emp_del_confirm = None; st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
+                        if col_nao.button("❌ Não, cancelar"): st.session_state.emp_del_confirm = None; st.rerun()
 
     elif aba_selecionada == "👤 Clientes":
         st.markdown('<div class="section-title">👤 Gestão de Clientes</div>', unsafe_allow_html=True)
@@ -2644,133 +3119,11 @@ if st.session_state.perfil == "Admin":
                                 
                                 registrar_atividade(st.session_state.user, "EXCLUSÃO CLIENTE", detalhes_del)
                                 st.success("🗑️ Cliente excluído permanentemente!"); st.session_state.cli_del_confirm = None; st.session_state.aba_cli = "Listar"; time.sleep(1); st.rerun()
-                        if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()    
-    elif aba_selecionada == "🏢 Empresas":
-        st.markdown('<div class="section-title">🏢 Empresas Parceiras</div>', unsafe_allow_html=True)
-        if "aba_emp" not in st.session_state: st.session_state.aba_emp = "Listar"
-        opcoes_radio_emp = ["Listar", "Incluir Nova", "Editar", "Excluir"]
-        idx_radio_emp = opcoes_radio_emp.index(st.session_state.aba_emp) if st.session_state.aba_emp in opcoes_radio_emp else 0
-        opcao_emp = st.radio("Ação Empresas:", opcoes_radio_emp, horizontal=True, index=idx_radio_emp)
-        st.session_state.aba_emp = opcao_emp
-        
-        if opcao_emp == "Listar":
-            busca_emp_lista = st.text_input("🔍 Buscar Empresa na Lista (Nome ou CNPJ):")
-            if df_empresas.empty: st.info("Nenhuma empresa cadastrada.")
-            else: 
-                df_view_emp = df_empresas.copy()
-                if busca_emp_lista: df_view_emp = df_view_emp[df_view_emp['nome'].str.contains(busca_emp_lista, case=False, na=False) | df_view_emp['cnpj'].str.contains(busca_emp_lista, case=False, na=False)]
-                st.dataframe(df_view_emp.style.map(colorir_status, subset=['status']), use_container_width=True)
-        elif opcao_emp == "Incluir Nova":
-            c1, c2 = st.columns(2)
-            n_emp_in = c1.text_input("Nome da Empresa:", value=st.session_state.get("emp_inc_nome", ""))
-            st.session_state.emp_inc_nome = n_emp_in
-            cnpj_raw = c2.text_input("CNPJ da Empresa:", value=st.session_state.get("emp_inc_cnpj", ""))
-            st.session_state.emp_inc_cnpj = cnpj_raw
-            resp_in = c1.text_input("Nome do Responsável:", value=st.session_state.get("emp_inc_resp", ""))
-            st.session_state.emp_inc_resp = resp_in
-            tel_e_raw = c2.text_input("Telefone da Central 24h:", value=st.session_state.get("emp_inc_tel", ""))
-            st.session_state.emp_inc_tel = tel_e_raw
-            mail_in = c1.text_input("E-mail corporativo:", value=st.session_state.get("emp_inc_mail", ""))
-            st.session_state.emp_inc_mail = mail_in
-            est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
-            
-            c_v1, c_v2, c_v3 = st.columns(3)
-            stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=0)
-            modo_fat_e = c_v2.selectbox("Modo de Faturamento:", MODOS_FATURAMENTO, index=0)
-            dia_v_e = c_v3.selectbox("Dia do Vencimento:", OPCOES_DIAS_VENC, index=OPCOES_DIAS_VENC.index("30"))
-
-            if st.button("Salvar Nova Empresa"):
-                cnpj = apenas_numeros_letras(cnpj_raw)
-                if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
-                else:
-                    with st.spinner("Salvando empresa..."):
-                        dt_ativacao = datetime.now().strftime("%Y-%m-%d") if stat_e == 'Ativo' else ''
-                        novo_e = pd.DataFrame([{'cnpj': cnpj, 'nome': n_emp_in.upper(), 'responsavel': resp_in.upper(), 'telefone': apenas_numeros_letras(tel_e_raw), 'email': mail_in, 'est': est_e, 'status': stat_e, 'modo_faturamento': modo_fat_e, 'dia_vencimento': dia_v_e, 'data_ativacao': dt_ativacao}])
-                        df_empresas_temp = pd.concat([df_empresas, novo_e], ignore_index=True)
-                        sucesso, erro = salvar_dados(df_empresas_temp, FILE_EMPRESAS)
-                        if sucesso:
-                            registrar_atividade(st.session_state.user, "NOVA EMPRESA", f"Cadastrou a empresa {n_emp_in.upper()} (CNPJ: {cnpj})")
-                            st.success("✅ Empresa cadastrada com sucesso!"); st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
-                        else:
-                            st.error(f"Erro na nuvem: {erro}")
-        elif opcao_emp == "Editar":
-            if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
-            else:
-                opcoes_emp = {str(r['cnpj']): f"{str(r['nome']).upper()} | CNPJ: {str(r['cnpj'])}" for _, r in df_empresas.iterrows()}
-                e_target = st.selectbox("🔎 Selecione a Empresa para Editar:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x])
-                if e_target != "":
-                    dados_e_ant = df_empresas[df_empresas['cnpj'].astype(str) == e_target].iloc[0]
-                    c1, c2 = st.columns(2)
-                    n_emp_in = c1.text_input("Nome da Empresa:", value=dados_e_ant['nome'])
-                    cnpj_raw = c2.text_input("CNPJ da Empresa:", value=dados_e_ant['cnpj'])
-                    resp_in = c1.text_input("Nome do Responsável:", value=dados_e_ant['responsavel'])
-                    tel_e_raw = c2.text_input("Telefone da Central 24h:", value=dados_e_ant['telefone'])
-                    mail_in = c1.text_input("E-mail corporativo:", value=dados_e_ant['email'])
-                    idx_est_e = ESTADOS_BR.index(str(dados_e_ant['est']).upper()) if str(dados_e_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
-                    est_e = c2.selectbox("Selecione o Estado (UF) da Sede:", options=ESTADOS_BR, index=idx_est_e)
-                    
-                    c_v1, c_v2, c_v3 = st.columns(3)
-                    stat_ant = str(dados_e_ant.get('status', 'Inativo')).strip()
-                    stat_e = c_v1.selectbox("Status Parceria:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(stat_ant) if stat_ant in ["Ativo", "Inativo"] else 0)
-                    
-                    modo_fat_ant = str(dados_e_ant.get('modo_faturamento', 'Tradicional')).strip()
-                    idx_modo_fat = MODOS_FATURAMENTO.index(modo_fat_ant) if modo_fat_ant in MODOS_FATURAMENTO else 0
-                    modo_fat_e = c_v2.selectbox("Modo de Faturamento:", MODOS_FATURAMENTO, index=idx_modo_fat)
-                    
-                    venc_ant = str(dados_e_ant.get('dia_vencimento', '30')).strip()
-                    if not venc_ant or venc_ant == 'nan': venc_ant = "30"
-                    
-                    opcoes_dias_edit = OPCOES_DIAS_VENC if venc_ant in OPCOES_DIAS_VENC else OPCOES_DIAS_VENC + [venc_ant]
-                    idx_venc = opcoes_dias_edit.index(venc_ant)
-                    dia_v_e = c_v3.selectbox("Dia do Vencimento:", opcoes_dias_edit, index=idx_venc)
-
-                    if st.button("Salvar Alterações"):
-                        cnpj = apenas_numeros_letras(cnpj_raw)
-                        if not cnpj or not n_emp_in: st.error("CNPJ e Nome da Empresa são obrigatórios.")
-                        else:
-                            with st.spinner("Atualizando dados da empresa..."):
-                                dt_ativacao = str(dados_e_ant.get('data_ativacao', ''))
-                                
-                                if stat_ant != 'Ativo' and stat_e == 'Ativo':
-                                    dt_ativacao = datetime.now().strftime("%Y-%m-%d")
-                                    dia_v_e = str(datetime.now().day)
-                                
-                                elif modo_fat_ant == 'Tradicional' and modo_fat_e != 'Tradicional':
-                                    dt_ativacao = datetime.now().strftime("%Y-%m-%d") 
-                                    dia_v_e = str(datetime.now().day) 
-                                    st.info(f"🔄 Migração de plano detectada! O ciclo de 30 dias foi resetado para iniciar a partir de hoje ({dt_ativacao}).")
-                                    
-                                df_empresas.loc[df_empresas['cnpj'] == e_target, ['cnpj', 'nome','responsavel','telefone','email','est','status', 'modo_faturamento', 'dia_vencimento', 'data_ativacao']] = [cnpj, n_emp_in.upper(), resp_in.upper(), apenas_numeros_letras(tel_e_raw), mail_in, est_e, stat_e, modo_fat_e, dia_v_e, dt_ativacao]
-                                sucesso, erro = salvar_dados(df_empresas, FILE_EMPRESAS)
-                                if sucesso:
-                                    registrar_atividade(st.session_state.user, "EDIÇÃO EMPRESA", f"Editou a empresa {n_emp_in.upper()} (Plano alterado para {modo_fat_e})")
-                                    st.success("✅ Empresa atualizada com sucesso e regras de ciclo aplicadas!"); st.session_state.aba_emp = "Listar"; time.sleep(2.5); st.rerun()
-                                else: st.error(f"Erro na nuvem: {erro}")
-        elif opcao_emp == "Excluir":
-            if df_empresas.empty: st.warning("Nenhuma empresa cadastrada.")
-            else:
-                opcoes_emp = {str(r['cnpj']): f"{str(r['nome']).upper()} | CNPJ: {str(r['cnpj'])}" for _, r in df_empresas.iterrows()}
-                e_target_del = st.selectbox("🔎 Selecione a Empresa para EXCLUIR:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x])
-                if e_target_del != "":
-                    if "emp_del_confirm" not in st.session_state: st.session_state.emp_del_confirm = None
-                    if st.session_state.emp_del_confirm != e_target_del:
-                        if st.button("🗑️ Excluir permanentemente"): st.session_state.emp_del_confirm = e_target_del; st.rerun()
-                    if st.session_state.get("emp_del_confirm") == e_target_del:
-                        st.error(f"⚠️ Tem certeza que deseja excluir a empresa **{opcoes_emp[e_target_del]}**?")
-                        col_sim, col_nao = st.columns(2)
-                        if col_sim.button("✅ Sim, excluir empresa"):
-                            with st.spinner("Excluindo empresa do Supabase..."):
-                                emp_apagada = df_empresas[df_empresas['cnpj'] == e_target_del].iloc[0]
-                                detalhes_emp = f"Apagou a empresa -> CNPJ: {e_target_del} | Nome: {emp_apagada['nome']} | Resp: {emp_apagada.get('responsavel', '')}"
-                                
-                                deletar_registro_banco(FILE_EMPRESAS, "cnpj", str(e_target_del))
-                                df_empresas = df_empresas[df_empresas['cnpj'] != e_target_del]
-                                
-                                registrar_atividade(st.session_state.user, "EXCLUSÃO EMPRESA", detalhes_emp)
-                                st.success("🗑️ Empresa excluída permanentemente!"); st.session_state.emp_del_confirm = None; st.session_state.aba_emp = "Listar"; time.sleep(1); st.rerun()
-                        if col_nao.button("❌ Não, cancelar"): st.session_state.emp_del_confirm = None; st.rerun()
-
-    elif aba_selecionada == "🔧 Prestadores":
+                        if col_nao.button("❌ Não, cancelar"): st.session_state.cli_del_confirm = None; st.rerun()# ===================================================================================
+# INTERFACE 1: ADMIN MASTER (PARTE B - ABAS 6 A 11)
+# ===================================================================================
+if st.session_state.perfil == "Admin":
+    if aba_selecionada == "🔧 Prestadores":
         st.markdown('<div class="section-title">🔧 Rede de Prestadores</div>', unsafe_allow_html=True)
         pendentes = df_prestadores[df_prestadores['homologado'] == 'Pendente']
         if not pendentes.empty:
@@ -2931,13 +3284,13 @@ if st.session_state.perfil == "Admin":
             try: media_guincho = df_nps['nota_guincho'].astype(float).mean()
             except: media_guincho = 0.0
             
-            cor_nps = "#2e7d32" if nps_score >= 75 else "#f57f17" if nps_score >= 50 else "#D32F2F"
+            cor_nps = COR_VERDE_TXT if nps_score >= 75 else "#F59E0B" if nps_score >= 50 else COR_VERM_TXT
             
             st.markdown("---")
             c_nps1, c_nps2, c_nps3 = st.columns(3)
-            c_nps1.markdown(f'<div class="metric-card" style="border-top: 4px solid {cor_nps};"><div class="metric-title">Score NPS Global</div><div class="metric-value" style="color: {cor_nps}; font-size: 32px;">{nps_score:.1f}</div><div style="font-size: 11px; margin-top: 4px; color: #777;">Total de {total_resp} avaliações</div></div>', unsafe_allow_html=True)
-            c_nps2.markdown(f'<div class="metric-card"><div class="metric-title">Média da Central (1 a 5)</div><div class="metric-value" style="color: #6A1B9A; font-size: 32px;">{media_central:.1f} ⭐</div></div>', unsafe_allow_html=True)
-            c_nps3.markdown(f'<div class="metric-card"><div class="metric-title">Média dos Guinchos (1 a 5)</div><div class="metric-value" style="color: #6A1B9A; font-size: 32px;">{media_guincho:.1f} ⭐</div></div>', unsafe_allow_html=True)
+            c_nps1.markdown(f'<div class="metric-card" style="border-top: 4px solid {cor_nps};"><div class="metric-title">Score NPS Global</div><div class="metric-value" style="color: {cor_nps}; font-size: 32px;">{nps_score:.1f}</div><div style="font-size: 11px; margin-top: 4px; color: {COR_TEXTO_SEC};">Total de {total_resp} avaliações</div></div>', unsafe_allow_html=True)
+            c_nps2.markdown(f'<div class="metric-card"><div class="metric-title">Média da Central (1 a 5)</div><div class="metric-value" style="color: {COR_ROXO_DEST}; font-size: 32px;">{media_central:.1f} ⭐</div></div>', unsafe_allow_html=True)
+            c_nps3.markdown(f'<div class="metric-card"><div class="metric-title">Média dos Guinchos (1 a 5)</div><div class="metric-value" style="color: {COR_ROXO_DEST}; font-size: 32px;">{media_guincho:.1f} ⭐</div></div>', unsafe_allow_html=True)
             
             st.markdown("##### 📋 Últimas Avaliações Recebidas")
             
@@ -2950,124 +3303,193 @@ if st.session_state.perfil == "Admin":
             st.dataframe(df_nps_exibicao.style.map(cor_linha_nps, subset=['status_nps']), use_container_width=True)
 
     elif aba_selecionada == "💰 Financeiro":
-        st.markdown('<div class="section-title">💰 Controle Financeiro</div>', unsafe_allow_html=True)
-        st.write("Visão unificada do seu contas a receber. As empresas ativas aparecem automaticamente aqui e a taxa de acionamento é atualizada em tempo real.")
-        
-        opcoes_meses_admin = get_ultimos_3_meses()
-        escolha_mes_admin = st.selectbox("Selecione o Mês/Ano de Referência:", opcoes_meses_admin + ["Outro (Buscar por data)"], key="mes_admin_fin")
-        if escolha_mes_admin == "Outro (Buscar por data)":
-            data_busca_admin = st.date_input("Escolha uma data para filtrar o mês/ano:")
-            mes_filtro = data_busca_admin.strftime("%m/%Y")
-        else: mes_filtro = escolha_mes_admin
+        st.markdown('<div class="section-title">💰 Controle Financeiro — Histórico e Consulta Individual</div>', unsafe_allow_html=True)
+        st.write("Alterne rapidamente entre **Mês Atual**, **Mês Anterior** ou digite qualquer competência (ex.: `09/2026`). Os valores cobrados ficam preservados no banco sem divergências.")
+
+        mes_atual_ref, mes_anterior_ref = obter_meses_referencia()
+        if "fin_admin_mes_sel" not in st.session_state:
+            st.session_state.fin_admin_mes_sel = mes_atual_ref
+
+        # BARRA DE NAVEGAÇÃO RÁPIDA DE COMPETÊNCIA
+        c_nav_f1, c_nav_f2, c_nav_f3, c_nav_f4 = st.columns([1.3, 1.3, 1.6, 1.0])
+        with c_nav_f1:
+            st.write("")
+            if st.button(f"📅 Mês Atual ({mes_atual_ref})", key="btn_fin_adm_atual", use_container_width=True):
+                st.session_state.fin_admin_mes_sel = mes_atual_ref
+                st.rerun()
+        with c_nav_f2:
+            st.write("")
+            if st.button(f"⏮️ Mês Anterior ({mes_anterior_ref})", key="btn_fin_adm_ant", use_container_width=True):
+                st.session_state.fin_admin_mes_sel = mes_anterior_ref
+                st.rerun()
+        with c_nav_f3:
+            mes_digitado_adm = st.text_input("Buscar outro mês (MM/AAAA):", placeholder="Ex: 09/2026", key="inp_fin_adm_mes")
+        with c_nav_f4:
+            st.write("")
+            if st.button("🔎 Buscar Mês", key="btn_fin_adm_buscar", use_container_width=True):
+                mes_norm = normalizar_mes_ano(mes_digitado_adm)
+                if mes_norm:
+                    st.session_state.fin_admin_mes_sel = mes_norm
+                    st.rerun()
+                else:
+                    st.error("Formato inválido! Digite MM/AAAA (ex: 09/2026).")
+
+        mes_filtro = st.session_state.fin_admin_mes_sel
+        rotulo_comp = "Mês Atual" if mes_filtro == mes_atual_ref else "Mês Anterior" if mes_filtro == mes_anterior_ref else "Competência Histórica"
+        st.markdown(f'<div class="info-box" style="padding:10px 16px;">📆 <b>Competência Selecionada:</b> {mes_filtro} &nbsp;({rotulo_comp})</div>', unsafe_allow_html=True)
 
         empresas_ativas = df_empresas[df_empresas['status'].str.upper() == 'ATIVO']
         
-        if empresas_ativas.empty: st.warning("Nenhuma empresa ativa cadastrada para gerar o financeiro.")
+        if empresas_ativas.empty and df_financeiro.empty:
+            st.warning("Nenhuma empresa ativa cadastrada para gerar o financeiro.")
         else:
-            alterado = False
-            for _, emp_row in empresas_ativas.iterrows():
-                nome_emp = emp_row['nome'].upper()
-                id_unico = f"{nome_emp}_{mes_filtro}"
-                existe = df_financeiro[df_financeiro['id'] == id_unico] if not df_financeiro.empty and 'id' in df_financeiro.columns else pd.DataFrame()
-                if existe.empty:
-                    novo_fin = pd.DataFrame([{'id': id_unico, 'mes_ano': mes_filtro, 'empresa': nome_emp, 'valor_faturado': '0.00', 'valor_pago': '0.00', 'status': 'Pendente'}])
-                    df_financeiro = pd.concat([df_financeiro, novo_fin], ignore_index=True)
-                    alterado = True
-            if alterado:
-                salvar_dados(df_financeiro, FILE_FINANCEIRO)
-            
-            lista_nomes_ativos = empresas_ativas['nome'].str.upper().tolist()
-            df_fin_mes = df_financeiro[(df_financeiro['mes_ano'] == mes_filtro) & (df_financeiro['empresa'].str.upper().isin(lista_nomes_ativos))].copy()
+            df_financeiro, df_fin_mes = sincronizar_financeiro_competencia(mes_filtro, df_financeiro, df_empresas, df_clientes, df_os)
+
+            # FILTRO INDIVIDUAL POR EMPRESA
+            lista_emp_fin_disponiveis = sorted(df_fin_mes['empresa'].str.upper().unique().tolist()) if not df_fin_mes.empty else []
+            emp_consulta_ind = st.selectbox(
+                "🏢 Consultar Empresa Individualmente (ou visualize Todas):",
+                ["Todas as Empresas"] + lista_emp_fin_disponiveis,
+                key="sel_fin_emp_individual"
+            )
+
+            try:
+                mes_s, ano_s = mes_filtro.split('/')
+            except:
+                hoje_fb = obter_hora_brasilia()
+                mes_s, ano_s = f"{hoje_fb.month:02d}", str(hoje_fb.year)
+
+            # PAINEL INDIVIDUAL QUANDO UMA EMPRESA ESPECÍFICA É SELECIONADA
+            if emp_consulta_ind != "Todas as Empresas":
+                df_fin_ind = df_fin_mes[df_fin_mes['empresa'].str.upper() == emp_consulta_ind.upper()]
+                if not df_fin_ind.empty:
+                    r_ind = df_fin_ind.iloc[0]
+                    vf_ind = formatar_moeda_float(r_ind['valor_faturado'])
+                    vp_ind = formatar_moeda_float(r_ind['valor_pago'])
+                    saldo_ind = max(0.0, vf_ind - vp_ind)
+                    st_ind = str(r_ind.get('status', 'Pendente')).strip()
+                    dados_emp_ind = df_empresas[df_empresas['nome'].str.upper() == emp_consulta_ind.upper()]
+                    modo_ind = str(dados_emp_ind.iloc[0].get('modo_faturamento', 'Tradicional')).strip() if not dados_emp_ind.empty else 'Tradicional'
+                    dados_fat_ind = calcular_fatura_parceiro(emp_consulta_ind, mes_s, ano_s, df_clientes, df_os, df_empresas)
+
+                    st.markdown(f"""
+                        <div class="dash-box" style="border: 2px solid #6A1B9A; border-left: 6px solid #D32F2F;">
+                            <div class="dash-box-title">
+                                <span>🏢 Ficha Financeira Individual — {emp_consulta_ind} ({mes_filtro})</span>
+                                <span class="service-badge {'badge-green' if st_ind == 'Pago' else 'badge-red' if st_ind == 'Atrasado' else 'badge-purple'}">{st_ind.upper()}</span>
+                            </div>
+                            <p style="margin:4px 0; font-size:13.5px;"><strong>📊 Modalidade:</strong> {modo_ind} &nbsp;|&nbsp; <strong>🚗 Veículos Ativos Apurados:</strong> {dados_fat_ind['total_v']} &nbsp;|&nbsp; <strong>🛠️ Guinchos no Ciclo:</strong> {dados_fat_ind['total_os']}</p>
+                            <p style="margin:4px 0; font-size:13px; color:{COR_TEXTO_SEC};"><strong>📅 Período do Ciclo:</strong> {dados_fat_ind['dt_inicio'].strftime('%d/%m/%Y')} a {dados_fat_ind['dt_fim'].strftime('%d/%m/%Y')} (Vencimento dia {dados_fat_ind['vencimento_dia']})</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    ci1, ci2, ci3 = st.columns(3)
+                    ci1.markdown(f'<div class="metric-card"><div class="metric-title">Valor Cobrado ({mes_filtro})</div><div class="metric-value" style="color: {COR_ROXO_DEST};">R$ {vf_ind:.2f}</div></div>', unsafe_allow_html=True)
+                    ci2.markdown(f'<div class="metric-card"><div class="metric-title">Valor Pago</div><div class="metric-value val-pago">R$ {vp_ind:.2f}</div></div>', unsafe_allow_html=True)
+                    ci3.markdown(f'<div class="metric-card red-accent"><div class="metric-title">Saldo em Aberto</div><div class="metric-value val-atrasado">R$ {saldo_ind:.2f}</div></div>', unsafe_allow_html=True)
+
+                    # HISTÓRICO INDIVIDUAL DESTA EMPRESA EM TODAS AS COMPETÊNCIAS SALVAS
+                    df_hist_ind = df_financeiro[df_financeiro['empresa'].str.upper() == emp_consulta_ind.upper()].copy()
+                    if not df_hist_ind.empty:
+                        df_hist_ind['ord_key'] = df_hist_ind['mes_ano'].apply(mes_ano_para_tupla)
+                        df_hist_ind = df_hist_ind.sort_values(by='ord_key', ascending=False).drop(columns=['ord_key'])
+                        df_hist_ind['diferenca'] = df_hist_ind.apply(lambda row: f"R$ {max(0.0, formatar_moeda_float(row['valor_faturado']) - formatar_moeda_float(row['valor_pago'])):.2f}", axis=1)
+                        with st.expander(f"📚 Histórico Completo de Cobranças de {emp_consulta_ind} (Todos os Meses)", expanded=True):
+                            st.dataframe(
+                                df_hist_ind[['mes_ano', 'valor_faturado', 'valor_pago', 'diferenca', 'status']].rename(columns={
+                                    'mes_ano': 'Competência', 'valor_faturado': 'Valor Cobrado (R$)', 'valor_pago': 'Valor Pago (R$)', 'diferenca': 'Em Aberto', 'status': 'Status'
+                                }).style.map(formatar_status_financeiro, subset=['Status']),
+                                use_container_width=True
+                            )
+
+                    if modo_ind != 'Tradicional':
+                        st.markdown(gerar_pdf_extrato_detalhado(emp_consulta_ind, mes_s, ano_s, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
+
+            # VISÃO CONSOLIDADA DA COMPETÊNCIA SELECIONADA (OU FILTRADA PELA EMPRESA)
+            df_exibir_fin = df_fin_mes.copy() if emp_consulta_ind == "Todas as Empresas" else df_fin_mes[df_fin_mes['empresa'].str.upper() == emp_consulta_ind.upper()].copy()
+
             total_faturado_mes, total_recebido_mes, taxas_exibicao = 0.0, 0.0, []
-            
-            for idx, r_fin in df_fin_mes.iterrows():
+            for idx, r_fin in df_exibir_fin.iterrows():
                 emp_name = r_fin['empresa']
-                dados_emp_base = empresas_ativas[empresas_ativas['nome'].str.upper() == emp_name.upper()]
+                dados_emp_base = df_empresas[df_empresas['nome'].str.upper() == emp_name.upper()]
                 if not dados_emp_base.empty:
-                    modo_fat = str(dados_emp_base.iloc[0].get('modo_faturamento', '')).strip()
-                    try: mes_s, ano_s = mes_filtro.split('/')
-                    except: mes_s, ano_s = datetime.now().month, datetime.now().year
+                    modo_fat = str(dados_emp_base.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
                     dados_fatura = calcular_fatura_parceiro(emp_name, mes_s, ano_s, df_clientes, df_os, df_empresas)
-                    
                     if modo_fat == "Performance (Escalonado)":
-                        if dados_fatura['taxa'] == 0.0: taxas_exibicao.append("0.0%")
-                        else: taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
-                    elif "Frota Pequena" in modo_fat or "Até 40" in modo_fat: taxas_exibicao.append("Plano Fixo")
-                    else: taxas_exibicao.append("Manual")
-                    
-                    if modo_fat != 'Tradicional':
-                        if str(r_fin.get('status', '')).strip() != 'Pago':
-                            df_fin_mes.at[idx, 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
-                            df_financeiro.loc[df_financeiro['id'] == r_fin['id'], 'valor_faturado'] = f"{dados_fatura['fatura_total']:.2f}"
-                else: taxas_exibicao.append("0.0%")
-                try: total_faturado_mes += float(str(df_fin_mes.at[idx, 'valor_faturado']).replace(',', '.'))
-                except: pass
-                try: total_recebido_mes += float(str(df_fin_mes.at[idx, 'valor_pago']).replace(',', '.'))
-                except: pass
-            
-            inadimplencia = total_faturado_mes - total_recebido_mes if total_faturado_mes > total_recebido_mes else 0.0
-            
-            st.markdown("---")
-            col_d1, col_d2, col_d3 = st.columns(3)
-            with col_d1: st.markdown(f'<div class="metric-card"><div class="metric-title">Faturamento Estimado (Ciclo)</div><div class="metric-value" style="color: #6A1B9A;">R$ {total_faturado_mes:.2f}</div></div>', unsafe_allow_html=True)
-            with col_d2: st.markdown(f'<div class="metric-card"><div class="metric-title">Faturas Pagas / Caixa</div><div class="metric-value val-pago">R$ {total_recebido_mes:.2f}</div></div>', unsafe_allow_html=True)
-            with col_d3: st.markdown(f'<div class="metric-card red-accent"><div class="metric-title">Faturas Pendentes (A Receber)</div><div class="metric-value val-atrasado">R$ {inadimplencia:.2f}</div></div>', unsafe_allow_html=True)
-            
-            st.markdown("##### Lançamentos:")
-            df_view_fin = df_fin_mes.copy()
-            diferencas = []
-            for _, r in df_view_fin.iterrows():
-                try: 
-                    vf, vp = float(str(r['valor_faturado']).replace(',','.')), float(str(r['valor_pago']).replace(',','.'))
-                    diferencas.append(f"R$ {(vf - vp):.2f}")
-                except: diferencas.append("R$ 0.00")
-            df_view_fin['diferenca'] = diferencas
-            df_view_fin['taxa_de_uso'] = taxas_exibicao
-            st.dataframe(df_view_fin[['empresa', 'taxa_de_uso', 'valor_faturado', 'valor_pago', 'diferenca', 'status']].style.map(formatar_status_financeiro, subset=['status']), use_container_width=True)
-            
-            st.write("---")
-            st.markdown("##### 🖨️ Emitir Extrato Detalhado por Empresa (PDF)")
-            empresas_escalonadas = empresas_ativas[empresas_ativas['modo_faturamento'] != 'Tradicional']['nome'].str.upper().tolist()
-            if not empresas_escalonadas: st.info("Nenhuma empresa ativa cadastrada nos modos de faturamento automáticos.")
+                        taxas_exibicao.append(f"{dados_fatura['taxa']:.1f}%")
+                    elif "Frota Pequena" in modo_fat or "Até 40" in modo_fat:
+                        taxas_exibicao.append("Plano Fixo")
+                    else:
+                        taxas_exibicao.append("Manual")
+                else:
+                    taxas_exibicao.append("Histórico")
+
+                total_faturado_mes += formatar_moeda_float(r_fin['valor_faturado'])
+                total_recebido_mes += formatar_moeda_float(r_fin['valor_pago'])
+
+            inadimplencia = max(0.0, total_faturado_mes - total_recebido_mes)
+
+            if emp_consulta_ind == "Todas as Empresas":
+                st.markdown("---")
+                col_d1, col_d2, col_d3 = st.columns(3)
+                with col_d1: st.markdown(f'<div class="metric-card"><div class="metric-title">Faturamento Total ({mes_filtro})</div><div class="metric-value" style="color: {COR_ROXO_DEST};">R$ {total_faturado_mes:.2f}</div></div>', unsafe_allow_html=True)
+                with col_d2: st.markdown(f'<div class="metric-card"><div class="metric-title">Faturas Pagas / Caixa</div><div class="metric-value val-pago">R$ {total_recebido_mes:.2f}</div></div>', unsafe_allow_html=True)
+                with col_d3: st.markdown(f'<div class="metric-card red-accent"><div class="metric-title">Faturas Pendentes (A Receber)</div><div class="metric-value val-atrasado">R$ {inadimplencia:.2f}</div></div>', unsafe_allow_html=True)
+
+            st.markdown(f"##### 📋 Lançamentos da Competência {mes_filtro}:")
+            if df_exibir_fin.empty:
+                st.info("Nenhum lançamento encontrado para esta competência.")
             else:
-                emp_pdf_sel = st.selectbox("Selecione a Empresa (Modos Automáticos) para Gerar o Extrato Detalhado:", empresas_escalonadas)
-                if emp_pdf_sel:
-                    try: mes_p, ano_p = mes_filtro.split('/')
-                    except: mes_p, ano_p = datetime.now().month, datetime.now().year
-                    st.markdown(gerar_pdf_extrato_detalhado(emp_pdf_sel, mes_p, ano_p, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
+                df_view_fin = df_exibir_fin.copy()
+                diferencas = []
+                for _, r in df_view_fin.iterrows():
+                    vf = formatar_moeda_float(r['valor_faturado'])
+                    vp = formatar_moeda_float(r['valor_pago'])
+                    diferencas.append(f"R$ {max(0.0, vf - vp):.2f}")
+                df_view_fin['diferenca'] = diferencas
+                df_view_fin['taxa_de_uso'] = taxas_exibicao
+                st.dataframe(df_view_fin[['empresa', 'taxa_de_uso', 'valor_faturado', 'valor_pago', 'diferenca', 'status']].style.map(formatar_status_financeiro, subset=['status']), use_container_width=True)
+            
+            if emp_consulta_ind == "Todas as Empresas":
+                st.write("---")
+                st.markdown("##### 🖨️ Emitir Extrato Detalhado por Empresa (PDF)")
+                empresas_escalonadas = empresas_ativas[empresas_ativas['modo_faturamento'] != 'Tradicional']['nome'].str.upper().tolist()
+                if not empresas_escalonadas: st.info("Nenhuma empresa ativa cadastrada nos modos de faturamento automáticos.")
+                else:
+                    emp_pdf_sel = st.selectbox("Selecione a Empresa (Modos Automáticos) para Gerar o Extrato Detalhado:", empresas_escalonadas)
+                    if emp_pdf_sel:
+                        st.markdown(gerar_pdf_extrato_detalhado(emp_pdf_sel, mes_s, ano_s, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
 
             st.write("---")
-            st.markdown("##### ✏️ Editar Lançamento (Dar Baixa)")
-            col_e1, col_e2 = st.columns(2)
-            lista_empresas_fin = df_fin_mes['empresa'].tolist()
-            emp_edit = col_e1.selectbox("Selecione a Empresa para dar baixa ou editar o status:", lista_empresas_fin)
-            if emp_edit:
-                row_edit = df_fin_mes[df_fin_mes['empresa'] == emp_edit].iloc[0]
-                dados_emp_base_edit = empresas_ativas[empresas_ativas['nome'].str.upper() == emp_edit.upper()].iloc[0]
-                modo_fat_edit = str(dados_emp_base_edit.get('modo_faturamento', '')).strip()
-                with st.form("form_financeiro"):
-                    st.write(f"**Empresa:** {emp_edit} | **Mês:** {mes_filtro}")
-                    c_f1, c_f2, c_f3 = st.columns(3)
-                    
-                    if modo_fat_edit != 'Tradicional':
+            st.markdown("##### ✏️ Editar Lançamento / Dar Baixa")
+            if not df_fin_mes.empty:
+                lista_empresas_fin = df_fin_mes['empresa'].tolist()
+                idx_edit_padrao = lista_empresas_fin.index(emp_consulta_ind) if emp_consulta_ind in lista_empresas_fin else 0
+                emp_edit = st.selectbox("Selecione a Empresa para dar baixa ou ajustar o lançamento:", lista_empresas_fin, index=idx_edit_padrao)
+                if emp_edit:
+                    row_edit = df_fin_mes[df_fin_mes['empresa'] == emp_edit].iloc[0]
+                    dados_emp_base_edit = df_empresas[df_empresas['nome'].str.upper() == emp_edit.upper()]
+                    modo_fat_edit = str(dados_emp_base_edit.iloc[0].get('modo_faturamento', 'Tradicional')).strip() if not dados_emp_base_edit.empty else 'Tradicional'
+                    with st.form("form_financeiro"):
+                        st.write(f"**Empresa:** {emp_edit} | **Competência:** {mes_filtro} | **Plano:** {modo_fat_edit}")
+                        c_f1, c_f2, c_f3 = st.columns(3)
                         v_fat_atual = str(row_edit['valor_faturado'])
-                        c_f1.text_input("Valor Calculado pelo Sistema (R$):", value=v_fat_atual, disabled=True)
-                        val_fat_final = v_fat_atual
-                    else:
-                        v_fat_atual = str(row_edit['valor_faturado'])
-                        val_fat_final = c_f1.text_input("Valor da Fatura Manual (R$):", value=v_fat_atual)
-                    
-                    val_pago_final = c_f2.text_input("Valor Pago pelo Cliente (R$):", value=str(row_edit['valor_pago']))
-                    status_final = c_f3.selectbox("Status:", ["Pendente", "Pago", "Atrasado"], index=["Pendente", "Pago", "Atrasado"].index(row_edit['status']))
-                    
-                    if st.form_submit_button("Salvar Edição Financeira"):
-                        with st.spinner("Atualizando registros financeiros..."):
-                            df_financeiro.loc[df_financeiro['id'] == row_edit['id'], ['valor_faturado', 'valor_pago', 'status']] = [val_fat_final, val_pago_final, status_final]
-                            sucesso, erro = salvar_dados(df_financeiro, FILE_FINANCEIRO)
-                            if sucesso:
-                                registrar_atividade(st.session_state.user, "BAIXA FINANCEIRA", f"Editou o faturamento de {emp_edit} ({mes_filtro}) para status {status_final}")
-                                st.success("✅ Registro atualizado com sucesso!"); time.sleep(1); st.rerun()
-                            else: st.error(f"Falha na nuvem: {erro}")
+                        val_fat_final = c_f1.text_input("Valor Cobrado da Fatura (R$):", value=v_fat_atual)
+                        val_pago_final = c_f2.text_input("Valor Pago pelo Cliente (R$):", value=str(row_edit['valor_pago']))
+                        status_op_fin = ["Pendente", "Pago", "Atrasado"]
+                        idx_st_fin = status_op_fin.index(row_edit['status']) if row_edit['status'] in status_op_fin else 0
+                        status_final = c_f3.selectbox("Status:", status_op_fin, index=idx_st_fin)
+                        
+                        if st.form_submit_button("💾 Salvar Edição Financeira"):
+                            with st.spinner("Atualizando registros financeiros..."):
+                                vf_limpo = f"{formatar_moeda_float(val_fat_final):.2f}"
+                                vp_limpo = f"{formatar_moeda_float(val_pago_final):.2f}"
+                                df_financeiro.loc[df_financeiro['id'] == row_edit['id'], ['valor_faturado', 'valor_pago', 'status']] = [vf_limpo, vp_limpo, status_final]
+                                sucesso, erro = salvar_dados(df_financeiro, FILE_FINANCEIRO)
+                                if sucesso:
+                                    registrar_atividade(st.session_state.user, "BAIXA FINANCEIRA", f"Editou o faturamento de {emp_edit} ({mes_filtro}) - Cobrado: R$ {vf_limpo} | Pago: R$ {vp_limpo} | Status: {status_final}")
+                                    st.success("✅ Registro atualizado e salvo com sucesso!"); time.sleep(1); st.rerun()
+                                else: st.error(f"Falha na nuvem: {erro}")
 
     elif aba_selecionada == "🕵️ Auditoria":
         st.markdown('<div class="section-title">🕵️ Auditoria e Logs</div>', unsafe_allow_html=True)
@@ -3083,7 +3505,7 @@ if st.session_state.perfil == "Admin":
             if log_selecionado != "":
                 detalhe_row = df_logs_exibicao.loc[int(log_selecionado)]
                 st.markdown(f"""
-                <div style="background-color: #FFFFFF; padding: 14px; border-radius: 8px; border-left: 5px solid #6A1B9A; margin-bottom: 12px; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+                <div style="background-color: {COR_BG_CARD}; color: {COR_TEXTO}; padding: 14px; border-radius: 8px; border: 1px solid {COR_BORDA}; border-left: 5px solid #6A1B9A; margin-bottom: 12px; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
                     <p style="margin-bottom:4px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
                     <p style="margin-bottom:4px;"><strong>👤 Usuário:</strong> {detalhe_row['usuario']}</p>
                     <p style="margin-bottom:4px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
@@ -3112,6 +3534,68 @@ if st.session_state.perfil == "Admin":
                     df_logs = pd.DataFrame(columns=col_logs)
                     st.session_state.confirmar_limpeza_total = False; st.rerun()
                 if c2.button("❌ Não"): st.session_state.confirmar_limpeza_total = False; st.rerun()
+
+    elif aba_selecionada == "📊 Relatórios & PDF":
+        st.markdown('<div class="section-title">📊 Chamados e Relatórios</div>', unsafe_allow_html=True)
+        os_id_edit = st.text_input("Digite o ID da OS para editar ou excluir:")
+        if os_id_edit:
+            os_encontrada = df_os[df_os['id'].astype(str) == str(os_id_edit)]
+            if not os_encontrada.empty:
+                row_os = os_encontrada.iloc[0]
+                with st.form(f"form_edit_os_{os_id_edit}"):
+                    st.write(f"**Empresa:** {row_os.get('empresa','')} | **Cliente:** {row_os.get('cliente_nome','')} | **Data:** {row_os.get('data_hora','')}")
+                    c_os1, c_os2 = st.columns(2)
+                    nova_placa = c_os1.text_input("Placa do Veículo:", value=row_os['placa'])
+                    status_opcoes = ["PENDENTE", "EM ATENDIMENTO", "A CAMINHO", "EM TRÂNSITO", "CONCLUÍDO", "ENCERRADO", "CANCELADO"]
+                    idx_stat = status_opcoes.index(row_os['status_os'].upper()) if row_os['status_os'].upper() in status_opcoes else 0
+                    novo_status = c_os2.selectbox("Status da OS:", status_opcoes, index=idx_stat)
+                    if st.form_submit_button("Salvar Correção da OS"):
+                        with st.spinner("Atualizando OS..."):
+                            df_os.loc[df_os['id'].astype(str) == str(os_id_edit), ['placa', 'status_os']] = [nova_placa.upper(), novo_status]
+                            sucesso, erro = salvar_dados(df_os, FILE_OS)
+                            if sucesso:
+                                registrar_atividade(st.session_state.user, "CORREÇÃO DE OS", f"Editou a OS ID: {os_id_edit} | Nova Placa: {nova_placa.upper()} | Novo Status: {novo_status}")
+                                st.success("✅ OS atualizada com sucesso! O cálculo de acionamento foi reajustado."); time.sleep(1.5); st.rerun()
+                            else: st.error(f"Erro na nuvem: {erro}")
+                
+                if "os_del_confirm" not in st.session_state: st.session_state.os_del_confirm = None
+                if st.session_state.os_del_confirm != os_id_edit:
+                    if st.button("🗑️ Excluir esta OS permanentemente", key=f"btn_del_os_{os_id_edit}"): st.session_state.os_del_confirm = os_id_edit; st.rerun()
+                if st.session_state.get("os_del_confirm") == os_id_edit:
+                    st.error(f"⚠️ Atenção: Deseja realmente excluir a OS {os_id_edit}?")
+                    col_s, col_n = st.columns(2)
+                    if col_s.button("✅ Sim, excluir OS", key=f"btn_sim_del_os_{os_id_edit}"):
+                        with st.spinner("Excluindo..."):
+                            os_apagada = df_os[df_os['id'].astype(str) == str(os_id_edit)].iloc[0]
+                            detalhes_exclusao_os = f"Apagou OS ID: {os_id_edit} | Cliente: {os_apagada['cliente_nome']} | Placa: {os_apagada['placa']} | Empresa: {os_apagada['empresa']}"
+                            
+                            deletar_registro_banco(FILE_OS, "id", str(os_id_edit))
+                            df_os = df_os[df_os['id'].astype(str) != str(os_id_edit)]
+                            
+                            registrar_atividade(st.session_state.user, "EXCLUSÃO OS", detalhes_exclusao_os)
+                            st.success("🗑️ OS excluída! Taxa de acionamento atualizada."); st.session_state.os_del_confirm = None; time.sleep(1.5); st.rerun()
+                    if col_n.button("❌ Não, cancelar", key=f"btn_nao_del_os_{os_id_edit}"): st.session_state.os_del_confirm = None; st.rerun()
+            else: st.warning("Nenhuma OS encontrada com esse ID.")
+
+        st.write("---")
+        st.markdown("##### ✅ Histórico e Gerar PDF (OS Finalizadas)")
+        df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
+        if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
+        else:
+            busca_os_relatorio = st.text_input("Digite a Placa do veículo ou o Nome para encontrar o relatório:")
+            if busca_os_relatorio:
+                df_filtrado_fechadas = df_fechadas[df_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False)]
+                if df_filtrado_fechadas.empty: st.warning("Nenhum acionamento finalizado encontrado.")
+                else:
+                    lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
+                    os_escolhida_str = st.selectbox("Selecione qual acionamento deseja gerar o PDF:", options=lista_os_dele)
+                    os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
+                    df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
+                    st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
+        
+        st.write("---")
+        st.markdown("##### 🗃️ Tabela Geral de Chamados")
+        st.dataframe(df_os, use_container_width=True)
 
     elif aba_selecionada == "💾 Dados":
         st.markdown('<div class="section-title">💾 Backup e Restauração</div>', unsafe_allow_html=True)
@@ -3158,11 +3642,10 @@ if st.session_state.perfil == "Admin":
                             st.error(f"Erro ao ler arquivo: {e}")
                     else:
                         st.error("Nome de arquivo não reconhecido. Use os nomes originais gerados pelo sistema (ex: banco_clientes.csv)")
-
 # ===================================================================================
 # INTERFACE 2: PARCEIROS
 # ===================================================================================
-elif st.session_state.perfil == "Parceiro":
+if st.session_state.perfil == "Parceiro":
     opcoes_parc = ["📈 Dashboard", "👥 Cadastro de Clientes", "📋 Histórico de Chamados", "💰 Meu Financeiro", "🕵️ Auditoria"]
     aba_atual_parc = st.query_params.get("nav", opcoes_parc[0])
     if aba_atual_parc not in opcoes_parc: aba_atual_parc = opcoes_parc[0]
@@ -3494,38 +3977,77 @@ elif st.session_state.perfil == "Parceiro":
 
     elif aba_selecionada == "💰 Meu Financeiro":
         st.markdown('<div class="section-title">💰 Gestão Financeira</div>', unsafe_allow_html=True)
-        st.write("Confira as faturas, o status dos pagamentos e o extrato detalhado da sua empresa.")
+        st.write("Confira as faturas do **Mês Atual**, **Mês Anterior** ou busque qualquer competência (ex.: `09/2026`).")
         
         dados_emp_base_p = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
         modo_fat_p = "Tradicional"
         if not dados_emp_base_p.empty:
             modo_fat_p = str(dados_emp_base_p.iloc[0].get('modo_faturamento', 'Tradicional')).strip()
 
-        opcoes_meses_p = get_ultimos_3_meses()
-        escolha_mes_p = st.selectbox("Mês de Referência:", opcoes_meses_p + ["Outro (Buscar por data)"], key="mes_parc")
-        if escolha_mes_p == "Outro (Buscar por data)":
-            data_busca_p = st.date_input("Data de referência:", key="data_parc")
-            mes_filtro_p = data_busca_p.strftime("%m/%Y")
-        else: mes_filtro_p = escolha_mes_p
-            
+        mes_atual_ref_p, mes_anterior_ref_p = obter_meses_referencia()
+        if "fin_parc_mes_sel" not in st.session_state:
+            st.session_state.fin_parc_mes_sel = mes_atual_ref_p
+
+        cp1, cp2, cp3, cp4 = st.columns([1.3, 1.3, 1.6, 1.0])
+        with cp1:
+            st.write("")
+            if st.button(f"📅 Mês Atual ({mes_atual_ref_p})", key="btn_fin_parc_atual", use_container_width=True):
+                st.session_state.fin_parc_mes_sel = mes_atual_ref_p
+                st.rerun()
+        with cp2:
+            st.write("")
+            if st.button(f"⏮️ Mês Anterior ({mes_anterior_ref_p})", key="btn_fin_parc_ant", use_container_width=True):
+                st.session_state.fin_parc_mes_sel = mes_anterior_ref_p
+                st.rerun()
+        with cp3:
+            mes_digitado_p = st.text_input("Buscar outro mês (MM/AAAA):", placeholder="Ex: 09/2026", key="inp_fin_parc_mes")
+        with cp4:
+            st.write("")
+            if st.button("🔎 Buscar Mês", key="btn_fin_parc_buscar", use_container_width=True):
+                mes_norm_p = normalizar_mes_ano(mes_digitado_p)
+                if mes_norm_p:
+                    st.session_state.fin_parc_mes_sel = mes_norm_p
+                    st.rerun()
+                else:
+                    st.error("Formato inválido! Digite MM/AAAA (ex: 09/2026).")
+
+        mes_filtro_p = st.session_state.fin_parc_mes_sel
+        rotulo_comp_p = "Mês Atual" if mes_filtro_p == mes_atual_ref_p else "Mês Anterior" if mes_filtro_p == mes_anterior_ref_p else "Competência Histórica"
+        st.markdown(f'<div class="info-box" style="padding:10px 16px;">📆 <b>Competência Selecionada:</b> {mes_filtro_p} &nbsp;({rotulo_comp_p})</div>', unsafe_allow_html=True)
+
+        df_financeiro, _ = sincronizar_financeiro_competencia(mes_filtro_p, df_financeiro, df_empresas, df_clientes, df_os)
+
         df_fin_parc = df_financeiro[(df_financeiro['mes_ano'] == mes_filtro_p) & (df_financeiro['empresa'].str.upper() == st.session_state.empresa_vinculada.upper())]
         
         if df_fin_parc.empty:
-            st.info("Nenhum faturamento gerado ou disponível para visualização neste ciclo ainda.")
+            st.info(f"Nenhum faturamento gerado ou disponível para visualização na competência {mes_filtro_p}.")
         else:
             row_fin = df_fin_parc.iloc[0]
-            v_fat = str(row_fin.get('valor_faturado', '0.00'))
-            v_pag = str(row_fin.get('valor_pago', '0.00'))
+            v_fat = f"{formatar_moeda_float(row_fin.get('valor_faturado', '0.00')):.2f}"
+            v_pag = f"{formatar_moeda_float(row_fin.get('valor_pago', '0.00')):.2f}"
             status_f = str(row_fin.get('status', 'Pendente')).strip()
                 
             st.markdown("---")
             c_f1, c_f2, c_f3 = st.columns(3)
-            c_f1.markdown(f'<div class="metric-card"><div class="metric-title">Sua Fatura Total</div><div class="metric-value" style="color: #6A1B9A;">R$ {v_fat}</div></div>', unsafe_allow_html=True)
+            c_f1.markdown(f'<div class="metric-card"><div class="metric-title">Sua Fatura ({mes_filtro_p})</div><div class="metric-value" style="color: {COR_ROXO_DEST};">R$ {v_fat}</div></div>', unsafe_allow_html=True)
             c_f2.markdown(f'<div class="metric-card"><div class="metric-title">Valor Constado como Pago</div><div class="metric-value val-pago">R$ {v_pag}</div></div>', unsafe_allow_html=True)
             
             cor_borda = "#4CAF50" if status_f == "Pago" else "#D32F2F" if status_f == "Atrasado" else "#f57f17"
-            bg_cor = "#e8f5e9" if status_f == "Pago" else "#ffebee" if status_f == "Atrasado" else "#fff8e1"
+            bg_cor = ("#0F2E1D" if is_dark else "#e8f5e9") if status_f == "Pago" else ("#3B1318" if is_dark else "#ffebee") if status_f == "Atrasado" else ("#3B2A0A" if is_dark else "#fff8e1")
             c_f3.markdown(f'<div class="metric-card" style="border-top: 4px solid {cor_borda}; background-color: {bg_cor};"><div class="metric-title">Status no Sistema Central</div><div class="metric-value" style="color: {cor_borda}; font-size: 24px;">{status_f.upper()}</div></div>', unsafe_allow_html=True)
+
+            df_hist_parc = df_financeiro[df_financeiro['empresa'].str.upper() == st.session_state.empresa_vinculada.upper()].copy()
+            if not df_hist_parc.empty:
+                df_hist_parc['ord_key'] = df_hist_parc['mes_ano'].apply(mes_ano_para_tupla)
+                df_hist_parc = df_hist_parc.sort_values(by='ord_key', ascending=False).drop(columns=['ord_key'])
+                df_hist_parc['diferenca'] = df_hist_parc.apply(lambda row: f"R$ {max(0.0, formatar_moeda_float(row['valor_faturado']) - formatar_moeda_float(row['valor_pago'])):.2f}", axis=1)
+                with st.expander("📚 Meu Histórico Completo de Faturas (Todos os Meses)"):
+                    st.dataframe(
+                        df_hist_parc[['mes_ano', 'valor_faturado', 'valor_pago', 'diferenca', 'status']].rename(columns={
+                            'mes_ano': 'Competência', 'valor_faturado': 'Valor Cobrado (R$)', 'valor_pago': 'Valor Pago (R$)', 'diferenca': 'Em Aberto', 'status': 'Status'
+                        }).style.map(formatar_status_financeiro, subset=['Status']),
+                        use_container_width=True
+                    )
 
             if modo_fat_p != 'Tradicional':
                 st.write("---")
@@ -3540,8 +4062,7 @@ elif st.session_state.perfil == "Parceiro":
                     st.write(f"- **Total Exato de Veículos na Base (Ativos):** {dados_det['total_v']}")
                     st.write(f"- **Total de Chamados Ordinários Encerrados no Ciclo:** {dados_det['total_os']}")
                     if dados_det['modo_fat'] == "Performance (Escalonado)":
-                        if dados_det['taxa'] == 0.0: st.write(f"- **Taxa de Acionamento Atingida:** 0.0% (Faixa: {dados_det['faixa']})")
-                        else: st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
+                        st.write(f"- **Taxa de Acionamento Atingida:** {dados_det['taxa']:.1f}% (Faixa: {dados_det['faixa']})")
                     st.write(f"- **Valor Final Calculado:** R$ {dados_det['fatura_total']:.2f}")
                     st.info("💡 Clique no botão de PDF abaixo para baixar o relatório completo contendo a auditoria com todas as placas cobradas.")
 
@@ -3576,7 +4097,7 @@ elif st.session_state.perfil == "Parceiro":
                 detalhe_row = df_logs_parc.loc[int(log_sel_p)]
                 
                 st.markdown(f"""
-                <div style="background-color: #FFFFFF; padding: 14px; border-radius: 8px; border-left: 5px solid #6A1B9A; margin-bottom: 12px; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+                <div style="background-color: {COR_BG_CARD}; color: {COR_TEXTO}; padding: 14px; border-radius: 8px; border: 1px solid {COR_BORDA}; border-left: 5px solid #6A1B9A; margin-bottom: 12px; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
                     <p style="margin-bottom:4px;"><strong>🕒 Data/Hora:</strong> {detalhe_row['data_hora']}</p>
                     <p style="margin-bottom:4px;"><strong>👤 Feito por:</strong> {detalhe_row['usuario']}</p>
                     <p style="margin-bottom:4px;"><strong>⚙️ Ação:</strong> {detalhe_row['acao']}</p>
@@ -3586,3 +4107,4 @@ elif st.session_state.perfil == "Parceiro":
                 
             st.write("---")
             st.dataframe(df_logs_parc[['data_hora', 'acao', 'detalhes']], use_container_width=True)
+
