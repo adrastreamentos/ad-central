@@ -2976,8 +2976,8 @@ if st.session_state.perfil == "Admin":
                                 st.query_params["nav"] = f"Pendências ({qtd_pendencias + 1})"
                                 st.rerun()
                             else: st.error(f"Erro ao salvar OS na nuvem: {erro}")
-                # ===================================================================================
-# INTERFACE 1: ADMIN MASTER (PARTE 4 - PENDÊNCIAS + PIX INTELIGENTE + EMPRESAS + CLIENTES + PRESTADORES)
+             # ===================================================================================
+# INTERFACE 1: ADMIN MASTER (PARTE 4 - PENDÊNCIAS + TROCA RÁPIDA + PIX INTELIGENTE)
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     if aba_selecionada == aba_pendencias_nome:
@@ -3015,6 +3015,12 @@ if st.session_state.perfil == "Admin":
             dt_ab_p, dt_ac_p, dt_em_p, dt_co_p = extrair_horarios_sla(row_os)
             fmt_p = lambda d: d.strftime("%d/%m %H:%M") if d else "—"
 
+            trocas_os = meta_os.get('historico_trocas', [])
+            trocas_html = ""
+            if isinstance(trocas_os, list) and len(trocas_os) > 0:
+                ult_tr = trocas_os[-1]
+                trocas_html = f"<p style='margin: 6px 0; font-size: 12.5px; color:{COR_VERM_TXT};'><strong>Trocas de Prestador ({len(trocas_os)}):</strong> Última em {ult_tr.get('data_hora', '')[:16]} — {ult_tr.get('anterior', 'N/D')} para {ult_tr.get('novo', 'N/D')} ({ult_tr.get('motivo', '')})</p>"
+
             st.markdown(f"""
                 <div class="dash-box" style="border-top: 4px solid #6A1B9A;">
                     <div class="dash-box-title">
@@ -3027,12 +3033,97 @@ if st.session_state.perfil == "Admin":
                     <p style="margin: 6px 0; font-size: 13.5px;"><strong>Destino:</strong> {row_os['destino']}</p>
                     <p style="margin: 6px 0; font-size: 13.5px;"><strong>Base/Grupo Acionado:</strong> {prestador_info}</p>
                     <p style="margin: 6px 0; font-size: 13px; color:{COR_TEXTO_SEC};"><strong>Observações Extras:</strong> {obs_val}</p>
+                    {trocas_html}
                 </div>
             """, unsafe_allow_html=True)
             
             motorista_n = str(row_os.get('motorista_nome', '')).strip()
             if motorista_n and motorista_n.lower() != 'nan':
                 st.markdown(f'<div class="alert-box alert-success" style="padding: 10px; margin-top: 10px;"><b>Prestador Responsável:</b> {motorista_n} | <b>Telefone:</b> {row_os.get("motorista_tel", "").split("|")[0]}</div>', unsafe_allow_html=True)
+
+            # =====================================================================
+            # TROCA RÁPIDA DE PRESTADOR (DESBLOQUEIA LINK E MANTÉM SLA ORIGINAL)
+            # =====================================================================
+            if status_dessa_os != 'CONCLUÍDO':
+                with st.expander("Trocar Prestador / Reenviar OS", expanded=False):
+                    if status_dessa_os == 'EM TRÂNSITO':
+                        st.warning("Atenção: esta OS já está em trânsito. Utilize a troca apenas em caso de imprevisto ou transbordo.")
+                    st.caption("Ao confirmar, o chamado volta para EM ATENDIMENTO, o aceite anterior é liberado (mantendo o horário original de abertura no SLA) e o botão de WhatsApp abaixo é atualizado automaticamente para o novo prestador.")
+
+                    lista_troca_ops = ["Outro (Digitar Manualmente)"]
+                    if not df_prestadores.empty:
+                        df_p_troca = df_prestadores[(df_prestadores['status'] == 'Ativo') & (df_prestadores['homologado'] == 'Aprovado')].copy()
+                        if not df_p_troca.empty:
+                            df_p_troca = df_p_troca.sort_values(by=['est', 'cidade', 'nome'])
+                            for _, rp_t in df_p_troca.iterrows():
+                                lista_troca_ops.append(f"{str(rp_t['nome'])} - Tel: {str(rp_t['telefone'])} - Bairro: {str(rp_t.get('bairro','N/D')).upper()} - {str(rp_t['cidade']).upper()}/{str(rp_t['est']).upper()}")
+
+                    novo_prest_sel = st.selectbox("Selecione o novo prestador:", lista_troca_ops, key=f"sel_troca_prest_{os_id_alvo}")
+
+                    if novo_prest_sel == "Outro (Digitar Manualmente)":
+                        c_tr1, c_tr2 = st.columns(2)
+                        novo_prest_nome = c_tr1.text_input("Nome do Novo Prestador / Base:", value="GUINCHEIRO AVULSO", key=f"inp_tr_nome_{os_id_alvo}").strip().upper()
+                        novo_tel_prest = apenas_numeros_letras(c_tr2.text_input("WhatsApp do Novo Prestador (DDD + Número):", key=f"inp_tr_tel_{os_id_alvo}"))
+                    else:
+                        novo_prest_nome = novo_prest_sel.split(" - Tel:")[0].strip().upper()
+                        novo_tel_prest = apenas_numeros_letras(novo_prest_sel.split(" - Tel:")[1].split("-")[0].strip())
+
+                    motivo_troca = st.selectbox(
+                        "Motivo da Troca:",
+                        ["Atraso / Sem retorno", "Desistência do prestador", "Indisponibilidade de plataforma", "Erro na seleção inicial", "Outro"],
+                        key=f"sel_tr_motivo_{os_id_alvo}"
+                    )
+
+                    if st.button("Confirmar Troca de Prestador", key=f"btn_conf_troca_{os_id_alvo}", type="primary", use_container_width=True):
+                        if not novo_tel_prest:
+                            st.error("Informe o WhatsApp do novo prestador para concluir a troca.")
+                        elif not novo_prest_nome:
+                            st.error("Informe o nome do novo prestador.")
+                        else:
+                            with st.spinner("Atualizando prestador e liberando link da OS..."):
+                                anterior_nome = motorista_n if (motorista_n and motorista_n.lower() != 'nan') else prestador_info.split('|')[0].strip()
+                                hist_trocas = list(meta_os.get('historico_trocas', [])) if isinstance(meta_os.get('historico_trocas', []), list) else []
+                                hist_trocas.append({
+                                    'data_hora': obter_hora_str(),
+                                    'anterior': anterior_nome,
+                                    'novo': novo_prest_nome,
+                                    'motivo': motivo_troca
+                                })
+
+                                novo_pix_troca = ""
+                                if not df_prestadores.empty:
+                                    m_novo_p = df_prestadores[
+                                        (df_prestadores['telefone'].apply(apenas_numeros_letras) == novo_tel_prest) |
+                                        (df_prestadores['nome'].str.strip().str.upper() == novo_prest_nome)
+                                    ]
+                                    if not m_novo_p.empty:
+                                        novo_pix_troca = ler_pix_prestador(m_novo_p.iloc[0])
+
+                                novos_meta_troca = {
+                                    'sla_aceite': '',
+                                    'pix_prestador_os': novo_pix_troca,
+                                    'historico_trocas': hist_trocas
+                                }
+                                meta_pos_troca = mesclar_meta_os(row_os.get('fotos_vistoria', ''), novos_meta_troca)
+                                novo_prest_str = f"{novo_prest_nome} | Telefone/Zap: {novo_tel_prest}"
+
+                                df_os.loc[
+                                    df_os['id'].astype(str) == os_id_alvo,
+                                    ['prestador', 'status_os', 'motorista_nome', 'motorista_tel', 'fotos_vistoria']
+                                ] = [novo_prest_str, 'EM ATENDIMENTO', '', '', meta_pos_troca]
+
+                                ok_tr, err_tr = salvar_dados(df_os, FILE_OS)
+                                if ok_tr:
+                                    registrar_atividade(
+                                        st.session_state.user,
+                                        "TROCA DE PRESTADOR",
+                                        f"OS #{os_id_alvo} (Placa: {row_os.get('placa', '')}) alterada de {anterior_nome} para {novo_prest_nome} | Motivo: {motivo_troca}"
+                                    )
+                                    st.success(f"Prestador alterado para {novo_prest_nome}. O botão de WhatsApp abaixo já foi atualizado.")
+                                    time.sleep(1.2)
+                                    st.rerun()
+                                else:
+                                    st.error(f"Erro ao salvar troca na nuvem: {err_tr}")
             
             doc_cliente_nps = meta_os.get('doc_cliente', 'N/D')
             if any(meta_os.get(k) for k in ['frente', 'traseira', 'lat_dir', 'lat_esq']):
@@ -3100,7 +3191,6 @@ if st.session_state.perfil == "Admin":
                             total_custo_calc = round(v_saida_in + v_km_in + v_ped_in, 2)
                             pix_final_save = pix_os_in.strip()
 
-                            # Se o prestador ainda não tinha chave PIX no cadastro, grava automaticamente lá
                             if prest_id_os and not pix_cad_os and pix_final_save:
                                 row_pr_ant = df_prestadores[df_prestadores['id'].astype(str) == str(prest_id_os)].iloc[0]
                                 df_prestadores.loc[df_prestadores['id'].astype(str) == str(prest_id_os), 'frota'] = empacotar_pix_prestador(row_pr_ant.get('frota', ''), pix_final_save)
