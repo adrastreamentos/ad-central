@@ -24,13 +24,13 @@ except ImportError:
     CANVAS_AVAILABLE = False
 
 st.set_page_config(
-    page_title="Central 24h - AD Rastreamento",
+    page_title="Central de Assistência 24 Horas - AD Rastreamento",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ===================================================================================
-# CONTROLE DE TEMA (CLARO / ESCURO)
+# CONTROLE DE TEMA (CLARO / ESCURO — FUNCIONA NO ADMIN, PARCEIRO E PORTAL DO PRESTADOR)
 # ===================================================================================
 if "tema_app" not in st.session_state:
     st.session_state.tema_app = "Claro"
@@ -77,7 +77,7 @@ FROTA_COL_CONFIG = {
 MARCAS_MOTO = ['YAMAHA', 'HONDA', 'SUZUKI', 'KAWASAKI', 'SHINERAY', 'DAFRA', 'TRAXX', 'BROS', 'TITAN', 'BIZ', 'XRE', 'POP', 'PCX', 'NMAX', 'CB']
 
 # ===================================================================================
-# ESTILIZAÇÃO CSS CORPORATIVA DINÂMICA (CLARO / ESCURO + ALERTA SLA + SETINHA FIXA)
+# ESTILIZAÇÃO CSS CORPORATIVA DE ALTO CONTRASTE (BLINDADA CONTRA MODO ESCURO DO CELULAR)
 # ===================================================================================
 if is_dark:
     COR_BG_APP = "#0F172A"
@@ -85,7 +85,7 @@ if is_dark:
     COR_BG_CARD_ALT = "#162032"
     COR_BG_SIDEBAR = "#111827"
     COR_BORDA = "#334155"
-    COR_TEXTO = "#F1F5F9"
+    COR_TEXTO = "#F8FAFC"
     COR_TEXTO_SEC = "#CBD5E1"
     COR_ROXO_TXT = "#D8B4FE"
     COR_ROXO_DEST = "#C084FC"
@@ -102,46 +102,46 @@ if is_dark:
     COR_RADIO_ACTIVE = "linear-gradient(90deg, #3B0764 0%, #1E293B 100%)"
     COR_HR = "#334155"
 else:
-    COR_BG_APP = "#F4F6F9"
+    COR_BG_APP = "#F1F5F9"
     COR_BG_CARD = "#FFFFFF"
     COR_BG_CARD_ALT = "#F8FAFC"
     COR_BG_SIDEBAR = "#FFFFFF"
-    COR_BORDA = "#E2E8F0"
-    COR_TEXTO = "#1E293B"
-    COR_TEXTO_SEC = "#5A6A85"
+    COR_BORDA = "#CBD5E1"
+    COR_TEXTO = "#0F172A"
+    COR_TEXTO_SEC = "#475569"
     COR_ROXO_TXT = "#4A148C"
     COR_ROXO_DEST = "#6A1B9A"
-    COR_VERM_TXT = "#D32F2F"
-    COR_VERDE_TXT = "#2E7D32"
+    COR_VERM_TXT = "#C62828"
+    COR_VERDE_TXT = "#1B5E20"
     COR_OPEN_OS_BG = "#FFF5F5"
     COR_INFO_BG = "#FFFFFF"
-    COR_INFO_BORDER = "#E1BEE7"
-    COR_ALERT_DANGER_BG = "#FFEBEE"
-    COR_ALERT_DANGER_TXT = "#B71C1C"
-    COR_ALERT_SUCCESS_BG = "#E8F5E9"
-    COR_ALERT_SUCCESS_TXT = "#1B5E20"
+    COR_INFO_BORDER = "#C084FC"
+    COR_ALERT_DANGER_BG = "#FEE2E2"
+    COR_ALERT_DANGER_TXT = "#991B1B"
+    COR_ALERT_SUCCESS_BG = "#DCFCE7"
+    COR_ALERT_SUCCESS_TXT = "#166534"
     COR_RADIO_HOVER = "#F3E5F5"
     COR_RADIO_ACTIVE = "linear-gradient(90deg, #F3E5F5 0%, #FFFFFF 100%)"
-    COR_HR = "#E2E8F0"
+    COR_HR = "#CBD5E1"
 
-CSS_DARK_EXTRA = """
+CSS_TEMA_CONTRASTE = """
     .stApp, .stApp p, .stApp span, .stApp label, .stApp li, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
     div[data-testid="stMarkdownContainer"] p,
     div[data-testid="stMarkdownContainer"] li,
     div[data-testid="stMarkdownContainer"] strong {
-        color: #F1F5F9;
+        color: #F8FAFC;
     }
     div[data-testid="stCaptionContainer"] p {
         color: #CBD5E1 !important;
     }
     div[data-testid="stMetric"] {
-        background-color: #1E293B;
-        border: 1px solid #334155;
+        background-color: #1E293B !important;
+        border: 1px solid #334155 !important;
         border-radius: 10px;
         padding: 10px 14px;
     }
     div[data-testid="stMetricLabel"] p, div[data-testid="stMetricValue"] {
-        color: #F1F5F9 !important;
+        color: #F8FAFC !important;
     }
     input, textarea, select,
     div[data-baseweb="input"] > div,
@@ -149,15 +149,20 @@ CSS_DARK_EXTRA = """
     div[data-baseweb="select"] > div,
     div[data-baseweb="textarea"] > div {
         background-color: #0F172A !important;
-        color: #F1F5F9 !important;
-        border-color: #475569 !important;
+        color: #F8FAFC !important;
+        border: 1.5px solid #475569 !important;
+        -webkit-text-fill-color: #F8FAFC !important;
+    }
+    input::placeholder, textarea::placeholder {
+        color: #94A3B8 !important;
+        -webkit-text-fill-color: #94A3B8 !important;
     }
     div[data-baseweb="select"] span, div[data-baseweb="select"] div {
-        color: #F1F5F9 !important;
+        color: #F8FAFC !important;
     }
     ul[data-baseweb="menu"], div[data-baseweb="popover"] > div {
         background-color: #1E293B !important;
-        color: #F1F5F9 !important;
+        color: #F8FAFC !important;
         border: 1px solid #475569 !important;
     }
     li[role="option"]:hover {
@@ -169,7 +174,7 @@ CSS_DARK_EXTRA = """
         border-radius: 10px !important;
     }
     details[data-testid="stExpander"] summary {
-        color: #F1F5F9 !important;
+        color: #F8FAFC !important;
     }
     div[data-testid="stForm"] {
         background-color: #1E293B !important;
@@ -179,8 +184,21 @@ CSS_DARK_EXTRA = """
     }
     div[data-testid="stFileUploader"] section {
         background-color: #0F172A !important;
-        border-color: #475569 !important;
-        color: #F1F5F9 !important;
+        border: 1.5px dashed #64748B !important;
+        color: #F8FAFC !important;
+    }
+    div[data-testid="stFileUploader"] section small,
+    div[data-testid="stFileUploader"] section span,
+    div[data-testid="stFileUploader"] button {
+        color: #F8FAFC !important;
+    }
+    div[data-testid="stAlert"] {
+        background-color: #1E293B !important;
+        border: 1px solid #475569 !important;
+        color: #F8FAFC !important;
+    }
+    div[data-testid="stAlert"] p, div[data-testid="stAlert"] div {
+        color: #F8FAFC !important;
     }
     button[data-baseweb="tab"] {
         color: #CBD5E1 !important;
@@ -190,13 +208,109 @@ CSS_DARK_EXTRA = """
     }
     table {
         background-color: #1E293B !important;
-        color: #F1F5F9 !important;
+        color: #F8FAFC !important;
     }
     th, td {
-        color: #F1F5F9 !important;
+        color: #F8FAFC !important;
         border-color: #334155 !important;
     }
-""" if is_dark else ""
+""" if is_dark else """
+    .stApp, .stApp p, .stApp span, .stApp label, .stApp li, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+    div[data-testid="stMarkdownContainer"] p,
+    div[data-testid="stMarkdownContainer"] li,
+    div[data-testid="stMarkdownContainer"] strong {
+        color: #0F172A;
+    }
+    div[data-testid="stCaptionContainer"] p {
+        color: #475569 !important;
+    }
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px;
+        padding: 10px 14px;
+    }
+    div[data-testid="stMetricLabel"] p, div[data-testid="stMetricValue"] {
+        color: #0F172A !important;
+    }
+    input, textarea, select,
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="base-input"],
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="textarea"] > div {
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+        border: 1.5px solid #94A3B8 !important;
+        -webkit-text-fill-color: #0F172A !important;
+    }
+    input::placeholder, textarea::placeholder {
+        color: #64748B !important;
+        -webkit-text-fill-color: #64748B !important;
+    }
+    div[data-baseweb="select"] span, div[data-baseweb="select"] div {
+        color: #0F172A !important;
+    }
+    ul[data-baseweb="menu"], div[data-baseweb="popover"] > div {
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+        border: 1px solid #CBD5E1 !important;
+    }
+    li[role="option"] {
+        color: #0F172A !important;
+    }
+    li[role="option"]:hover {
+        background-color: #F3E5F5 !important;
+    }
+    details[data-testid="stExpander"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+    }
+    details[data-testid="stExpander"] summary {
+        color: #0F172A !important;
+    }
+    div[data-testid="stForm"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+        padding: 14px !important;
+    }
+    div[data-testid="stFileUploader"] section {
+        background-color: #FFFFFF !important;
+        border: 2px dashed #6A1B9A !important;
+        color: #0F172A !important;
+    }
+    div[data-testid="stFileUploader"] section small,
+    div[data-testid="stFileUploader"] section span {
+        color: #334155 !important;
+    }
+    div[data-testid="stFileUploader"] button {
+        background-color: #6A1B9A !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    div[data-testid="stAlert"] {
+        border: 1.5px solid #CBD5E1 !important;
+        color: #0F172A !important;
+    }
+    div[data-testid="stAlert"] p, div[data-testid="stAlert"] div {
+        color: #0F172A !important;
+    }
+    button[data-baseweb="tab"] {
+        color: #475569 !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #4A148C !important;
+    }
+    table {
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+    }
+    th, td {
+        color: #0F172A !important;
+        border-color: #CBD5E1 !important;
+    }
+"""
 
 st.markdown(f"""
     <style>
@@ -302,16 +416,16 @@ st.markdown(f"""
         box-shadow: 0 4px 12px rgba(106, 27, 154, 0.22);
     }}
     .sidebar-brand-title {{
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 900;
         letter-spacing: 0.6px;
         color: #FFFFFF !important;
     }}
     .sidebar-brand-sub {{
-        font-size: 10.5px;
-        opacity: 0.9;
+        font-size: 10px;
+        opacity: 0.92;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.9px;
         margin-top: 3px;
         color: #FFFFFF !important;
     }}
@@ -372,7 +486,7 @@ st.markdown(f"""
         font-size: 12px;
         color: {COR_TEXTO_SEC};
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 1.2px;
@@ -430,6 +544,61 @@ st.markdown(f"""
         margin-right: 6px;
     }}
 
+    /* Etapas Visuais do Portal do Prestador */
+    .prest-stepper {{
+        display: flex;
+        gap: 8px;
+        margin: 12px 0 16px 0;
+    }}
+    .prest-step {{
+        flex: 1;
+        text-align: center;
+        padding: 8px 6px;
+        border-radius: 8px;
+        font-size: 11.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        border: 1.5px solid {COR_BORDA};
+        background: {COR_BG_CARD};
+        color: {COR_TEXTO_SEC};
+    }}
+    .prest-step.ativo {{
+        background: #6A1B9A;
+        border-color: #6A1B9A;
+        color: #FFFFFF !important;
+    }}
+    .prest-step.concluido {{
+        background: #2E7D32;
+        border-color: #2E7D32;
+        color: #FFFFFF !important;
+    }}
+    .prest-card {{
+        background-color: {COR_BG_CARD};
+        border: 1.5px solid {COR_BORDA};
+        border-top: 4px solid #6A1B9A;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    }}
+    .prest-card p, .prest-card div {{
+        color: {COR_TEXTO} !important;
+    }}
+    .prest-card-label {{
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: {COR_ROXO_DEST} !important;
+        margin-bottom: 2px;
+    }}
+    .prest-card-val {{
+        font-size: 14.5px;
+        font-weight: 700;
+        color: {COR_TEXTO} !important;
+        margin-bottom: 10px;
+    }}
+
     /* Submenus Horizontais */
     div[role="radiogroup"] {{
         background-color: {COR_BG_CARD};
@@ -461,8 +630,8 @@ st.markdown(f"""
         border-radius: 8px;
         font-weight: 700;
         font-size: 13px;
-        padding: 0.55rem 1rem;
-        box-shadow: 0 3px 8px rgba(106, 27, 154, 0.22);
+        padding: 0.58rem 1rem;
+        box-shadow: 0 3px 8px rgba(106, 27, 154, 0.25);
         transition: all 0.2s ease;
     }}
     div.stButton > button:first-child p,
@@ -473,7 +642,7 @@ st.markdown(f"""
     div.stDownloadButton > button:first-child:hover {{
         background: linear-gradient(135deg, #D32F2F 0%, #B71C1C 100%);
         color: #FFFFFF !important;
-        box-shadow: 0 4px 12px rgba(211, 47, 47, 0.32);
+        box-shadow: 0 4px 12px rgba(211, 47, 47, 0.35);
         transform: translateY(-1px);
     }}
 
@@ -487,12 +656,14 @@ st.markdown(f"""
         font-size: 13.5px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.06);
     }}
-    .alert-danger {{ background-color: {COR_ALERT_DANGER_BG}; color: {COR_ALERT_DANGER_TXT}; border-color: #D32F2F; }}
-    .alert-success {{ background-color: {COR_ALERT_SUCCESS_BG}; color: {COR_ALERT_SUCCESS_TXT}; border-color: #2E7D32; }}
+    .alert-danger {{ background-color: {COR_ALERT_DANGER_BG}; color: {COR_ALERT_DANGER_TXT} !important; border-color: #D32F2F; }}
+    .alert-danger * {{ color: {COR_ALERT_DANGER_TXT} !important; }}
+    .alert-success {{ background-color: {COR_ALERT_SUCCESS_BG}; color: {COR_ALERT_SUCCESS_TXT} !important; border-color: #2E7D32; }}
+    .alert-success * {{ color: {COR_ALERT_SUCCESS_TXT} !important; }}
     .info-box {{
         background-color: {COR_INFO_BG};
-        color: {COR_ROXO_TXT};
-        border: 1px solid {COR_INFO_BORDER};
+        color: {COR_TEXTO} !important;
+        border: 1.5px solid {COR_INFO_BORDER};
         border-left: 5px solid #6A1B9A;
         padding: 12px 16px;
         border-radius: 10px;
@@ -502,8 +673,9 @@ st.markdown(f"""
         font-size: 13.5px;
         box-shadow: 0 2px 8px rgba(106, 27, 154, 0.08);
     }}
+    .info-box b, .info-box strong {{ color: {COR_ROXO_TXT} !important; }}
 
-    /* Cards KPI Corporativos (Limpos, sem emojis) */
+    /* Cards KPI Corporativos */
     .metric-card {{
         background-color: {COR_BG_CARD};
         border-radius: 12px;
@@ -517,7 +689,7 @@ st.markdown(f"""
     .metric-card.red-accent {{ border-top: 4px solid #D32F2F; }}
     .metric-card.green-accent {{ border-top: 4px solid #2E7D32; }}
     .metric-title {{
-        color: {COR_TEXTO_SEC};
+        color: {COR_TEXTO_SEC} !important;
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
@@ -532,7 +704,7 @@ st.markdown(f"""
     }}
     .metric-sub {{
         font-size: 11px;
-        color: {COR_TEXTO_SEC};
+        color: {COR_TEXTO_SEC} !important;
         margin-top: 4px;
     }}
     .val-pago {{ color: {COR_VERDE_TXT} !important; }}
@@ -551,7 +723,7 @@ st.markdown(f"""
     .dash-box-title {{
         font-size: 14px;
         font-weight: 800;
-        color: {COR_ROXO_TXT};
+        color: {COR_ROXO_TXT} !important;
         margin-bottom: 12px;
         padding-bottom: 8px;
         border-bottom: 2px solid {COR_HR};
@@ -625,12 +797,12 @@ st.markdown(f"""
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }}
 
-    {CSS_DARK_EXTRA}
+    {CSS_TEMA_CONTRASTE}
     </style>
 """, unsafe_allow_html=True)
 
 # ===================================================================================
-# FUNÇÕES GLOBAIS, METADADOS INTELIGENTES (SLA, CUSTOS, DESEMBARQUE, PIX)
+# FUNÇÕES GLOBAIS, ORDENAÇÃO CRONOLÓGICA REAL E METADADOS (SLA, CUSTOS, PIX)
 # ===================================================================================
 def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
@@ -646,6 +818,10 @@ def formatar_moeda_float(valor):
         return float(s) if s else 0.0
     except:
         return 0.0
+
+def formatar_brl(valor):
+    v = formatar_moeda_float(valor)
+    return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 def mascarar_telefone(tel):
     t = apenas_numeros_letras(tel)
@@ -724,7 +900,6 @@ def empacotar_pix_prestador(frota_atual, chave_pix):
     return json.dumps(d)
 
 def localizar_prestador_os(row_os, df_prest_base):
-    """Localiza o prestador da OS na tabela de prestadores e retorna (id_prestador, chave_pix_cadastrada)."""
     if df_prest_base.empty:
         return None, ""
 
@@ -778,6 +953,16 @@ def parse_dt_seguro(val_str):
             return dt.to_pydatetime().replace(tzinfo=None)
     except: pass
     return None
+
+def ordenar_os_recentes(df_base):
+    """Ordena sempre da OS mais recente para a mais antiga (por data/hora real e ID numérico)."""
+    if df_base is None or df_base.empty:
+        return df_base
+    df_ord = df_base.copy()
+    df_ord['_dt_ord_tmp'] = df_ord['data_hora'].apply(lambda x: parse_dt_seguro(x) or datetime(1970, 1, 1)) if 'data_hora' in df_ord.columns else datetime(1970, 1, 1)
+    df_ord['_id_num_tmp'] = pd.to_numeric(df_ord['id'], errors='coerce').fillna(0) if 'id' in df_ord.columns else 0
+    df_ord = df_ord.sort_values(by=['_dt_ord_tmp', '_id_num_tmp'], ascending=[False, False]).drop(columns=['_dt_ord_tmp', '_id_num_tmp'])
+    return df_ord
 
 def extrair_horarios_sla(row_os):
     meta = ler_meta_os(row_os)
@@ -864,7 +1049,7 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
             </style>
         </head>
         <body>
-            <h2>Relatório Oficial de Ordem de Serviço - AD Rastreamento Veicular</h2>
+            <h2>Relatório Oficial de Ordem de Serviço - Central de Assistência 24 Horas</h2>
             <div class="info-box">
                 <p><strong>Número da OS:</strong> #{r['id']}</p>
                 <p><strong>Data e Hora do Chamado:</strong> {r['data_hora']}</p>
@@ -883,7 +1068,7 @@ def exportar_pdf_html_oficial(df_os, df_clientes, nome_arquivo):
             {desembarque_html}
             {ass_html}
             <br><br>
-            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px; border-top: 1px solid #ccc; padding-top: 10px;"><em>Documento gerado automaticamente pelo sistema operacional Central AD 24h.</em></p>
+            <p style="font-size: 12px; color: #666; text-align: center; margin-top: 30px; border-top: 1px solid #ccc; padding-top: 10px;"><em>Documento gerado automaticamente pela Central de Assistência 24 Horas — AD Rastreamento Veicular.</em></p>
         </body>
     </html>
     """
@@ -956,13 +1141,13 @@ col_nps = ['id_os', 'data_hora', 'nota_nps', 'nota_central', 'nota_guincho', 'co
 df_clientes = carregar_dados(FILE_CLIENTES, col_cli)
 df_empresas = carregar_dados(FILE_EMPRESAS, col_emp)
 df_prestadores = carregar_dados(FILE_PRESTADORES, col_pre)
-df_os = carregar_dados(FILE_OS, col_os)
+df_os = ordenar_os_recentes(carregar_dados(FILE_OS, col_os))
 df_financeiro = carregar_dados(FILE_FINANCEIRO, col_fin)
 df_logs = carregar_dados(FILE_LOGS, col_logs)
 df_loc = carregar_dados(FILE_LOC, col_loc)
 df_nps = carregar_dados(FILE_NPS, col_nps)
 # ===================================================================================
-# DASHBOARD DE INTELIGÊNCIA (VISUAL CORPORATIVO + FILTRO + SLA + 6 MESES + SINISTRALIDADE)
+# DASHBOARD DE INTELIGÊNCIA (VISUAL CORPORATIVO + ORDENAÇÃO REAL + SLA + 6 MESES + SINISTRALIDADE)
 # ===================================================================================
 def contar_veiculos_df(df_cli_base):
     total_v = 0
@@ -1002,7 +1187,7 @@ def gerar_laudo_atendimentos_html(empresa_filtro, periodo_label, total_veiculos,
     <html>
         <head>
             <meta charset="utf-8">
-            <title>Laudo Operacional de Atendimentos - AD Rastreamento</title>
+            <title>Laudo Operacional - Central de Assistência 24 Horas</title>
             <style>
                 body {{ font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 780px; margin: 0 auto; }}
                 h2 {{ color: #6A1B9A; border-bottom: 2px solid #D32F2F; padding-bottom: 6px; margin-bottom: 4px; font-size: 20px; }}
@@ -1018,7 +1203,7 @@ def gerar_laudo_atendimentos_html(empresa_filtro, periodo_label, total_veiculos,
         </head>
         <body>
             <h2>AD RASTREAMENTO VEICULAR — LAUDO OPERACIONAL</h2>
-            <div class="sub">Relatório de Inteligência, SLA e Incidência 24h | Período: <b>{periodo_label}</b> | Gerado em: {data_atual}</div>
+            <div class="sub">Central de Assistência 24 Horas | Período: <b>{periodo_label}</b> | Gerado em: {data_atual}</div>
             
             <div class="kpi-container">
                 <div class="kpi-card">
@@ -1066,7 +1251,7 @@ def gerar_laudo_atendimentos_html(empresa_filtro, periodo_label, total_veiculos,
 
             <br>
             <p style="font-size: 11px; color: #888; text-align: center; border-top: 1px solid #eee; padding-top: 8px;">
-                <em>Este laudo técnico foi consolidado automaticamente pela Central de Operações AD Rastreamento Veicular.</em>
+                <em>Este laudo técnico foi consolidado automaticamente pela Central de Assistência 24 Horas — AD Rastreamento Veicular.</em>
             </p>
         </body>
     </html>
@@ -1075,17 +1260,17 @@ def gerar_laudo_atendimentos_html(empresa_filtro, periodo_label, total_veiculos,
     return f'<a href="data:text/html;base64,{b64}" download="Laudo_Atendimentos_{empresa_filtro}_{int(time.time())}.html" target="_blank" style="text-decoration: none;"><button style="background-color: #6A1B9A; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">Baixar Laudo Executivo (PDF/HTML)</button></a>'
 
 def renderizar_dashboard(empresa_filtro="Todas", eh_admin=True):
-    st.markdown(f'<div class="section-title">Painel de Inteligência 24h — {empresa_filtro.upper()}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-title">Painel de Inteligência — {empresa_filtro.upper()}</div>', unsafe_allow_html=True)
 
-    cor_chart_txt = "#F1F5F9" if is_dark else "#1E293B"
-    cor_grid = "#334155" if is_dark else "#E2E8F0"
+    cor_chart_txt = "#F8FAFC" if is_dark else "#0F172A"
+    cor_grid = "#334155" if is_dark else "#CBD5E1"
     agora_br = obter_hora_brasilia().replace(tzinfo=None)
 
     if empresa_filtro != "Todas":
-        df_os_escopo = df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy()
+        df_os_escopo = ordenar_os_recentes(df_os[df_os['empresa'].str.upper() == empresa_filtro.upper()].copy())
         df_cli_dash = df_clientes[(df_clientes['emp_name'].str.upper() == empresa_filtro.upper()) & (df_clientes['status'].str.strip() == 'Ativo')].copy()
     else:
-        df_os_escopo = df_os.copy()
+        df_os_escopo = ordenar_os_recentes(df_os.copy())
         df_cli_dash = df_clientes[df_clientes['status'].str.strip() == 'Ativo'].copy()
 
     df_os_escopo['dt_parsed'] = df_os_escopo['data_hora'].apply(parse_dt_seguro)
@@ -1167,12 +1352,14 @@ def renderizar_dashboard(empresa_filtro="Todas", eh_admin=True):
     else:
         df_os_dash = df_os_escopo.copy()
 
+    df_os_dash = ordenar_os_recentes(df_os_dash)
+
     total_veiculos = contar_veiculos_df(df_cli_dash)
     total_os = len(df_os_dash)
     os_em_andamento = len(df_os_escopo[~df_os_escopo['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
     os_concluidas = len(df_os_dash[df_os_dash['status_os'].str.upper() == 'ENCERRADO'])
 
-    # LINHA 1: CONTADORES OPERACIONAIS (NOMES CURTOS E LIMPOS)
+    # LINHA 1: CONTADORES OPERACIONAIS
     c1, c2, c3, c4 = st.columns(4)
     c1.markdown(f"""
         <div class="metric-card">
@@ -1204,7 +1391,7 @@ def renderizar_dashboard(empresa_filtro="Todas", eh_admin=True):
     """, unsafe_allow_html=True)
 
     # =========================================================================
-    # 3. PAINEL DE SLA EM TEMPO REAL (TRAÇO "—" QUANDO NÃO HÁ REGISTROS)
+    # 3. PAINEL DE SLA EM TEMPO REAL
     # =========================================================================
     tempos_aceite, tempos_embarque, tempos_total = [], [], []
     for _, r_sla in df_os_dash.iterrows():
@@ -1253,7 +1440,7 @@ def renderizar_dashboard(empresa_filtro="Todas", eh_admin=True):
     """, unsafe_allow_html=True)
 
     # =========================================================================
-    # 4. GRÁFICOS DE DISTRIBUIÇÃO + ÚLTIMOS 5 REGISTROS CLICÁVEIS
+    # 4. GRÁFICOS DE DISTRIBUIÇÃO + ÚLTIMOS 5 REGISTROS (ORDEM CRONOLÓGICA REAL)
     # =========================================================================
     if total_os > 0:
         chave_sel_os = f"dash_os_detalhe_{empresa_filtro}"
@@ -1335,8 +1522,8 @@ def renderizar_dashboard(empresa_filtro="Todas", eh_admin=True):
 
         with col_side_feed:
             st.markdown('<div class="dash-box">', unsafe_allow_html=True)
-            st.markdown(f'<div class="dash-box-title"><span>Últimos 5 Registros</span><span style="font-size:10.5px; color:{COR_ROXO_DEST};">DETALHES</span></div>', unsafe_allow_html=True)
-            df_ultimos = df_os_dash.tail(5).iloc[::-1]
+            st.markdown(f'<div class="dash-box-title"><span>Últimos 5 Registros</span><span style="font-size:10.5px; color:{COR_ROXO_DEST};">MAIS RECENTES</span></div>', unsafe_allow_html=True)
+            df_ultimos = df_os_dash.head(5)
             for idx_u, r_ult in df_ultimos.iterrows():
                 os_id_u = str(r_ult.get('id', '')).strip()
                 st_os_val = str(r_ult.get('status_os', '')).upper()
@@ -1546,7 +1733,7 @@ def renderizar_dashboard(empresa_filtro="Todas", eh_admin=True):
         else:
             st.markdown(f"""
             <div class="dash-box" style="border: 2px solid #6A1B9A; border-left: 6px solid #D32F2F; margin-bottom: 16px;">
-                <h3 style="color: {COR_ROXO_TXT}; margin-top:0; font-size: 17px;">Laudo Executivo de Atendimentos 24h</h3>
+                <h3 style="color: {COR_ROXO_TXT}; margin-top:0; font-size: 17px;">Laudo Executivo — Central de Assistência 24 Horas</h3>
                 <p style="color: {COR_TEXTO_SEC}; font-size: 13px; margin-bottom: 0;">Análise consolidada de ocorrências e SLA no período: <b>{periodo_label}</b>.</p>
             </div>
             """, unsafe_allow_html=True)
@@ -1704,7 +1891,8 @@ def obter_ciclo_contrato_anual(data_cad_str):
     return inicio, fim
 
 def extrair_custos_os_df(df_os_base, df_prest_base, mes_filtro=None):
-    """Monta base unificada de Custos por OS, Contas a Pagar de Prestadores e Atendimentos Particulares."""
+    """Monta base unificada de Custos por OS, Contas a Pagar e Particulares (ordenados das OS mais recentes)."""
+    df_os_ord = ordenar_os_recentes(df_os_base)
     linhas = []
     m_alvo, y_alvo = None, None
     if mes_filtro and '/' in str(mes_filtro):
@@ -1714,7 +1902,7 @@ def extrair_custos_os_df(df_os_base, df_prest_base, mes_filtro=None):
         except:
             pass
 
-    for _, r in df_os_base.iterrows():
+    for _, r in df_os_ord.iterrows():
         if str(r.get('status_os', '')).upper() == 'CANCELADO':
             continue
         dt_r = parse_dt_seguro(r.get('data_hora', ''))
@@ -2017,7 +2205,7 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
     
     df_os_temp = df_os_atuais.copy()
     df_os_temp['data_hora'] = pd.to_datetime(df_os_temp['data_hora'], errors='coerce')
-    os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora')
+    os_mes = df_os_temp[(df_os_temp['empresa'].str.upper() == nome_empresa.upper()) & (df_os_temp['status_os'].str.upper() == 'ENCERRADO') & (df_os_temp['data_hora'] >= dados_fat['dt_inicio']) & (df_os_temp['data_hora'] <= dados_fat['dt_fim'])].sort_values(by='data_hora', ascending=False)
 
     linhas_os_html = ""
     if os_mes.empty: linhas_os_html = "<tr><td colspan='6' style='text-align: center; padding: 10px; color: #666;'>Nenhum acionamento registrado neste ciclo.</td></tr>"
@@ -2051,19 +2239,37 @@ def gerar_pdf_extrato_detalhado(nome_empresa, mes, ano, df_clientes_atuais, df_o
         secao_tabela = ""
         secao_memoria = f"""<div style="margin-bottom: 20px; background-color: #f3e5f5; padding: 15px; border-radius: 6px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">4. MEMÓRIA DE CÁLCULO FINANCEIRO</h3><p style="margin: 4px 0; font-size: 13px;">Este cliente opera no modo Tradicional. O valor faturado é gerido manualmente.</p></div>"""
 
-    html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #6A1B9A; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Extrato Detalhado de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #6A1B9A; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #6A1B9A; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem -> Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
+    html_content = f"""<html><head><meta charset='utf-8'></head><body style="font-family: Arial, sans-serif; max-width: 850px; margin: 0 auto; padding: 20px; color: #333;"><div style="text-align: center; margin-bottom: 20px;"><h2 style="margin: 0; color: #6A1B9A; font-size: 24px;">AD RASTREAMENTO VEICULAR</h2><p style="margin: 5px 0; font-size: 14px; color: #555; text-transform: uppercase; font-weight: bold;">Central de Assistência 24 Horas — Extrato de Faturamento e Auditoria</p><p style="margin: 3px 0; font-size: 13px; color: #777;">Empresa: <strong>{nome_empresa.upper()}</strong> | Competência Mês: {mes}/{ano}</p></div><hr style="border: 0; border-top: 2px solid #6A1B9A; margin-bottom: 20px;"><div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #eee;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">1. RESUMO OPERACIONAL DO CICLO</h3><p style="margin: 4px 0; font-size: 13px;"><strong>Período de Apuração:</strong> {str_inicio} até {str_fim} (Vencimento dia {dados_fat['vencimento_dia']})</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total Exato de Veículos na Base (Ativos):</strong> {dados_fat['total_v']} veículos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Total de Acionamentos Ordinários no Ciclo:</strong> {dados_fat['total_os']} guinchos</p><p style="margin: 4px 0; font-size: 13px;"><strong>Modo Comercial Aplicado:</strong> {modo_pdf}</p></div><div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">2. HISTÓRICO DE ATENDIMENTOS DO CICLO</h3><table style="width: 100%; border-collapse: collapse;"><thead><tr style="background-color: #6A1B9A; color: white;"><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">OS</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Data/Hora</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Placa</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Cliente</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Serviço</th><th style="border: 1px solid #ddd; padding: 8px; font-size: 12px;">Trajeto (Origem -> Destino)</th></tr></thead><tbody>{linhas_os_html}</tbody></table></div>{secao_tabela}{secao_memoria}<div style="margin-bottom: 20px;"><h3 style="margin: 0 0 10px 0; font-size: 15px; color: #6A1B9A;">5. ANEXO DE AUDITORIA: RELAÇÃO DE TODAS AS PLACAS</h3><p style="margin: 4px 0 10px 0; font-size: 11px; color: #666;">Abaixo constam rigorosamente todos os {dados_fat['total_v']} veículos lidos no banco de dados com status ativo para gerar esta fatura.</p><table style="width: 100%; border-collapse: collapse; font-size: 11px;"><thead><tr style="background-color: #e0e0e0; color: #333;"><th style="border: 1px solid #ddd; padding: 6px;">#</th><th style="border: 1px solid #ddd; padding: 6px;">Placa Identificada</th><th style="border: 1px solid #ddd; padding: 6px;">Nome do Cliente Cadastrado</th><th style="border: 1px solid #ddd; padding: 6px;">Plano (KM)</th><th style="border: 1px solid #ddd; padding: 6px;">Enquadramento de Cobrança</th></tr></thead><tbody>{linhas_veiculos_html}</tbody></table></div></body></html>"""
     b64 = base64.b64encode(html_content.encode('utf-8')).decode()
     return f'<a href="data:text/html;base64,{b64}" download="Extrato_Auditavel_{nome_empresa}_{mes}_{ano}_{timestamp_arquivo}.html" style="text-decoration: none;"><button style="background-color: #6A1B9A; color: white; padding: 10px 18px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 13px;">Baixar Extrato Oficial e Auditável (PDF/HTML)</button></a>'
                 # ===================================================================================
-# PORTAIS EXTERNOS (PORTAL DO GUINCHO COM SLA + PIX + FOTO DESEMBARQUE, NPS E GPS)
+# PORTAIS EXTERNOS (PORTAL DO PRESTADOR ALTO CONTRASTE + CLARO/ESCURO, NPS E GPS)
 # ===================================================================================
 portal_atual = st.query_params.get("portal", "")
 
 if portal_atual == "guincho":
-    st.markdown('<div class="main-title" style="font-size:26px;">Portal do Prestador</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">AD Assistência 24h</div>', unsafe_allow_html=True)
-    
     os_param = st.query_params.get("os", "")
+
+    col_pt1, col_pt2 = st.columns([4.5, 1.5])
+    with col_pt1:
+        st.markdown(f"""
+            <div class="ad-topbar" style="margin-bottom: 10px;">
+                <div class="ad-topbar-brand">
+                    <div class="ad-badge-logo">A<span>D</span> 24H</div>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 800;">PORTAL DO PRESTADOR — CENTRAL DE ASSISTÊNCIA 24 HORAS</div>
+                        <div style="font-size: 11.5px; opacity: 0.92;">Ordem de Serviço: <strong>#{os_param if os_param else 'N/D'}</strong></div>
+                    </div>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_pt2:
+        st.write("")
+        lbl_tema_prest = "Modo Claro" if is_dark else "Modo Escuro"
+        if st.button(lbl_tema_prest, key="btn_tema_portal_prest", use_container_width=True):
+            st.session_state.tema_app = "Claro" if is_dark else "Escuro"
+            st.rerun()
+    
     if not os_param:
         st.error("Número do chamado não identificado no link.")
         st.stop()
@@ -2103,11 +2309,14 @@ if portal_atual == "guincho":
     
     if status_atual not in ['PENDENTE', 'EM ATENDIMENTO', 'CANCELADO']:
         if not is_dono:
-            st.error("CHAMADO INDISPONÍVEL / JÁ ASSUMIDO")
-            if data_formatada: st.warning(f"A ordem de serviço foi aceita por **{motorista_os}** em {data_formatada}.")
-            else: st.warning(f"A ordem de serviço já foi aceita e assumida por **{motorista_os}**.")
+            st.markdown(f"""
+                <div class="alert-box alert-danger">
+                    <b>CHAMADO INDISPONÍVEL / JÁ ASSUMIDO</b><br>
+                    {"A ordem de serviço foi aceita por <b>" + motorista_os + "</b> em " + data_formatada + "." if data_formatada else "A ordem de serviço já foi aceita por <b>" + motorista_os + "</b>."}
+                </div>
+            """, unsafe_allow_html=True)
             
-            st.info("Se você é este prestador e a página recarregou, confirme seu WhatsApp abaixo para retornar ao chamado:")
+            st.markdown('<div class="info-box">Se você é o prestador que assumiu esta OS e a tela recarregou, confirme seu WhatsApp abaixo para retornar ao atendimento:</div>', unsafe_allow_html=True)
             tel_recuperacao = st.text_input("Seu WhatsApp (com DDD):", key="tel_rec")
             if st.button("Recuperar Acesso", use_container_width=True):
                 if apenas_numeros_letras(tel_recuperacao) == tel_motorista_os and tel_motorista_os != "":
@@ -2118,27 +2327,49 @@ if portal_atual == "guincho":
                 else:
                     st.error("Telefone incorreto. Você não é o prestador que assumiu esta OS.")
             st.stop()
-    
+
+    # Barra de etapas do atendimento
+    st_p1 = "ativo" if status_atual in ['PENDENTE', 'EM ATENDIMENTO'] else "concluido"
+    st_p2 = "ativo" if status_atual == 'A CAMINHO' else ("concluido" if status_atual in ['EM TRÂNSITO', 'CONCLUÍDO', 'ENCERRADO'] else "")
+    st_p3 = "ativo" if status_atual == 'EM TRÂNSITO' else ("concluido" if status_atual in ['CONCLUÍDO', 'ENCERRADO'] else "")
+    st_p4 = "concluido" if status_atual in ['CONCLUÍDO', 'ENCERRADO'] else ""
+
     st.markdown(f"""
-        <div class="dash-box" style="border-top: 4px solid #6A1B9A;">
-            <p style="margin:4px 0;"><strong>Origem:</strong> {os_info.get('localizacao', 'N/D')}</p>
-            <p style="margin:4px 0;"><strong>Destino:</strong> {os_info.get('destino', 'N/D')}</p>
-            <p style="margin:4px 0;"><strong>Veículo:</strong> {v_desc_portal}</p>
-            <p style="margin:4px 0;"><strong>Serviço:</strong> {os_info.get('tipo_servico', '')} ({os_info.get('motivo', '')})</p>
+        <div class="prest-stepper">
+            <div class="prest-step {st_p1}">1. Aceite</div>
+            <div class="prest-step {st_p2}">2. Chegada / Vistoria</div>
+            <div class="prest-step {st_p3}">3. Em Trânsito</div>
+            <div class="prest-step {st_p4}">4. Concluído</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+        <div class="prest-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1.5px solid {COR_HR}; padding-bottom:8px; margin-bottom:12px;">
+                <span style="font-weight:900; font-size:14px; color:{COR_ROXO_TXT};">RESUMO DA ORDEM DE SERVIÇO #{os_param}</span>
+                <span class="service-badge {'badge-green' if status_atual in ['CONCLUÍDO', 'ENCERRADO'] else 'badge-purple' if status_atual in ['A CAMINHO', 'EM TRÂNSITO'] else 'badge-red'}">{status_atual}</span>
+            </div>
+            <div class="prest-card-label">Origem (Local de Retirada)</div>
+            <div class="prest-card-val">{os_info.get('localizacao', 'N/D')}</div>
+            <div class="prest-card-label">Destino (Local de Entrega)</div>
+            <div class="prest-card-val">{os_info.get('destino', 'N/D')}</div>
+            <div class="prest-card-label">Veículo</div>
+            <div class="prest-card-val">{v_desc_portal}</div>
+            <div class="prest-card-label">Serviço / Motivo</div>
+            <div class="prest-card-val" style="margin-bottom:0;">{os_info.get('tipo_servico', '')} ({os_info.get('motivo', '')})</div>
         </div>
     """, unsafe_allow_html=True)
     
-    st.write("---")
-    
     if status_atual in ['PENDENTE', 'EM ATENDIMENTO']:
-        st.info("Este chamado está disponível para atendimento.")
-        st.write(f"**Placa:** `{mascarar_placa(placa_real)}`")
-        st.write(f"**Telefone do Cliente:** `{mascarar_telefone(tel_cliente_real)}`")
+        st.markdown(f"""
+            <div class="info-box">
+                <b>Chamado disponível para atendimento.</b><br>
+                <b>Placa (Parcial):</b> {mascarar_placa(placa_real)} &nbsp;|&nbsp; <b>Telefone do Cliente:</b> {mascarar_telefone(tel_cliente_real)}
+            </div>
+        """, unsafe_allow_html=True)
         
-        st.markdown("### Assumir Ocorrência")
-        st.write("Digite seu WhatsApp para localizar seu cadastro ou realizar um novo:")
-        
-        tel_mot_raw = st.text_input("Seu Telefone/WhatsApp (com DDD):")
+        st.markdown(f'<div class="section-title">Assumir Ocorrência</div>', unsafe_allow_html=True)
+        tel_mot_raw = st.text_input("Digite seu WhatsApp (com DDD) para localizar seu cadastro:")
         tel_limpo = apenas_numeros_letras(tel_mot_raw)
         
         if tel_limpo and len(tel_limpo) >= 10:
@@ -2149,7 +2380,7 @@ if portal_atual == "guincho":
                 row_p_ex = prestador_existente.iloc[0]
                 nome_mot = str(row_p_ex['nome']).upper()
                 pix_cadastrado = ler_pix_prestador(row_p_ex)
-                st.success(f"Cadastro localizado: **{nome_mot}**.")
+                st.markdown(f'<div class="alert-box alert-success">Cadastro localizado: <b>{nome_mot}</b>.</div>', unsafe_allow_html=True)
                 pix_complemento = ""
                 if not pix_cadastrado:
                     pix_complemento = st.text_input("Chave PIX para Pagamento (Opcional — salva no seu cadastro):", placeholder="CPF, CNPJ, E-mail ou Celular")
@@ -2179,7 +2410,7 @@ if portal_atual == "guincho":
                         time.sleep(1.5)
                         st.rerun()
             else:
-                st.warning("Número não localizado. Preencha seu cadastro rápido para assumir a OS:")
+                st.markdown('<div class="alert-box alert-danger">Número não localizado. Preencha seu cadastro rápido abaixo para assumir a OS:</div>', unsafe_allow_html=True)
                 nome_mot = st.text_input("Seu Nome / Nome da sua Base:")
                 c_est, c_cid = st.columns(2)
                 est_mot = c_est.selectbox("Estado (UF):", ESTADOS_BR, index=ESTADOS_BR.index("RN"))
@@ -2217,20 +2448,24 @@ if portal_atual == "guincho":
                             st.rerun()
                     
     elif status_atual == 'A CAMINHO':
-        st.success("Você assumiu este chamado. Dirija-se ao local de origem.")
-        
         link_w_cli = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(tel_cliente_real)}"
-        st.markdown(f"**Contato Liberado do Cliente:** {tel_cliente_real}")
-        st.markdown(f'<a href="{link_w_cli}" target="_blank"><button style="background-color: #25D366; color: white; padding: 10px; width: 100%; border: none; border-radius: 5px; font-weight: bold; margin-bottom: 15px;">Falar com Cliente no WhatsApp</button></a>', unsafe_allow_html=True)
+        st.markdown(f"""
+            <div class="alert-box alert-success">
+                <b>CHAMADO ASSUMIDO — DIRIJA-SE AO LOCAL DE ORIGEM</b><br>
+                <b>Cliente:</b> {os_info.get('cliente_nome', 'N/D')} &nbsp;|&nbsp; <b>Telefone Liberado:</b> {tel_cliente_real}
+            </div>
+        """, unsafe_allow_html=True)
         
-        st.markdown("### Validação Física (Chegada)")
-        st.info("Ao chegar no local, digite a placa completa do veículo para liberar o checklist de embarque.")
-        placa_digitada = st.text_input("Digite a Placa Completa do Veículo (Somente letras e números):")
+        st.markdown(f'<a href="{link_w_cli}" target="_blank" style="text-decoration:none;"><button style="background-color: #25D366; color: #FFFFFF; padding: 12px; width: 100%; border: none; border-radius: 8px; font-weight: 800; font-size: 14px; cursor: pointer; margin-bottom: 16px;">Falar com Cliente no WhatsApp</button></a>', unsafe_allow_html=True)
+        
+        st.markdown('<div class="section-title">Validação Física (Chegada no Local)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="info-box">Ao chegar no local, digite a placa completa do veículo para liberar a vistoria fotográfica e a assinatura de embarque.</div>', unsafe_allow_html=True)
+        placa_digitada = st.text_input("Placa Completa do Veículo (Somente letras e números):", placeholder="Ex: ABC1D23")
         
         if "vistoria_liberada" not in st.session_state:
             st.session_state.vistoria_liberada = False
             
-        if st.button("Validar Placa", use_container_width=True):
+        if st.button("Validar Placa e Liberar Vistoria", use_container_width=True):
             if apenas_numeros_letras(placa_digitada).upper() == apenas_numeros_letras(placa_real).upper():
                 st.session_state.vistoria_liberada = True
                 st.success("Placa validada. Preencha o checklist abaixo.")
@@ -2240,25 +2475,25 @@ if portal_atual == "guincho":
         if st.session_state.vistoria_liberada:
             st.write("---")
             st.markdown('<div class="inspection-reader-header"><span>Vistoria Fotográfica de Embarque (4 Fotos Obrigatórias)</span><span>CHECKLIST</span></div>', unsafe_allow_html=True)
-            
+            st.markdown('<div class="inspection-reader-body">', unsafe_allow_html=True)
             c_cam1, c_cam2 = st.columns(2)
             with c_cam1: 
-                frente = st.file_uploader("Frente", type=['jpg', 'jpeg', 'png'])
+                frente = st.file_uploader("1. Foto Frente", type=['jpg', 'jpeg', 'png'])
                 if frente: st.image(frente, use_container_width=True)
             with c_cam2: 
-                traseira = st.file_uploader("Traseira", type=['jpg', 'jpeg', 'png'])
+                traseira = st.file_uploader("2. Foto Traseira", type=['jpg', 'jpeg', 'png'])
                 if traseira: st.image(traseira, use_container_width=True)
             with c_cam1: 
-                lat_dir = st.file_uploader("Lateral Direita", type=['jpg', 'jpeg', 'png'])
+                lat_dir = st.file_uploader("3. Foto Lateral Direita", type=['jpg', 'jpeg', 'png'])
                 if lat_dir: st.image(lat_dir, use_container_width=True)
             with c_cam2: 
-                lat_esq = st.file_uploader("Lateral Esquerda", type=['jpg', 'jpeg', 'png'])
+                lat_esq = st.file_uploader("4. Foto Lateral Esquerda", type=['jpg', 'jpeg', 'png'])
                 if lat_esq: st.image(lat_esq, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
             
-            st.markdown("### Assinatura do Condutor (Embarque)")
+            st.markdown('<div class="section-title">Assinatura do Condutor (Embarque)</div>', unsafe_allow_html=True)
             doc_cliente_input = st.text_input("Documento Identificador do Cliente (CPF ou RG):", placeholder="Obrigatório para validar a assinatura")
-            
-            st.info("Solicite ao responsável pelo veículo que assine no quadro abaixo:")
+            st.markdown('<div class="info-box">Solicite ao responsável pelo veículo que assine no quadro branco abaixo:</div>', unsafe_allow_html=True)
             
             canvas_result = None
             assinatura_foto = None
@@ -2268,7 +2503,7 @@ if portal_atual == "guincho":
                     fill_color="rgba(255, 165, 0, 0.3)",
                     stroke_width=3,
                     stroke_color="#000000",
-                    background_color="#EEEEEE",
+                    background_color="#FFFFFF",
                     height=200,
                     drawing_mode="freedraw",
                     key="canvas_assinatura",
@@ -2323,16 +2558,21 @@ if portal_atual == "guincho":
                         st.rerun()
                         
     elif status_atual == 'EM TRÂNSITO':
-        st.info("Veículo embarcado. Em deslocamento para o destino.")
-        st.markdown(f"**Destino Final:** {os_info.get('destino', 'N/D')}")
-        st.markdown(f"**Observações Extras:** {os_info.get('obs', 'Nenhuma')}")
+        st.markdown(f"""
+            <div class="alert-box alert-success">
+                <b>VEÍCULO EMBARCADO — EM DESLOCAMENTO PARA O DESTINO</b><br>
+                <b>Destino Final:</b> {os_info.get('destino', 'N/D')}<br>
+                <b>Observações Extras:</b> {os_info.get('obs', 'Nenhuma') or 'Nenhuma'}
+            </div>
+        """, unsafe_allow_html=True)
         
-        st.write("---")
         st.markdown('<div class="inspection-reader-header"><span>Vistoria de Desembarque (Entrega no Destino)</span><span>1 FOTO OBRIGATÓRIA</span></div>', unsafe_allow_html=True)
-        st.info("Ao descarregar o veículo no destino, envie 1 foto comprovando a entrega. Não é necessária nova assinatura.")
+        st.markdown('<div class="inspection-reader-body">', unsafe_allow_html=True)
+        st.markdown('<div class="info-box" style="margin-top:0;">Ao descarregar o veículo no destino, envie <b>1 foto</b> comprovando a entrega. Não é necessária nova assinatura.</div>', unsafe_allow_html=True)
         foto_desembarque = st.file_uploader("Foto do Veículo Descarregado no Destino:", type=['jpg', 'jpeg', 'png'], key=f"up_desemb_{os_param}")
         if foto_desembarque:
             st.image(foto_desembarque, caption="Prévia da foto de entrega", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         st.write("")
         if st.button("DESEMBARCAR E CONCLUIR ROTA", type="primary", use_container_width=True):
@@ -2353,14 +2593,18 @@ if portal_atual == "guincho":
                     st.rerun()
                 
     elif status_atual in ['CONCLUÍDO', 'ENCERRADO', 'CANCELADO']:
-        st.success(f"Este chamado encontra-se {status_atual}.")
-        st.write("A entrega foi finalizada e a Central administrativa já foi informada.")
+        st.markdown(f"""
+            <div class="alert-box alert-success">
+                <b>CHAMADO {status_atual}</b><br>
+                A entrega foi finalizada e a Central de Assistência 24 Horas já foi informada.
+            </div>
+        """, unsafe_allow_html=True)
     
     st.stop()
 
 elif portal_atual == "nps":
     st.markdown('<div class="main-title">Pesquisa de Qualidade</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Assistência 24h</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Central de Assistência 24 Horas</div>', unsafe_allow_html=True)
     os_param = st.query_params.get("os", "")
     
     if not os_param:
@@ -2421,7 +2665,7 @@ elif portal_atual == "nps":
 
 elif portal_atual == "cliente":
     st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Central de Assistência 24 Horas - Resgate</div>', unsafe_allow_html=True)
     placa_param = st.query_params.get("placa", "N/D")
     
     html_code = f"""
@@ -2496,7 +2740,7 @@ elif portal_atual == "cliente":
 
 elif portal_atual == "cliente_salvo":
     st.markdown('<div class="main-title">AD Rastreamento</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Assistência 24h - Resgate</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Central de Assistência 24 Horas - Resgate</div>', unsafe_allow_html=True)
     placa_cliente = st.query_params.get("placa", "N/D")
     lat = st.query_params.get("lat", "")
     lon = st.query_params.get("lon", "")
@@ -2534,7 +2778,7 @@ if not st.session_state.logado:
                 <div style="display:inline-block; background:#6A1B9A; color:#fff; font-weight:900; padding:8px 16px; border-radius:10px; font-size:20px; margin-bottom:10px;">
                     <span style="color:#fff;">A</span><span style="color:#FF5252;">D</span> RASTREAMENTO
                 </div>
-                <div class="main-title" style="font-size:24px;">Central de Assistência 24h</div>
+                <div class="main-title" style="font-size:24px;">Central de Assistência 24 Horas</div>
                 <div class="subtitle" style="margin-bottom:10px;">Operação e Despacho — Acesso Restrito</div>
             </div>
         """, unsafe_allow_html=True)
@@ -2558,7 +2802,7 @@ if not st.session_state.logado:
     st.stop()
 
 # ===================================================================================
-# HEADER DO SISTEMA (BARRA CORPORATIVA + TEMA CLARO/ESCURO + ATUALIZAR + SAIR)
+# HEADER DO SISTEMA (CENTRAL DE ASSISTÊNCIA 24 HORAS + TEMA CLARO/ESCURO + ATUALIZAR + SAIR)
 # ===================================================================================
 col_user, col_tema, col_refresh, col_logout = st.columns([5.4, 1.5, 1.6, 1.5])
 with col_user: 
@@ -2567,7 +2811,7 @@ with col_user:
             <div class="ad-topbar-brand">
                 <div class="ad-badge-logo">A<span>D</span> 24H</div>
                 <div>
-                    <div style="font-size: 14.5px; font-weight: 800; letter-spacing: 0.3px;">CENTRAL DE MONITORAMENTO & ASSISTÊNCIA 24H</div>
+                    <div style="font-size: 14.5px; font-weight: 800; letter-spacing: 0.3px;">CENTRAL DE ASSISTÊNCIA 24 HORAS</div>
                     <div style="font-size: 12px; opacity: 0.9;">Operador Ativo: <strong>{st.session_state.user}</strong></div>
                 </div>
             </div>
@@ -2595,7 +2839,7 @@ with col_logout:
         st.rerun()
 
 # ===================================================================================
-# INTERFACE 1: ADMIN MASTER (MENU LATERAL LIMPO + DASHBOARD + NOVA OS)
+# INTERFACE 1: ADMIN MASTER (MENU LATERAL + DASHBOARD + NOVA OS COM PIX EXCEÇÃO CORRIGIDO)
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     qtd_pendencias = len(df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
@@ -2622,8 +2866,8 @@ if st.session_state.perfil == "Admin":
     with st.sidebar:
         st.markdown("""
             <div class="sidebar-brand-box">
-                <div class="sidebar-brand-title">CENTRAL AD 24H</div>
-                <div class="sidebar-brand-sub">Menu de Navegação</div>
+                <div class="sidebar-brand-title">AD ASSISTÊNCIA 24H</div>
+                <div class="sidebar-brand-sub">Central de Assistência 24 Horas</div>
             </div>
         """, unsafe_allow_html=True)
         aba_selecionada = st.radio("Navegação Principal:", opcoes_admin, index=opcoes_admin.index(aba_atual_admin), label_visibility="collapsed")
@@ -2650,10 +2894,12 @@ if st.session_state.perfil == "Admin":
         if "os_cep_orig_val" not in st.session_state: st.session_state.os_cep_orig_val = ""
         if "os_dest_val" not in st.session_state: st.session_state.os_dest_val = ""
         if "os_obs_val" not in st.session_state: st.session_state.os_obs_val = ""
+        if "os_val_exc_num" not in st.session_state: st.session_state.os_val_exc_num = 0.0
 
         pronto_para_prosseguir = False
         is_excecao_flag = False
-        valor_excecao_val = "0,00"
+        valor_excecao_num = 0.0
+        valor_excecao_fmt = "0,00"
         cliente_id_os, cliente_nome_os, placa_alvo, veiculo_desc_alvo, empresa_os, plano_km_os, uf_cliente, cidade_cliente, valor_cobrado_os = "", "", "", "", "", "", "RN", "", "0,00"
         tel_envio_link = ""
 
@@ -2775,9 +3021,25 @@ if st.session_state.perfil == "Admin":
                                     if limite_excedido: st.markdown(f'<div class="alert-box alert-danger" style="font-size: 14px; text-align: center;">ALERTA: LIMITE ANUAL ATINGIDO<br><span style="font-size: 13px; font-weight: bold;">Esta placa já utilizou o limite máximo de {tipo_servico} no ciclo de contrato atual.</span></div>', unsafe_allow_html=True)
                                         
                                     liberar_excecao = st.checkbox("Ciente dos bloqueios acima: Liberar Atendimento por Exceção")
-                                    if liberar_excecao: 
-                                        valor_excecao_val = st.text_input("Valor do Serviço Extra a ser Cobrado (R$):", value="0,00")
-                                        valor_cobrado_os = valor_excecao_val
+                                    if liberar_excecao:
+                                        c_ex1, c_ex2 = st.columns([2, 1])
+                                        valor_excecao_num = c_ex1.number_input(
+                                            "Valor do Serviço Extra a ser Cobrado (R$):",
+                                            min_value=0.0,
+                                            value=float(st.session_state.get("os_val_exc_num", 0.0)),
+                                            step=10.0,
+                                            format="%.2f",
+                                            key="inp_val_exc_os"
+                                        )
+                                        st.session_state.os_val_exc_num = float(valor_excecao_num)
+                                        with c_ex2:
+                                            st.write("")
+                                            if st.button("Confirmar Valor na Mensagem PIX", key="btn_conf_val_pix", use_container_width=True):
+                                                st.session_state.os_val_exc_num = float(valor_excecao_num)
+                                                st.rerun()
+
+                                        valor_excecao_fmt = formatar_brl(st.session_state.os_val_exc_num)
+                                        valor_cobrado_os = valor_excecao_fmt
                                         is_excecao_flag = True
                                         pronto_para_prosseguir = True
                                     else: pronto_para_prosseguir = False
@@ -2813,7 +3075,7 @@ if st.session_state.perfil == "Admin":
                 (~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO']))
             ]
             if not os_duplicadas.empty:
-                r_dup = os_duplicadas.iloc[-1]
+                r_dup = os_duplicadas.iloc[0]
                 st.markdown(f"""
                     <div class="alert-box alert-danger" style="text-align:center; border: 2px solid #D32F2F;">
                         <b>TRAVA ANTI-DUPLICIDADE ATIVADA</b><br>
@@ -2830,7 +3092,7 @@ if st.session_state.perfil == "Admin":
             st.info("Caso o cliente não saiba informar o endereço, envie o link de captura de GPS pelo WhatsApp abaixo e puxe a localização automaticamente.")
             link_captura = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=cliente&placa={placa_alvo}"
             col_loc1, col_loc2 = st.columns([1, 1])
-            texto_zap_loc = f"Olá! Aqui é da *Central AD Assistência 24h*.\n\nPara despacharmos o seu socorro rápido, precisamos da sua localização exata. Por favor, clique no link abaixo, permita o uso do GPS e aperte no botão 'ENVIAR MINHA LOCALIZAÇÃO':\n\n📍 {link_captura}"
+            texto_zap_loc = f"Olá! Aqui é da *Central de Assistência 24 Horas — AD Rastreamento*.\n\nPara despacharmos o seu socorro rápido, precisamos da sua localização exata. Por favor, clique no link abaixo, permita o uso do GPS e aperte no botão 'ENVIAR MINHA LOCALIZAÇÃO':\n\n📍 {link_captura}"
             link_w_loc = f"https://api.whatsapp.com/send?phone=55{tel_envio_link}&text={urllib.parse.quote(texto_zap_loc)}"
             
             with col_loc1:
@@ -2931,27 +3193,51 @@ if st.session_state.perfil == "Admin":
                 tel_responsavel = apenas_numeros_letras(emp_match.iloc[0].get('telefone', '')) if not emp_match.empty else ''
                 if not tel_responsavel: tel_responsavel = tel_envio_link
 
-                texto_pix = (f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\nOlá *{resp_empresa}* (Empresa: *{empresa_os}*),\n\nO acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\n\n📋 *Detalhes completos do Atendimento:*\n• Serviço: {tipo_servico} ({motivo_servico})\n• Onde pegar (Origem): {localizacao if localizacao else 'A informar'}\n• Onde deixar (Destino): {destino if destino else 'A informar'}\n• Motivo da Exceção: Limite Anual ou Carência de 60 dias atingida\n\n💰 *Valor do Serviço Extra:* R$ {valor_excecao_val}\n\n⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\n\n📲 *DADOS PARA PAGAMENTO (PIX):*\nChave PIX (CNPJ): *55496449000184*\nNome: *AD Rastreamento Veicular LTDA*\n\nEnvie o comprovante nesta conversa para despacharmos o socorro imediatamente!")
+                valor_pix_final_num = float(st.session_state.get("os_val_exc_num", 0.0))
+                valor_pix_final_str = formatar_brl(valor_pix_final_num)
+                valor_cobrado_os = valor_pix_final_str
+
+                if valor_pix_final_num <= 0:
+                    st.warning("Informe o Valor do Serviço Extra acima e clique em 'Confirmar Valor na Mensagem PIX' (ou aperte Enter) antes de enviar a cobrança no WhatsApp.")
+                else:
+                    st.markdown(f'<div class="info-box" style="padding:10px 14px;"><b>Valor confirmado na mensagem PIX:</b> R$ {valor_pix_final_str} &nbsp;|&nbsp; <b>Responsável:</b> {resp_empresa}</div>', unsafe_allow_html=True)
+
+                texto_pix = (
+                    f"🚨 *ATENDIMENTO DE EXCEÇÃO - AD RASTREAMENTO* 🚨\n\n"
+                    f"Olá *{resp_empresa}* (Empresa: *{empresa_os}*),\n\n"
+                    f"O acionamento de exceção para o veículo *{veiculo_desc_alvo}* - Placa: *{placa_alvo}* foi autorizado.\n\n"
+                    f"📋 *Detalhes completos do Atendimento:*\n"
+                    f"• Serviço: {tipo_servico} ({motivo_servico})\n"
+                    f"• Onde pegar (Origem): {localizacao if localizacao else 'A informar'}\n"
+                    f"• Onde deixar (Destino): {destino if destino else 'A informar'}\n"
+                    f"• Motivo da Exceção: Limite Anual ou Carência de 60 dias atingida\n\n"
+                    f"💰 *Valor do Serviço Extra:* R$ {valor_pix_final_str}\n\n"
+                    f"⚠️ *Atenção:* O deslocamento do prestador será iniciado *somente após o envio do comprovante* de pagamento.\n\n"
+                    f"📲 *DADOS PARA PAGAMENTO (PIX):*\n"
+                    f"Chave PIX (CNPJ): *55496449000184*\n"
+                    f"Nome: *AD Rastreamento Veicular LTDA*\n\n"
+                    f"Envie o comprovante nesta conversa para despacharmos o socorro imediatamente!"
+                )
                 link_w_pix = f"https://api.whatsapp.com/send?phone=55{tel_responsavel}&text={urllib.parse.quote(texto_pix)}"
                 if not tel_responsavel: st.warning("Nenhum telefone cadastrado para a empresa ou cliente. Cadastre no perfil para enviar diretamente.")
-                st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 5px; width: 100%; font-size: 13px;">PASSO EXTRA: Enviar Cobrança PIX para o Responsável ({resp_empresa})</button></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{link_w_pix}" target="_blank" style="text-decoration: none;"><button style="background-color: #00bfa5; color: white; padding: 11px 20px; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 8px; width: 100%; font-size: 13px;">PASSO EXTRA: Enviar Cobrança PIX (R$ {valor_pix_final_str}) para {resp_empresa}</button></a>', unsafe_allow_html=True)
 
             if st.button("Finalizar e Gerar OS", type="primary", key="btn_gerar_os_admin"):
                 if not tel_prestador_final: st.error("O número de WhatsApp do guincheiro é obrigatório.")
                 elif not localizacao: st.error("O Endereço de Origem é obrigatório.")
                 else:
                     st.cache_data.clear()
-                    df_os_live = carregar_dados(FILE_OS, col_os)
+                    df_os_live = ordenar_os_recentes(carregar_dados(FILE_OS, col_os))
                     placa_chk_live = apenas_numeros_letras(placa_alvo).upper()
                     dup_live = df_os_live[
                         (df_os_live['placa'].astype(str).apply(lambda x: apenas_numeros_letras(x).upper()) == placa_chk_live) &
                         (~df_os_live['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO']))
                     ]
                     if not dup_live.empty:
-                        st.error(f"Bloqueado: a OS #{dup_live.iloc[-1]['id']} já está aberta para a placa {placa_alvo}.")
+                        st.error(f"Bloqueado: a OS #{dup_live.iloc[0]['id']} já está aberta para a placa {placa_alvo}.")
                     else:
                         with st.spinner("Registrando OS e sincronizando com a nuvem..."):
-                            nova_id = int(df_os_live['id'].astype(float).max() + 1) if not df_os_live.empty else 1
+                            nova_id = int(pd.to_numeric(df_os_live['id'], errors='coerce').max() + 1) if not df_os_live.empty else 1
                             hora_ab = obter_hora_str()
                             meta_inicial = {'sla_abertura': hora_ab}
                             if tipo_atendimento != "Cliente Cadastrado":
@@ -2972,18 +3258,19 @@ if st.session_state.perfil == "Admin":
                                 registrar_atividade(st.session_state.user, "NOVA OS", f"Abriu chamado {nova_id} para a placa {placa_alvo}")
                                 st.success(f"Chamado Nº {nova_id} aberto. Redirecionando para Pendências...")
                                 for k in ["os_busca_val", "os_cli_val", "os_loc_val", "os_bairro_orig_val", "os_cidade_orig_val", "os_cep_orig_val", "os_dest_val", "os_obs_val"]: st.session_state[k] = ""
+                                st.session_state.os_val_exc_num = 0.0
                                 time.sleep(1.5)
                                 st.query_params["nav"] = f"Pendências ({qtd_pendencias + 1})"
                                 st.rerun()
                             else: st.error(f"Erro ao salvar OS na nuvem: {erro}")
-             # ===================================================================================
-# INTERFACE 1: ADMIN MASTER (PARTE 4 - PENDÊNCIAS + TROCA RÁPIDA + PIX INTELIGENTE)
+                # ===================================================================================
+# INTERFACE 1: ADMIN MASTER (PARTE 4 - PENDÊNCIAS + TROCA RÁPIDA + EMPRESAS + CLIENTES + PRESTADORES)
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     if aba_selecionada == aba_pendencias_nome:
         st.markdown(f'<div class="section-title">{aba_pendencias_nome} — Monitoramento, Vistoria e Custos da OS</div>', unsafe_allow_html=True)
 
-        df_abertas = df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])]
+        df_abertas = ordenar_os_recentes(df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
         
         if df_abertas.empty: 
             st.success("Nenhum chamado pendente no momento.")
@@ -2991,9 +3278,9 @@ if st.session_state.perfil == "Admin":
             lista_abertas = []
             for _, r in df_abertas.iterrows():
                 mot = f" | Resp: {r.get('motorista_nome')}" if r.get('motorista_nome') else ""
-                lista_abertas.append(f"OS Nº: {r['id']} | Status: {r['status_os']} | Placa: {r.get('placa','N/D')}{mot}")
+                lista_abertas.append(f"OS Nº: {r['id']} | Status: {r['status_os']} | Placa: {r.get('placa','N/D')} | {str(r.get('data_hora',''))[:16]}{mot}")
             
-            os_sel_str = st.selectbox("Selecione o chamado para gerenciar, auditar ou lançar custos:", lista_abertas)
+            os_sel_str = st.selectbox("Selecione o chamado para gerenciar, auditar ou lançar custos (mais recentes primeiro):", lista_abertas)
             os_id_alvo = os_sel_str.split("|")[0].replace("OS Nº:", "").strip()
             row_os = df_abertas[df_abertas['id'].astype(str) == os_id_alvo].iloc[0]
             status_dessa_os = str(row_os['status_os']).upper()
@@ -3226,7 +3513,7 @@ if st.session_state.perfil == "Admin":
             if empresa_nome_wpp == 'CLIENTE PARTICULAR (AVULSO)': empresa_nome_wpp = 'AD RASTREAMENTO'
             
             link_nps_cliente = f"https://ad-central-mrssupqbb9ux69bi4qgisa.streamlit.app/?portal=nps&os={os_id_alvo}"
-            texto_w_nps = f"Olá! Seu atendimento de assistência 24 horas pela *{empresa_nome_wpp}* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: ⭐ {link_nps_cliente}"
+            texto_w_nps = f"Olá! Seu atendimento pela *{empresa_nome_wpp} — Central de Assistência 24 Horas* foi concluído.\n\nComo foi sua experiência? Conte para nós em menos de 30 segundos avaliando neste link: ⭐ {link_nps_cliente}"
             
             valor_str = ""
             val_cobrado = str(row_os.get('valor_cobrado', '0,00')).strip()
@@ -3235,7 +3522,7 @@ if st.session_state.perfil == "Admin":
             if is_avulso and val_cobrado not in ['0,00', '0.00', '0', '']:
                 valor_str = f"*Valor Particular:* R$ {val_cobrado}\n"
                 
-            texto_whatsapp = (f"*{empresa_nome_wpp} - ASSISTÊNCIA 24H*\n"
+            texto_whatsapp = (f"*{empresa_nome_wpp} - CENTRAL DE ASSISTÊNCIA 24 HORAS*\n"
                               f"-----------------------------------------\n"
                               f"*Chamado Nº:* {row_os['id']}\n"
                               f"*Data/Hora:* {row_os['data_hora']}\n"
@@ -3429,7 +3716,7 @@ if st.session_state.perfil == "Admin":
                     df_view_cli = df_view_cli[df_view_cli['nome'].str.contains(busca_cli_lista, case=False, na=False) | df_view_cli['pla'].str.contains(busca_cli_lista, case=False, na=False) | df_view_cli['cpf'].str.contains(busca_cli_lista, case=False, na=False) | df_view_cli['veiculos_lista'].str.lower().str.contains(busca_cli_lista.lower(), na=False)]
                 def formatar_historico(c_id):
                     if df_os.empty: return "Nenhum Serviço Solicitado"
-                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == str(c_id).strip()]
+                    os_cli = ordenar_os_recentes(df_os[df_os['cliente_id'].astype(str).str.strip() == str(c_id).strip()])
                     if os_cli.empty: return "Nenhum Serviço Solicitado"
                     res = []
                     for _, r in os_cli.iterrows():
@@ -3830,7 +4117,7 @@ if st.session_state.perfil == "Admin":
                 pix_p_hom = ler_pix_prestador(p) or "Não informada"
                 with st.expander(f"Solicitação de: {p['nome']} - {p['est']}"):
                     st.write(f"**Tipo:** {p['tipo']} | **Telefone:** {p['telefone']} | **Bairro/Cidade:** {p.get('bairro','N/D')} - {p.get('cidade','N/D')} | **Chave PIX:** `{pix_p_hom}`")
-                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na rede de prestadores da *AD Rastreamento Veicular* foi analisado e *APROVADO*! ✅🚛\n\nA partir de agora você receberá nossos chamados de assistência 24h diretamente por aqui.\n\nSeja bem-vindo à nossa rede!")
+                    texto_zap = urllib.parse.quote(f"Olá *{str(p['nome']).upper()}*! \n\nSeu cadastro na rede de prestadores da *AD Rastreamento Veicular — Central de Assistência 24 Horas* foi analisado e *APROVADO*! ✅🚛\n\nA partir de agora você receberá nossos chamados de assistência 24h diretamente por aqui.\n\nSeja bem-vindo à nossa rede!")
                     link_w_aprov = f"https://api.whatsapp.com/send?phone=55{apenas_numeros_letras(p['telefone'])}&text={texto_zap}"
                     st.markdown(f'<a href="{link_w_aprov}" target="_blank" style="text-decoration: none;"><button style="background-color: #25D366; color: white; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-bottom: 10px; font-size: 13px;">Avisar no WhatsApp</button></a>', unsafe_allow_html=True)
                     col_h1, col_h2 = st.columns(2)
@@ -3969,12 +4256,12 @@ if st.session_state.perfil == "Admin":
                                 st.success("Prestador excluído permanentemente."); st.session_state.pre_del_confirm = None; st.session_state.aba_pre = "Listar"; time.sleep(1); st.rerun()
                         if col_nao.button("Cancelar"): st.session_state.pre_del_confirm = None; st.rerun()
                 # ===================================================================================
-# INTERFACE 1: ADMIN MASTER (PARTE 5 - NPS + FINANCEIRO 360º + PARTICULAR + AUDITORIA + RELATÓRIOS + DADOS)
+# INTERFACE 1: ADMIN MASTER (PARTE 5 - NPS + FINANCEIRO 360º + AUDITORIA + RELATÓRIOS ORDENADOS + DADOS)
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     if aba_selecionada == "Satisfação (NPS)":
         st.markdown('<div class="section-title">Pesquisa de Satisfação (NPS)</div>', unsafe_allow_html=True)
-        st.write("Acompanhe em tempo real a qualidade do atendimento da Central e dos prestadores parceiros.")
+        st.write("Acompanhe em tempo real a qualidade do atendimento da Central de Assistência 24 Horas e dos prestadores parceiros.")
         
         if df_nps.empty:
             st.info("Nenhuma avaliação recebida ainda. Os dados aparecerão aqui assim que os clientes responderem.")
@@ -4351,7 +4638,6 @@ if st.session_state.perfil == "Admin":
                                 tot_novo = round(v_s_fin + v_k_fin + v_p_fin, 2)
                                 pix_limpo_save = pix_fin_in.strip()
 
-                                # Grava a Chave PIX no cadastro do prestador automaticamente se ainda não estava cadastrada
                                 if prest_id_alvo and not pix_ja_cadastrado and pix_limpo_save:
                                     row_pr_cad = df_prestadores[df_prestadores['id'].astype(str) == prest_id_alvo].iloc[0]
                                     df_prestadores.loc[df_prestadores['id'].astype(str) == prest_id_alvo, 'frota'] = empacotar_pix_prestador(row_pr_cad.get('frota', ''), pix_limpo_save)
@@ -4475,8 +4761,8 @@ if st.session_state.perfil == "Admin":
                 d3.markdown(f'<div class="metric-card green-accent"><div class="metric-title">Lucro Líquido Global</div><div class="metric-value {cls_luc}">R$ {tot_lucro_dre:.2f}</div></div>', unsafe_allow_html=True)
                 d4.markdown(f'<div class="metric-card"><div class="metric-title">Margem Líquida</div><div class="metric-value {cls_luc}">{margem_global:.1f}%</div></div>', unsafe_allow_html=True)
 
-                cor_txt_dre = "#F1F5F9" if is_dark else "#1E293B"
-                cor_grd_dre = "#334155" if is_dark else "#E2E8F0"
+                cor_txt_dre = "#F8FAFC" if is_dark else "#0F172A"
+                cor_grd_dre = "#334155" if is_dark else "#CBD5E1"
                 fig_dre = go.Figure()
                 fig_dre.add_trace(go.Bar(name='Receita Total (R$)', x=df_dre['Origem / Empresa'], y=df_dre['Receita Total'], marker_color='#6A1B9A'))
                 fig_dre.add_trace(go.Bar(name='Custo Prestadores (R$)', x=df_dre['Origem / Empresa'], y=df_dre['Custo Prestadores'], marker_color='#D32F2F'))
@@ -4547,7 +4833,7 @@ if st.session_state.perfil == "Admin":
                 if c2.button("Cancelar"): st.session_state.confirmar_limpeza_total = False; st.rerun()
 
     elif aba_selecionada == "Relatórios & PDF":
-        st.markdown('<div class="section-title">Chamados e Relatórios</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Chamados e Relatórios (Mais Recentes Primeiro)</div>', unsafe_allow_html=True)
         os_id_edit = st.text_input("Digite o ID da OS para editar ou excluir:")
         if os_id_edit:
             os_encontrada = df_os[df_os['id'].astype(str) == str(os_id_edit)]
@@ -4587,24 +4873,32 @@ if st.session_state.perfil == "Admin":
             else: st.warning("Nenhuma OS encontrada com esse ID.")
 
         st.write("---")
-        st.markdown("##### Histórico e Gerar Extrato (OS Finalizadas)")
-        df_fechadas = df_os[df_os['status_os'].str.upper() == 'ENCERRADO'].sort_values(by='id', ascending=False)
+        st.markdown("##### Histórico e Gerar Extrato (OS Finalizadas — Mais Recentes Primeiro)")
+        df_fechadas = ordenar_os_recentes(df_os[df_os['status_os'].str.upper() == 'ENCERRADO'])
         if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
         else:
-            busca_os_relatorio = st.text_input("Buscar por Placa ou Nome do cliente:")
+            busca_os_relatorio = st.text_input("Filtrar por Placa ou Nome do cliente (ou deixe em branco para listar os mais recentes):")
+            df_filtrado_fechadas = df_fechadas.copy()
             if busca_os_relatorio:
-                df_filtrado_fechadas = df_fechadas[df_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) | df_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False)]
-                if df_filtrado_fechadas.empty: st.warning("Nenhum acionamento finalizado encontrado.")
-                else:
-                    lista_os_dele = [f"Chamado Nº: {r['id']} | Placa: {r.get('placa', 'N/D')} | Data: {r['data_hora']} | Serviço: {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
-                    os_escolhida_str = st.selectbox("Selecione o acionamento para gerar o extrato:", options=lista_os_dele)
-                    os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
-                    df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
-                    st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
+                df_filtrado_fechadas = df_filtrado_fechadas[
+                    df_filtrado_fechadas['cliente_nome'].str.contains(busca_os_relatorio, case=False, na=False) |
+                    df_filtrado_fechadas['placa'].str.contains(busca_os_relatorio, case=False, na=False) |
+                    df_filtrado_fechadas['id'].astype(str).str.contains(busca_os_relatorio, case=False, na=False)
+                ]
+            if df_filtrado_fechadas.empty:
+                st.warning("Nenhum acionamento finalizado encontrado.")
+            else:
+                lista_os_dele = [f"Chamado Nº: {r['id']} | Data: {str(r['data_hora'])[:16]} | Placa: {r.get('placa', 'N/D')} | {r['cliente_nome']} | {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
+                os_escolhida_str = st.selectbox("Selecione o acionamento para gerar o extrato:", options=lista_os_dele)
+                os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
+                df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
+                st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
         
         st.write("---")
-        st.markdown("##### Tabela Geral de Chamados")
-        st.dataframe(df_os, use_container_width=True)
+        st.markdown("##### Tabela Geral de Chamados (Do Mais Recente para o Mais Antigo)")
+        df_os_tabela_geral = ordenar_os_recentes(df_os)
+        colunas_vis_geral = [c for c in ['id', 'data_hora', 'status_os', 'empresa', 'cliente_nome', 'placa', 'tipo_servico', 'motivo', 'prestador', 'motorista_nome', 'valor_cobrado', 'localizacao', 'destino'] if c in df_os_tabela_geral.columns]
+        st.dataframe(df_os_tabela_geral[colunas_vis_geral], use_container_width=True)
 
     elif aba_selecionada == "Dados":
         st.markdown('<div class="section-title">Backup e Restauração</div>', unsafe_allow_html=True)
@@ -4615,7 +4909,7 @@ if st.session_state.perfil == "Admin":
             if not df_clientes.empty: st.download_button("Baixar Clientes (.csv)", df_clientes.to_csv(index=False).encode('utf-8'), file_name="banco_clientes.csv", use_container_width=True)
             if not df_empresas.empty: st.download_button("Baixar Empresas (.csv)", df_empresas.to_csv(index=False).encode('utf-8'), file_name="banco_empresas.csv", use_container_width=True)
             if not df_prestadores.empty: st.download_button("Baixar Prestadores (.csv)", df_prestadores.to_csv(index=False).encode('utf-8'), file_name="banco_prestadores.csv", use_container_width=True)
-            if not df_os.empty: st.download_button("Baixar Atendimentos / OS (.csv)", df_os.to_csv(index=False).encode('utf-8'), file_name="banco_os.csv", use_container_width=True)
+            if not df_os.empty: st.download_button("Baixar Atendimentos / OS (.csv)", ordenar_os_recentes(df_os).to_csv(index=False).encode('utf-8'), file_name="banco_os.csv", use_container_width=True)
             if not df_financeiro.empty: st.download_button("Baixar Financeiro (.csv)", df_financeiro.to_csv(index=False).encode('utf-8'), file_name="banco_financeiro.csv", use_container_width=True)
             if not df_nps.empty: st.download_button("Baixar Avaliações NPS (.csv)", df_nps.to_csv(index=False).encode('utf-8'), file_name="banco_nps.csv", use_container_width=True)
         with c_b2:
@@ -4641,7 +4935,7 @@ if st.session_state.perfil == "Admin":
                     else: st.error("Nome de arquivo não reconhecido. Use os nomes originais gerados pelo sistema (ex: banco_clientes.csv).")
 
 # ===================================================================================
-# INTERFACE 2: PARCEIROS (VISUAL CORPORATIVO LIMPO SEM EMOJIS)
+# INTERFACE 2: PARCEIROS (CENTRAL DE ASSISTÊNCIA 24 HORAS — VISUAL CORPORATIVO LIMPO)
 # ===================================================================================
 if st.session_state.perfil == "Parceiro":
     opcoes_parc = ["Dashboard", "Cadastro de Clientes", "Histórico de Chamados", "Meu Financeiro", "Auditoria"]
@@ -4651,7 +4945,7 @@ if st.session_state.perfil == "Parceiro":
     with st.sidebar:
         st.markdown("""
             <div class="sidebar-brand-box">
-                <div class="sidebar-brand-title">CENTRAL AD 24H</div>
+                <div class="sidebar-brand-title">AD ASSISTÊNCIA 24H</div>
                 <div class="sidebar-brand-sub">Portal do Parceiro</div>
             </div>
         """, unsafe_allow_html=True)
@@ -4694,7 +4988,7 @@ if st.session_state.perfil == "Parceiro":
                     if df_os.empty: return "Nenhum Serviço Solicitado"
                     c_id_str = str(c_id).strip()
                     if not c_id_str or c_id_str.lower() == 'nan': return "Nenhum Serviço Solicitado"
-                    os_cli = df_os[df_os['cliente_id'].astype(str).str.strip() == c_id_str]
+                    os_cli = ordenar_os_recentes(df_os[df_os['cliente_id'].astype(str).str.strip() == c_id_str])
                     if os_cli.empty: return "Nenhum Serviço Solicitado"
                     res = []
                     for _, r in os_cli.iterrows():
@@ -4763,12 +5057,12 @@ if st.session_state.perfil == "Parceiro":
                         col_m5.metric("Borracheiro", f"{uso_atual_f['BORRACHEIRO']} / {LIMITES_ANUAIS['BORRACHEIRO']}")
                     
                     st.write("---")
-                    st.write("**Histórico Completo de Atendimentos:**")
+                    st.write("**Histórico Completo de Atendimentos (Mais Recentes Primeiro):**")
                     if df_os.empty: st.info("Nenhum acionamento.")
                     else:
-                        os_cli_p = df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data_p['id']).strip()]
+                        os_cli_p = ordenar_os_recentes(df_os[df_os['cliente_id'].astype(str).str.strip() == str(cli_data_p['id']).strip()])
                         if os_cli_p.empty: st.info("Nenhum acionamento.")
-                        else: st.dataframe(os_cli_p[['data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
+                        else: st.dataframe(os_cli_p[['id', 'data_hora', 'tipo_servico', 'placa', 'prestador', 'status_os']], use_container_width=True)
                             
                     if st.button("Fechar Ficha do Cliente", key="btn_close_part"):
                         st.session_state.sel_det_part = ""
@@ -4937,10 +5231,12 @@ if st.session_state.perfil == "Parceiro":
                         if col_nao.button("Cancelar"): st.session_state.part_del_confirm = None; st.rerun()
 
     elif aba_selecionada == "Histórico de Chamados":
-        st.markdown('<div class="section-title">Histórico de Chamados</div>', unsafe_allow_html=True)
-        df_os_parceiro = df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()]
+        st.markdown('<div class="section-title">Histórico de Chamados (Mais Recentes Primeiro)</div>', unsafe_allow_html=True)
+        df_os_parceiro = ordenar_os_recentes(df_os[df_os['empresa'].str.lower() == st.session_state.empresa_vinculada.lower()])
         if df_os_parceiro.empty: st.info("Nenhum acionamento registrado para sua empresa.")
-        else: st.dataframe(df_os_parceiro, use_container_width=True)
+        else:
+            colunas_vis_parc = [c for c in ['id', 'data_hora', 'status_os', 'cliente_nome', 'placa', 'tipo_servico', 'motivo', 'localizacao', 'destino', 'prestador'] if c in df_os_parceiro.columns]
+            st.dataframe(df_os_parceiro[colunas_vis_parc], use_container_width=True)
 
     elif aba_selecionada == "Meu Financeiro":
         st.markdown('<div class="section-title">Gestão Financeira</div>', unsafe_allow_html=True)
