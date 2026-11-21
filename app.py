@@ -50,7 +50,7 @@ def iniciar_supabase():
 supabase = iniciar_supabase()
 
 # ===================================================================================
-# CONSTANTES DE NEGÓCIO E PLANOS
+# CONSTANTES DE NEGÓCIO, PLANOS E CHAVE DE CONTROLE DA OPÇÃO B (60 DIAS)
 # ===================================================================================
 ESTADOS_BR = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"]
 PLANOS_KM = ["Sem Limite", "50km", "100km", "150km", "200km", "300km", "400km", "500km"]
@@ -58,6 +58,9 @@ OPCOES_SERVICOS = ["Guincho", "Pane Seca", "Pane Elétrica", "Borracheiro", "Cha
 OPCOES_DIAS_VENC = ["5", "10", "15", "20", "25", "30", "31"]
 
 LIMITES_ANUAIS = {"GUINCHO": 2, "PANE SECA": 1, "PANE ELÉTRICA": 1, "BORRACHEIRO": 1, "CHAVEIRO": 1}
+
+# Se após 60 dias quiser travar novos cadastros da Opção B apenas em 50km e 100km, troque True para False:
+OPCAO_B_PERMITIR_200KM = True
 
 MODOS_FATURAMENTO = [
     "Tradicional", 
@@ -77,7 +80,7 @@ FROTA_COL_CONFIG = {
 MARCAS_MOTO = ['YAMAHA', 'HONDA', 'SUZUKI', 'KAWASAKI', 'SHINERAY', 'DAFRA', 'TRAXX', 'BROS', 'TITAN', 'BIZ', 'XRE', 'POP', 'PCX', 'NMAX', 'CB']
 
 # ===================================================================================
-# ESTILIZAÇÃO CSS CORPORATIVA DE ALTO CONTRASTE (BLINDADA CONTRA MODO ESCURO DO CELULAR)
+# ESTILIZAÇÃO CSS CORPORATIVA DE ALTO CONTRASTE + MENU LATERAL MINIMALISTA COM LINHA
 # ===================================================================================
 if is_dark:
     COR_BG_APP = "#0F172A"
@@ -99,7 +102,6 @@ if is_dark:
     COR_ALERT_SUCCESS_BG = "#0F2E1D"
     COR_ALERT_SUCCESS_TXT = "#BBF7D0"
     COR_RADIO_HOVER = "#2E1065"
-    COR_RADIO_ACTIVE = "linear-gradient(90deg, #3B0764 0%, #1E293B 100%)"
     COR_HR = "#334155"
 else:
     COR_BG_APP = "#F1F5F9"
@@ -121,7 +123,6 @@ else:
     COR_ALERT_SUCCESS_BG = "#DCFCE7"
     COR_ALERT_SUCCESS_TXT = "#166534"
     COR_RADIO_HOVER = "#F3E5F5"
-    COR_RADIO_ACTIVE = "linear-gradient(90deg, #F3E5F5 0%, #FFFFFF 100%)"
     COR_HR = "#CBD5E1"
 
 CSS_TEMA_CONTRASTE = """
@@ -397,11 +398,11 @@ st.markdown(f"""
     ::-webkit-scrollbar-thumb {{ background: #6A1B9A; border-radius: 4px; }}
     ::-webkit-scrollbar-thumb:hover {{ background: #D32F2F; }}
 
-    /* Barra Lateral Esquerda */
+    /* Barra Lateral Esquerda — Minimalista (Sem quadrados, apenas nomes + linha inferior) */
     section[data-testid="stSidebar"] {{
         background-color: {COR_BG_SIDEBAR};
         border-right: 1px solid {COR_BORDA};
-        box-shadow: 2px 0 12px rgba(106, 27, 154, 0.08);
+        box-shadow: 2px 0 12px rgba(106, 27, 154, 0.06);
     }}
     section[data-testid="stSidebar"] > div:first-child {{
         padding-top: 0.8rem;
@@ -412,7 +413,7 @@ st.markdown(f"""
         padding: 14px 16px;
         border-radius: 12px;
         text-align: center;
-        margin-bottom: 14px;
+        margin-bottom: 18px;
         box-shadow: 0 4px 12px rgba(106, 27, 154, 0.22);
     }}
     .sidebar-brand-title {{
@@ -433,38 +434,50 @@ st.markdown(f"""
         background-color: transparent !important;
         border: none !important;
         box-shadow: none !important;
-        padding: 0 !important;
-        gap: 6px;
+        padding: 0 4px !important;
+        gap: 2px !important;
         display: flex;
         flex-direction: column;
     }}
+    /* Oculta a bolinha do rádio na barra lateral para exibir apenas os nomes */
+    section[data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child:not(:has(p)) {{
+        display: none !important;
+    }}
     section[data-testid="stSidebar"] div[role="radiogroup"] label {{
         width: 100% !important;
-        background-color: {COR_BG_CARD_ALT} !important;
-        border: 1px solid {COR_BORDA} !important;
-        border-left: 4px solid transparent !important;
-        border-radius: 8px !important;
-        padding: 10px 14px !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        border: none !important;
+        border-bottom: 1px solid {COR_HR} !important;
+        border-radius: 0px !important;
+        box-shadow: none !important;
+        padding: 11px 6px 9px 6px !important;
         margin: 0 !important;
-        font-weight: 600 !important;
-        color: {COR_TEXTO} !important;
-        transition: all 0.2s ease;
+        cursor: pointer !important;
+        transition: all 0.18s ease !important;
     }}
     section[data-testid="stSidebar"] div[role="radiogroup"] label p {{
-        color: {COR_TEXTO} !important;
+        color: {COR_TEXTO_SEC} !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.1px !important;
+        margin: 0 !important;
+        transition: all 0.18s ease !important;
     }}
     section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {{
-        border-color: #6A1B9A !important;
-        border-left: 4px solid #D32F2F !important;
-        background-color: {COR_RADIO_HOVER} !important;
+        background: transparent !important;
+        border-bottom: 2px solid #6A1B9A !important;
+        padding-left: 10px !important;
+    }}
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover p {{
+        color: {COR_ROXO_DEST} !important;
     }}
     section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {{
-        background: {COR_RADIO_ACTIVE} !important;
-        border-color: #6A1B9A !important;
-        border-left: 4px solid #D32F2F !important;
-        color: {COR_ROXO_TXT} !important;
-        font-weight: 800 !important;
-        box-shadow: 0 2px 6px rgba(106, 27, 154, 0.16);
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 2.5px solid #D32F2F !important;
+        box-shadow: none !important;
+        padding-left: 10px !important;
     }}
     section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {{
         color: {COR_ROXO_TXT} !important;
@@ -599,8 +612,8 @@ st.markdown(f"""
         margin-bottom: 10px;
     }}
 
-    /* Submenus Horizontais */
-    div[role="radiogroup"] {{
+    /* Submenus Horizontais (somente na área principal) */
+    section.main div[role="radiogroup"] {{
         background-color: {COR_BG_CARD};
         padding: 8px 12px;
         border-radius: 12px;
@@ -608,7 +621,7 @@ st.markdown(f"""
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         gap: 6px;
     }}
-    div[role="radiogroup"] label {{
+    section.main div[role="radiogroup"] label {{
         background-color: {COR_BG_CARD_ALT} !important;
         border: 1px solid {COR_BORDA} !important;
         border-radius: 8px !important;
@@ -616,7 +629,7 @@ st.markdown(f"""
         color: {COR_TEXTO} !important;
         transition: all 0.2s ease;
     }}
-    div[role="radiogroup"] label:hover {{
+    section.main div[role="radiogroup"] label:hover {{
         border-color: #6A1B9A !important;
         background-color: {COR_RADIO_HOVER} !important;
     }}
@@ -807,6 +820,21 @@ st.markdown(f"""
 def obter_hora_brasilia(): return datetime.now(timezone(timedelta(hours=-3)))
 def obter_hora_str(): return obter_hora_brasilia().strftime("%Y-%m-%d %H:%M:%S")
 def apenas_numeros_letras(texto): return "".join(caractere for caractere in str(texto) if caractere.isalnum()).strip().lower()
+
+def obter_opcoes_km_plano(modo_fat):
+    """Centraliza quais quilometragens cada plano libera no cadastro/edição (pronto para limitar Opção B no futuro)."""
+    m = str(modo_fat).strip()
+    if "Frota Pequena" in m:
+        return ["50km", "100km"], f"Plano **{m}**. Opções liberadas: 50km e 100km."
+    elif "Opção A" in m:
+        return ["50km", "100km", "200km"], f"Plano **{m}**. Opções liberadas: 50km, 100km e 200km."
+    elif "Opção B" in m:
+        if OPCAO_B_PERMITIR_200KM:
+            return ["50km", "100km", "200km"], f"Plano **{m}**. Opções liberadas: 50km, 100km e 200km."
+        return ["50km", "100km"], f"Plano **{m}** (limitado a 50km e 100km)."
+    elif "Escalonado" in m:
+        return ["50km", "100km", "200km"], "Modo **Performance (Escalonado)**. Opções liberadas: 50km, 100km e 200km."
+    return PLANOS_KM, ""
 
 def formatar_moeda_float(valor):
     try:
@@ -1785,8 +1813,19 @@ def obter_faixa_escalonado(taxa_uso):
         if taxa_uso <= dados["max"]: return nome_faixa, dados
     return "Enquadramento Teto (> 70%)", TABELA_ESCALONADO["Enquadramento Teto (> 70%)"]
 
+def classificar_faixa_km(plano_str):
+    """Identifica com precisão se o plano do veículo/OS é 50km, 100km ou 200km+ (nunca confunde 200km com 50km)."""
+    s = str(plano_str).strip().lower()
+    if "sem limite" in s or "200" in s or "300" in s or "400" in s or "500" in s:
+        return "200km"
+    elif "100" in s or "150" in s:
+        return "100km"
+    elif "50" in s:
+        return "50km"
+    return "50km"
+
 # ===================================================================================
-# FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO 360º + PARTICULAR + PIX INTELIGENTE)
+# FUNÇÕES DE CÁLCULO E REGRAS DE NEGÓCIO (FINANCEIRO 360º + PARTICULAR + 200KM OFICIAL)
 # ===================================================================================
 def colorir_status(val):
     if is_dark:
@@ -1972,7 +2011,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
     
     for _, r_cli in df_cli_fat.iterrows():
         p_km_cli = str(r_cli.get('plano_km', '50km')).strip()
-        plano_limpo = "50km" if "50" in p_km_cli else "100km" if "100" in p_km_cli else "200km" if "200" in p_km_cli else "Sem Limite"
+        plano_limpo = classificar_faixa_km(p_km_cli)
         placas_extraidas = []
         if pd.notna(r_cli.get('veiculos_lista')) and str(r_cli['veiculos_lista']).strip() not in ['', '[]', 'nan']:
             try:
@@ -2007,7 +2046,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
             'taxa': 0.0, 'faixa': 'Inativo', 'veiculos': [],
             'valor_base': 0.0, 'soma_adicionais': 0.0, 'soma_excedentes': 0.0,
             'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str,
-            'modo_fat': 'Inativo', 'qtd_exc_50': 0, 'qtd_exc_100': 0,
+            'modo_fat': 'Inativo', 'qtd_exc_50': 0, 'qtd_exc_100': 0, 'qtd_exc_200': 0,
             'total_ac': 0, 'acionamentos_isentos': 0
         }
 
@@ -2019,33 +2058,37 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
                                     (df_os_temp['tipo_servico'].str.upper().str.contains('GUINCHO')) & 
                                     (df_os_temp['data_hora'] >= dt_inicio) & 
                                     (df_os_temp['data_hora'] <= dt_fim) &
-                                    (df_os_temp['valor_cobrado'].isin(['0,00', '0.00', '0', '']))]
+                                    (df_os_temp['valor_cobrado'].isin(['0,00', '0.00', '0', '']))].sort_values(by='data_hora', ascending=True)
                             
     total_guinchos = len(os_filtro_guinchos)
     fatura_total, soma_adicionais, soma_excedentes, valor_base = 0.0, 0.0, 0.0, 0.0
-    qtd_exc_50, qtd_exc_100, taxa, faixa = 0, 0, 0.0, "N/A"
+    qtd_exc_50, qtd_exc_100, qtd_exc_200, taxa, faixa = 0, 0, 0, 0.0, "N/A"
     total_ac, acionamentos_isentos = total_guinchos, 0
     
     if "Frota Pequena" in modo_fat_calc or "Até 40" in modo_fat_calc:
         if "Frota Pequena" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 300.00, 2, 50.00, 85.00
+            valor_base, acionamentos_isentos, taxa_50, taxa_100, taxa_200 = 300.00, 2, 50.00, 85.00, 150.00
         elif "Opção A" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 500.00, 2, 85.00, 100.00
+            valor_base, acionamentos_isentos, taxa_50, taxa_100, taxa_200 = 500.00, 2, 85.00, 100.00, 150.00
         elif "Opção B" in modo_fat_calc:
-            valor_base, acionamentos_isentos, taxa_50, taxa_100 = 650.00, 4, 150.00, 190.00
+            valor_base, acionamentos_isentos, taxa_50, taxa_100, taxa_200 = 650.00, 4, 150.00, 190.00, 270.00
 
+        precos_placa_fixo = {"50km": 6.90, "100km": 8.90, "200km": 11.20}
         for v in lista_veiculos_emp:
-            p_km = str(v['plano'])
-            custo_placa = 6.90 if "50" in p_km else 8.90
+            faixa_v = classificar_faixa_km(v['plano'])
+            custo_placa = precos_placa_fixo.get(faixa_v, 6.90)
             soma_adicionais += custo_placa
-            v['tipo_cobranca'] = f'Mensalidade (R$ {custo_placa:.2f})'
+            v['tipo_cobranca'] = f'Mensalidade {faixa_v} (R$ {custo_placa:.2f})'
             v['valor_cobrado'] = custo_placa
 
         if total_guinchos > acionamentos_isentos:
             guinchos_excedentes = os_filtro_guinchos.iloc[acionamentos_isentos:]
             for _, g in guinchos_excedentes.iterrows():
-                p_km_g = str(g.get('plano_km', '50km'))
-                if "100" in p_km_g:
+                faixa_g = classificar_faixa_km(g.get('plano_km', '50km'))
+                if faixa_g == "200km":
+                    soma_excedentes += taxa_200
+                    qtd_exc_200 += 1
+                elif faixa_g == "100km":
                     soma_excedentes += taxa_100
                     qtd_exc_100 += 1
                 else:
@@ -2061,10 +2104,10 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         faixa, precos_faixa = obter_faixa_escalonado(taxa)
 
         for v in lista_veiculos_emp:
-            p_km = str(v['plano'])
-            custo_placa = precos_faixa.get(p_km, precos_faixa['50km'])
+            faixa_v = classificar_faixa_km(v['plano'])
+            custo_placa = precos_faixa.get(faixa_v, precos_faixa['50km'])
             soma_adicionais += custo_placa
-            v['tipo_cobranca'] = f'Tabela ({faixa})'
+            v['tipo_cobranca'] = f'Tabela {faixa_v} ({faixa})'
             v['valor_cobrado'] = custo_placa
 
         if soma_adicionais < 400.00:
@@ -2083,7 +2126,7 @@ def calcular_fatura_parceiro(nome_empresa, mes, ano, df_clientes_atuais, df_os_a
         'taxa': taxa, 'faixa': faixa, 'veiculos': lista_veiculos_emp,
         'valor_base': valor_base, 'soma_adicionais': soma_adicionais, 'soma_excedentes': soma_excedentes,
         'dt_inicio': dt_inicio, 'dt_fim': dt_fim, 'vencimento_dia': dia_venc_str,
-        'modo_fat': modo_fat_calc, 'qtd_exc_50': qtd_exc_50, 'qtd_exc_100': qtd_exc_100,
+        'modo_fat': modo_fat_calc, 'qtd_exc_50': qtd_exc_50, 'qtd_exc_100': qtd_exc_100, 'qtd_exc_200': qtd_exc_200,
         'total_ac': total_ac, 'acionamentos_isentos': acionamentos_isentos
     }
 
@@ -2192,7 +2235,8 @@ def gerar_texto_resumo_plano(dados_fat):
             detalhe_exc = []
             if dados_fat.get('qtd_exc_50', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_50']}x excedente(s) de 50km")
             if dados_fat.get('qtd_exc_100', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_100']}x excedente(s) de 100km")
-            texto += f"<b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:{COR_VERM_TXT}; font-size:13.5px;'>(R$ {base:.2f} Fixo + R$ {placas_tot:.2f} Placas + Adicional Extra: R$ {exc:.2f} de {' e '.join(detalhe_exc)})</span>"
+            if dados_fat.get('qtd_exc_200', 0) > 0: detalhe_exc.append(f"{dados_fat['qtd_exc_200']}x excedente(s) de 200km")
+            texto += f"<b>Fatura Atualizada: R$ {fat_tot:.2f}</b> <span style='color:{COR_VERM_TXT}; font-size:13.5px;'>(R$ {base:.2f} Fixo + R$ {placas_tot:.2f} Placas + Adicional Extra: R$ {exc:.2f} de {', '.join(detalhe_exc)})</span>"
         else:
             texto += f"<b>Fatura Atual: R$ {fat_tot:.2f}</b> <span style='color:{COR_VERDE_TXT}; font-size:13.5px;'>(Operando dentro da franquia do pacote)</span>"
         return texto
@@ -2368,7 +2412,7 @@ if portal_atual == "guincho":
             </div>
         """, unsafe_allow_html=True)
         
-        st.markdown(f'<div class="section-title">Assumir Ocorrência</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Assumir Ocorrência</div>', unsafe_allow_html=True)
         tel_mot_raw = st.text_input("Digite seu WhatsApp (com DDD) para localizar seu cadastro:")
         tel_limpo = apenas_numeros_letras(tel_mot_raw)
         
@@ -2839,7 +2883,7 @@ with col_logout:
         st.rerun()
 
 # ===================================================================================
-# INTERFACE 1: ADMIN MASTER (MENU LATERAL + DASHBOARD + NOVA OS COM PIX EXCEÇÃO CORRIGIDO)
+# INTERFACE 1: ADMIN MASTER (MENU LATERAL MINIMALISTA + DASHBOARD + NOVA OS)
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     qtd_pendencias = len(df_os[~df_os['status_os'].str.upper().isin(['ENCERRADO', 'CANCELADO'])])
@@ -3264,7 +3308,7 @@ if st.session_state.perfil == "Admin":
                                 st.rerun()
                             else: st.error(f"Erro ao salvar OS na nuvem: {erro}")
                 # ===================================================================================
-# INTERFACE 1: ADMIN MASTER (PARTE 4 - PENDÊNCIAS + TROCA RÁPIDA + EMPRESAS + CLIENTES + PRESTADORES)
+# INTERFACE 1: ADMIN MASTER (PARTE 4 - PENDÊNCIAS + TROCA RÁPIDA + EMPRESAS + CLIENTES 200KM + PRESTADORES)
 # ===================================================================================
 if st.session_state.perfil == "Admin":
     if aba_selecionada == aba_pendencias_nome:
@@ -3834,14 +3878,9 @@ if st.session_state.perfil == "Admin":
                 if not dados_emp.empty:
                     modo_fat_selecionado = dados_emp.iloc[0].get('modo_faturamento', 'Tradicional')
             
-            if "Frota Pequena" in modo_fat_selecionado or "Até 40" in modo_fat_selecionado:
-                opcoes_km_cli = ["50km", "100km"]
-                st.info(f"A empresa {emp} utiliza o plano **{modo_fat_selecionado}**. Opções liberadas: 50km e 100km.")
-            elif "Escalonado" in modo_fat_selecionado:
-                opcoes_km_cli = ["50km", "100km", "200km"]
-                st.info(f"A empresa {emp} utiliza o **Modo Escalonado**. Opções liberadas: 50km, 100km e 200km.")
-            else:
-                opcoes_km_cli = PLANOS_KM
+            opcoes_km_cli, msg_km_cli = obter_opcoes_km_plano(modo_fat_selecionado)
+            if msg_km_cli:
+                st.info(f"Empresa {emp}: {msg_km_cli}")
 
             col_b1, col_b2, col_b3 = st.columns(3)
             est = col_b1.selectbox("Estado (UF) do Veículo:", options=ESTADOS_BR, index=ESTADOS_BR.index("RN"))
@@ -3886,9 +3925,9 @@ if st.session_state.perfil == "Admin":
                 if not dados_emp_lote.empty:
                     modo_fat_lote = dados_emp_lote.iloc[0].get('modo_faturamento', 'Tradicional')
             
-            if "Frota Pequena" in modo_fat_lote or "Até 40" in modo_fat_lote: opcoes_km_lote = ["50km", "100km"]
-            elif "Escalonado" in modo_fat_lote: opcoes_km_lote = ["50km", "100km", "200km"]
-            else: opcoes_km_lote = PLANOS_KM
+            opcoes_km_lote, msg_km_lote = obter_opcoes_km_plano(modo_fat_lote)
+            if msg_km_lote:
+                st.info(f"Empresa {empresa_selecionada}: {msg_km_lote}")
 
             c_imp1, c_imp2, c_imp3 = st.columns(3)
             plano_padrao = c_imp1.selectbox("Plano Padrão:", options=opcoes_km_lote, index=0)
@@ -4051,16 +4090,21 @@ if st.session_state.perfil == "Admin":
                         if not dados_emp.empty:
                             modo_fat_selecionado = dados_emp.iloc[0].get('modo_faturamento', 'Tradicional')
                     
-                    if "Frota Pequena" in modo_fat_selecionado or "Até 40" in modo_fat_selecionado: opcoes_km_cli = ["50km", "100km"]
-                    elif "Escalonado" in modo_fat_selecionado: opcoes_km_cli = ["50km", "100km", "200km"]
-                    else: opcoes_km_cli = PLANOS_KM
+                    opcoes_km_cli, msg_km_cli = obter_opcoes_km_plano(modo_fat_selecionado)
+                    if msg_km_cli:
+                        st.info(f"Empresa {emp}: {msg_km_cli}")
+
+                    plano_atual_cli = str(dados_ant.get('plano_km', '50km')).strip()
+                    opcoes_km_edit = list(opcoes_km_cli)
+                    if plano_atual_cli and plano_atual_cli not in opcoes_km_edit:
+                        opcoes_km_edit.append(plano_atual_cli)
 
                     col_b1, col_b2, col_b3 = st.columns(3)
                     idx_est_c = ESTADOS_BR.index(str(dados_ant['est']).upper()) if str(dados_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     est = col_b1.selectbox("Estado (UF) do Veículo:", options=ESTADOS_BR, index=idx_est_c)
                     
-                    idx_plano = opcoes_km_cli.index(str(dados_ant.get('plano_km', '50km'))) if str(dados_ant.get('plano_km', '50km')) in opcoes_km_cli else 0
-                    plano_km = col_b2.selectbox("Plano Contratado (KM):", options=opcoes_km_cli, index=idx_plano)
+                    idx_plano = opcoes_km_edit.index(plano_atual_cli) if plano_atual_cli in opcoes_km_edit else 0
+                    plano_km = col_b2.selectbox("Plano Contratado (KM):", options=opcoes_km_edit, index=idx_plano)
                     status = col_b3.selectbox("Status do Cliente:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_ant['status'])))
                     
                     if st.button("Salvar Alterações"):
@@ -4935,7 +4979,7 @@ if st.session_state.perfil == "Admin":
                     else: st.error("Nome de arquivo não reconhecido. Use os nomes originais gerados pelo sistema (ex: banco_clientes.csv).")
 
 # ===================================================================================
-# INTERFACE 2: PARCEIROS (CENTRAL DE ASSISTÊNCIA 24 HORAS — VISUAL CORPORATIVO LIMPO)
+# INTERFACE 2: PARCEIROS (CENTRAL DE ASSISTÊNCIA 24 HORAS — MENU MINIMALISTA + 200KM)
 # ===================================================================================
 if st.session_state.perfil == "Parceiro":
     opcoes_parc = ["Dashboard", "Cadastro de Clientes", "Histórico de Chamados", "Meu Financeiro", "Auditoria"]
@@ -5090,13 +5134,9 @@ if st.session_state.perfil == "Parceiro":
                 dados_emp_parc = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
                 if not dados_emp_parc.empty: modo_fat_parceiro = dados_emp_parc.iloc[0].get('modo_faturamento', 'Tradicional')
             
-            if "Frota Pequena" in modo_fat_parceiro or "Até 40" in modo_fat_parceiro:
-                opcoes_km_parc = ["50km", "100km"]
-                st.info("Seu plano é de Frota Fixa. Opções disponíveis: 50km e 100km.")
-            elif "Escalonado" in modo_fat_parceiro:
-                opcoes_km_parc = ["50km", "100km", "200km"]
-                st.info("Seu plano é Escalonado. Opções disponíveis: 50km, 100km e 200km.")
-            else: opcoes_km_parc = PLANOS_KM
+            opcoes_km_parc, msg_km_parc = obter_opcoes_km_plano(modo_fat_parceiro)
+            if msg_km_parc:
+                st.info(msg_km_parc)
 
             col_pb1, col_pb2, col_pb3 = st.columns(3)
             uf_padrao_parceiro = "RN"
@@ -5175,15 +5215,20 @@ if st.session_state.perfil == "Parceiro":
                         dados_emp_parc = df_empresas[df_empresas['nome'].str.upper() == st.session_state.empresa_vinculada.upper()]
                         if not dados_emp_parc.empty: modo_fat_parceiro = dados_emp_parc.iloc[0].get('modo_faturamento', 'Tradicional')
                     
-                    if "Frota Pequena" in modo_fat_parceiro or "Até 40" in modo_fat_parceiro: opcoes_km_parc = ["50km", "100km"]
-                    elif "Escalonado" in modo_fat_parceiro: opcoes_km_parc = ["50km", "100km", "200km"]
-                    else: opcoes_km_parc = PLANOS_KM
+                    opcoes_km_parc, msg_km_parc = obter_opcoes_km_plano(modo_fat_parceiro)
+                    if msg_km_parc:
+                        st.info(msg_km_parc)
+
+                    plano_atual_part = str(dados_part_ant.get('plano_km', '50km')).strip()
+                    opcoes_km_parc_edit = list(opcoes_km_parc)
+                    if plano_atual_part and plano_atual_part not in opcoes_km_parc_edit:
+                        opcoes_km_parc_edit.append(plano_atual_part)
 
                     col_pb1, col_pb2, col_pb3 = st.columns(3)
                     idx_est_part = ESTADOS_BR.index(str(dados_part_ant['est']).upper()) if str(dados_part_ant['est']).upper() in ESTADOS_BR else ESTADOS_BR.index("RN")
                     p_est = col_pb1.selectbox("UF do Veículo:", options=ESTADOS_BR, index=idx_est_part)
-                    idx_plano_p = opcoes_km_parc.index(str(dados_part_ant.get('plano_km', '50km'))) if str(dados_part_ant.get('plano_km', '50km')) in opcoes_km_parc else 0
-                    p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=opcoes_km_parc, index=idx_plano_p)
+                    idx_plano_p = opcoes_km_parc_edit.index(plano_atual_part) if plano_atual_part in opcoes_km_parc_edit else 0
+                    p_plano_km = col_pb2.selectbox("Plano Contratado (KM):", options=opcoes_km_parc_edit, index=idx_plano_p)
                     p_stat = col_pb3.selectbox("Status do Serviço:", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(str(dados_part_ant['status'])))
                     
                     if st.button("Salvar Alterações"):
