@@ -37,6 +37,41 @@ if "tema_app" not in st.session_state:
     st.session_state.tema_app = "Claro"
 
 is_dark = (st.session_state.tema_app == "Escuro")
+# ===================================================================================
+# CORREÇÃO DEFINITIVA: REMOVE A CAIXA PRETA DE </div> E GARANTE LEGIBILIDADE NO MODO CLARO
+# ===================================================================================
+if not getattr(st.markdown, "_ad_limpo", False):
+    _st_markdown_orig = st.markdown
+    def _st_markdown_limpo(body, unsafe_allow_html=False, **kwargs):
+        if unsafe_allow_html and isinstance(body, str) and "<style" not in body.lower():
+            linhas = [ln.strip() for ln in body.splitlines() if ln.strip()]
+            body = "\n".join(linhas)
+        return _st_markdown_orig(body, unsafe_allow_html=unsafe_allow_html, **kwargs)
+    _st_markdown_limpo._ad_limpo = True
+    st.markdown = _st_markdown_limpo
+
+if not is_dark:
+    st.markdown("""
+        <style>
+        div[data-testid="stAlert"] {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+        }
+        div[data-testid="stExpanderDetails"] {
+            background-color: #FFFFFF !important;
+            color: #0F172A !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: #FFFFFF !important;
+            border-color: #CBD5E1 !important;
+        }
+        pre, code {
+            background-color: #F3E5F5 !important;
+            color: #4A148C !important;
+            border: 1px solid #E9D5FF !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 # ===================================================================================
 # CONEXÃO COM O BANCO DE DADOS EM NUVEM (SUPABASE)
