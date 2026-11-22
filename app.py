@@ -37,8 +37,9 @@ if "tema_app" not in st.session_state:
     st.session_state.tema_app = "Claro"
 
 is_dark = (st.session_state.tema_app == "Escuro")
+
 # ===================================================================================
-# CORREÇÃO DEFINITIVA: REMOVE A CAIXA PRETA DE </div> E GARANTE LEGIBILIDADE NO MODO CLARO
+# CORREÇÃO GLOBAL 1: REMOVE A CAIXA PRETA DE </div> EM TODO O APLICATIVO
 # ===================================================================================
 if not getattr(st.markdown, "_ad_limpo", False):
     _st_markdown_orig = st.markdown
@@ -50,28 +51,42 @@ if not getattr(st.markdown, "_ad_limpo", False):
     _st_markdown_limpo._ad_limpo = True
     st.markdown = _st_markdown_limpo
 
-if not is_dark:
-    st.markdown("""
-        <style>
-        div[data-testid="stAlert"] {
-            background-color: #FFFFFF !important;
-            color: #0F172A !important;
-        }
-        div[data-testid="stExpanderDetails"] {
-            background-color: #FFFFFF !important;
-            color: #0F172A !important;
-        }
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: #FFFFFF !important;
-            border-color: #CBD5E1 !important;
-        }
-        pre, code {
-            background-color: #F3E5F5 !important;
-            color: #4A148C !important;
-            border: 1px solid #E9D5FF !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+# ===================================================================================
+# CORREÇÃO GLOBAL 2: ADICIONA O "X" (LIMPAR E FECHAR) AO LADO DA SETINHA NAS LISTAS
+# ===================================================================================
+if not getattr(st.selectbox, "_ad_clearable", False):
+    _st_selectbox_orig = st.selectbox
+    def _st_selectbox_clearable(label, options=(), index=0, format_func=str, key=None, *args, **kwargs):
+        opts_list = list(options) if options is not None else []
+        if len(opts_list) > 0 and opts_list[0] == "":
+            real_opts = opts_list[1:]
+            try:
+                ph_txt = str(format_func("")) if callable(format_func) else "Selecione..."
+            except Exception:
+                ph_txt = "Selecione..."
+            if not ph_txt or ph_txt.strip() == "":
+                ph_txt = "Selecione..."
+            if index is None or index == 0:
+                real_idx = None
+            else:
+                real_idx = index - 1
+                if real_idx < 0 or real_idx >= len(real_opts):
+                    real_idx = None
+            kwargs.setdefault("placeholder", ph_txt)
+            if key is not None:
+                if key in st.session_state:
+                    val_atual = st.session_state[key]
+                    if val_atual == "" or (val_atual is not None and val_atual not in real_opts):
+                        st.session_state[key] = None
+                elif real_idx is not None:
+                    st.session_state[key] = real_opts[real_idx]
+                res = _st_selectbox_orig(label, real_opts, index=None, format_func=format_func, key=key, *args, **kwargs)
+            else:
+                res = _st_selectbox_orig(label, real_opts, index=real_idx, format_func=format_func, *args, **kwargs)
+            return "" if res is None else res
+        return _st_selectbox_orig(label, options, index=index, format_func=format_func, key=key, *args, **kwargs)
+    _st_selectbox_clearable._ad_clearable = True
+    st.selectbox = _st_selectbox_clearable
 
 # ===================================================================================
 # CONEXÃO COM O BANCO DE DADOS EM NUVEM (SUPABASE)
@@ -132,7 +147,7 @@ FROTA_COL_CONFIG = {
 MARCAS_MOTO = ['YAMAHA', 'HONDA', 'SUZUKI', 'KAWASAKI', 'SHINERAY', 'DAFRA', 'TRAXX', 'BROS', 'TITAN', 'BIZ', 'XRE', 'POP', 'PCX', 'NMAX', 'CB']
 
 # ===================================================================================
-# ESTILIZAÇÃO CSS CORPORATIVA DE ALTO CONTRASTE (PADRÃO ROXO E VERMELHO — SEM VAZAMENTO)
+# ESTILIZAÇÃO CSS CORPORATIVA DE ALTO CONTRASTE (PADRÃO ROXO E VERMELHO)
 # ===================================================================================
 if is_dark:
     COR_BG_APP = "#0F172A"
@@ -215,6 +230,10 @@ CSS_TEMA_CONTRASTE = """
         -webkit-text-fill-color: #94A3B8 !important;
     }
     div[data-baseweb="select"] span, div[data-baseweb="select"] div {
+        color: #F8FAFC !important;
+    }
+    div[data-baseweb="select"] svg {
+        fill: #F8FAFC !important;
         color: #F8FAFC !important;
     }
     ul[data-baseweb="menu"], div[data-baseweb="popover"] > div {
@@ -307,6 +326,10 @@ CSS_TEMA_CONTRASTE = """
     div[data-baseweb="select"] span, div[data-baseweb="select"] div {
         color: #0F172A !important;
     }
+    div[data-baseweb="select"] svg {
+        fill: #4A148C !important;
+        color: #4A148C !important;
+    }
     ul[data-baseweb="menu"], div[data-baseweb="popover"] > div {
         background-color: #FFFFFF !important;
         color: #0F172A !important;
@@ -323,8 +346,19 @@ CSS_TEMA_CONTRASTE = """
         border: 1px solid #CBD5E1 !important;
         border-radius: 10px !important;
     }
-    details[data-testid="stExpander"] summary {
+    details[data-testid="stExpander"] summary,
+    div[data-testid="stExpanderDetails"] {
+        background-color: #FFFFFF !important;
         color: #0F172A !important;
+    }
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #FFFFFF !important;
+        border-color: #CBD5E1 !important;
+    }
+    pre, code {
+        background-color: #F3E5F5 !important;
+        color: #4A148C !important;
+        border: 1px solid #E9D5FF !important;
     }
     div[data-testid="stForm"] {
         background-color: #FFFFFF !important;
@@ -347,6 +381,7 @@ CSS_TEMA_CONTRASTE = """
         border: none !important;
     }
     div[data-testid="stAlert"] {
+        background-color: #FFFFFF !important;
         border: 1.5px solid #CBD5E1 !important;
         color: #0F172A !important;
     }
@@ -4519,7 +4554,7 @@ if st.session_state.perfil == "Admin":
                 st.warning("Nenhuma empresa cadastrada.")
             else:
                 opcoes_emp = {str(r['cnpj']): f"{str(r['nome']).upper()} | CNPJ: {str(r['cnpj'])}" for _, r in df_empresas.iterrows()}
-                e_target = st.selectbox("Selecione a Empresa para Editar:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x])
+                e_target = st.selectbox("Selecione a Empresa para Editar:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x], key="sel_emp_editar_adm")
                 if e_target != "":
                     dados_e_ant = df_empresas[df_empresas['cnpj'].astype(str) == e_target].iloc[0]
 
@@ -4600,7 +4635,7 @@ if st.session_state.perfil == "Admin":
                 with st.container(border=True):
                     st.markdown('<div class="form-block-title">Excluir Empresa Parceira</div>', unsafe_allow_html=True)
                     opcoes_emp = {str(r['cnpj']): f"{str(r['nome']).upper()} | CNPJ: {str(r['cnpj'])}" for _, r in df_empresas.iterrows()}
-                    e_target_del = st.selectbox("Selecione a Empresa para Excluir:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x])
+                    e_target_del = st.selectbox("Selecione a Empresa para Excluir:", options=[""] + list(opcoes_emp.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_emp[x], key="sel_emp_excluir_adm")
                     if e_target_del != "":
                         if "emp_del_confirm" not in st.session_state: st.session_state.emp_del_confirm = None
                         if st.session_state.emp_del_confirm != e_target_del:
@@ -5004,7 +5039,7 @@ if st.session_state.perfil == "Admin":
                 st.warning("Nenhum cliente cadastrado.")
             else:
                 opcoes_cli = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_clientes.iterrows()}
-                c_target = st.selectbox("Selecione o cliente para Editar:", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x])
+                c_target = st.selectbox("Selecione o cliente para Editar:", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x], key="sel_cli_editar_adm")
                 if c_target != "":
                     dados_ant = df_clientes[df_clientes['id'].astype(str) == c_target].iloc[0]
 
@@ -5108,7 +5143,7 @@ if st.session_state.perfil == "Admin":
                 with st.container(border=True):
                     st.markdown('<div class="form-block-title">Excluir Cliente</div>', unsafe_allow_html=True)
                     opcoes_cli = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])} | Empresa: {str(r['emp_name']).upper()}" for _, r in df_clientes.iterrows()}
-                    c_target_del = st.selectbox("Selecione o Cliente para Excluir:", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x])
+                    c_target_del = st.selectbox("Selecione o Cliente para Excluir:", options=[""] + list(opcoes_cli.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_cli[x], key="sel_cli_excluir_adm")
                     if c_target_del != "":
                         if "cli_del_confirm" not in st.session_state: st.session_state.cli_del_confirm = None
                         if st.session_state.cli_del_confirm != c_target_del:
@@ -5303,7 +5338,7 @@ if st.session_state.perfil == "Admin":
                 st.warning("Nenhum prestador cadastrado.")
             else:
                 opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
-                p_target = st.selectbox("Selecione o Prestador para Editar:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
+                p_target = st.selectbox("Selecione o Prestador para Editar:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x], key="sel_pre_editar_adm")
                 if p_target != "":
                     dados_p_ant = df_prestadores[df_prestadores['id'].astype(str) == p_target].iloc[0]
 
@@ -5367,7 +5402,7 @@ if st.session_state.perfil == "Admin":
                 with st.container(border=True):
                     st.markdown('<div class="form-block-title">Excluir Prestador</div>', unsafe_allow_html=True)
                     opcoes_pre = {str(r['id']): f"{str(r['nome']).upper()} | Cidade: {str(r['cidade']).upper()} | Tipo: {str(r['tipo'])}" for _, r in df_prestadores.iterrows()}
-                    p_target_del = st.selectbox("Selecione o Prestador para Excluir:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x])
+                    p_target_del = st.selectbox("Selecione o Prestador para Excluir:", options=[""] + list(opcoes_pre.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_pre[x], key="sel_pre_excluir_adm")
                     if p_target_del != "":
                         if "pre_del_confirm" not in st.session_state: st.session_state.pre_del_confirm = None
                         if st.session_state.pre_del_confirm != p_target_del:
@@ -5431,7 +5466,7 @@ if st.session_state.perfil == "Admin":
             st.dataframe(df_nps_exibicao.style.map(cor_linha_nps, subset=['status_nps']), use_container_width=True)
 
     # =========================================================================
-    # ABA: FINANCEIRO (3 CARTÕES CLICÁVEIS + FILTROS RÁPIDOS + CONFIRMAÇÃO PIX)
+    # ABA: FINANCEIRO (3 CARTÕES CLICÁVEIS + FILTROS RÁPIDOS + LIMPEZA AUTO + PIX)
     # =========================================================================
     elif aba_selecionada == "Financeiro":
         st.markdown('<div class="section-title">Financeiro — Controle de Competência & Faturamento</div>', unsafe_allow_html=True)
@@ -5716,21 +5751,33 @@ if st.session_state.perfil == "Admin":
                         if not empresas_escalonadas:
                             st.info("Nenhuma empresa ativa cadastrada nos modos de faturamento automáticos.")
                         else:
-                            emp_pdf_sel = st.selectbox("Selecione a Empresa (Modos Automáticos) para Gerar o Extrato:", empresas_escalonadas)
+                            emp_pdf_sel = st.selectbox(
+                                "Selecione a Empresa (Modos Automáticos) para Gerar o Extrato:",
+                                [""] + empresas_escalonadas,
+                                format_func=lambda x: "Selecione uma empresa..." if x == "" else x,
+                                key="sel_emp_pdf_fin"
+                            )
                             if emp_pdf_sel:
                                 st.markdown(gerar_pdf_extrato_detalhado(emp_pdf_sel, mes_s, ano_s, df_clientes, df_os, df_empresas), unsafe_allow_html=True)
 
                     st.write("---")
                     st.markdown("##### Editar Lançamento / Dar Baixa (Empresa Parceira)")
-                    if not df_fin_mes.empty:
-                        lista_empresas_fin = df_fin_mes['empresa'].tolist()
-                        idx_edit_padrao = lista_empresas_fin.index(emp_consulta_ind) if emp_consulta_ind in lista_empresas_fin else 0
-                        emp_edit = st.selectbox("Selecione a Empresa para dar baixa ou ajustar:", lista_empresas_fin, index=idx_edit_padrao)
+                    if not df_exibir_fin.empty:
+                        lista_empresas_fin = df_exibir_fin['empresa'].tolist()
+                        if st.session_state.get("_ult_filtro_rec_emp") != (mes_filtro, emp_consulta_ind, filtro_st_rec):
+                            st.session_state["_ult_filtro_rec_emp"] = (mes_filtro, emp_consulta_ind, filtro_st_rec)
+                            st.session_state["sel_emp_baixa_fin"] = emp_consulta_ind if emp_consulta_ind in lista_empresas_fin else None
+                        emp_edit = st.selectbox(
+                            "Selecione a Empresa para dar baixa ou ajustar:",
+                            [""] + lista_empresas_fin,
+                            format_func=lambda x: "Selecione uma empresa..." if x == "" else x,
+                            key="sel_emp_baixa_fin"
+                        )
                         if emp_edit:
                             row_edit = df_fin_mes[df_fin_mes['empresa'] == emp_edit].iloc[0]
                             dados_emp_base_edit = df_empresas[df_empresas['nome'].str.upper() == emp_edit.upper()]
                             modo_fat_edit = str(dados_emp_base_edit.iloc[0].get('modo_faturamento', 'Tradicional')).strip() if not dados_emp_base_edit.empty else 'Tradicional'
-                            with st.form("form_financeiro"):
+                            with st.form(f"form_financeiro_{emp_edit}_{mes_filtro}"):
                                 st.write(f"**Empresa:** {emp_edit} | **Competência:** {mes_filtro} | **Plano:** {modo_fat_edit}")
                                 c_f1, c_f2, c_f3 = st.columns(3)
                                 val_fat_final = c_f1.text_input("Valor Cobrado da Fatura (R$):", value=str(row_edit['valor_faturado']))
@@ -5792,11 +5839,20 @@ if st.session_state.perfil == "Admin":
 
                     st.write("---")
                     st.markdown("##### Editar Cobrança / Dar Baixa em Atendimento Particular ou Avulso")
+                    if st.session_state.get("_ult_filtro_part_fin") != (mes_filtro, filtro_st_part):
+                        st.session_state["_ult_filtro_part_fin"] = (mes_filtro, filtro_st_part)
+                        st.session_state["sel_os_part_fin"] = None
+
                     opcoes_part_os = {
                         r['id_os']: f"OS #{r['id_os']} | {r['data_hora'][:10]} | {r['cliente_nome']} ({r['placa']}) | Cobrado: R$ {formatar_brl(r['valor_particular_cobrado'])} ({r['status_particular']})"
-                        for _, r in df_part_mes.iterrows()
+                        for _, r in df_part_vis.iterrows()
                     }
-                    os_part_sel = st.selectbox("Selecione o atendimento particular/avulso:", [""] + list(opcoes_part_os.keys()), format_func=lambda x: "Selecione uma OS..." if x == "" else opcoes_part_os[x], key="sel_os_part_fin")
+                    os_part_sel = st.selectbox(
+                        "Selecione o atendimento particular/avulso:",
+                        [""] + list(opcoes_part_os.keys()),
+                        format_func=lambda x: "Selecione uma OS..." if x == "" else opcoes_part_os[x],
+                        key="sel_os_part_fin"
+                    )
                     if os_part_sel:
                         r_pt = df_part_mes[df_part_mes['id_os'] == os_part_sel].iloc[0]
                         row_os_pt = df_os[df_os['id'].astype(str) == str(os_part_sel)].iloc[0]
@@ -5838,7 +5894,7 @@ if st.session_state.perfil == "Admin":
                                         st.error(f"Erro ao salvar: {err_pt}")
 
         # =====================================================================
-        # DETALHAMENTO 2: CONTAS A PAGAR (PRESTADORES + FILTRO RÁPIDO + PIX COPIADO ✓)
+        # DETALHAMENTO 2: CONTAS A PAGAR (PRESTADORES + FILTRO RÁPIDO + LIMPEZA AUTO + PIX)
         # =====================================================================
         elif card_ativo == "pagar":
             st.markdown(f'<div class="form-block-title">Contas a Pagar — Repasses a Prestadores & Status PIX ({mes_filtro})</div>', unsafe_allow_html=True)
@@ -5888,11 +5944,20 @@ if st.session_state.perfil == "Admin":
 
                 st.write("---")
                 st.markdown("##### Lançar Custo, Copiar Chave PIX ou Dar Baixa no Pagamento")
+                if st.session_state.get("_ult_filtro_pg_prest") != (mes_filtro, filtro_pg_prest, busca_pg_txt.strip()):
+                    st.session_state["_ult_filtro_pg_prest"] = (mes_filtro, filtro_pg_prest, busca_pg_txt.strip())
+                    st.session_state["sel_os_custo_fin"] = None
+
                 opcoes_os_pag = {
                     r['id_os']: f"OS #{r['id_os']} | {r['data_hora'][:10]} | {r['placa']} | {r['prestador']} | Total: R$ {formatar_brl(r['custo_total'])} ({r['status_pgto']})"
-                    for _, r in df_custos_mes.iterrows()
+                    for _, r in df_pag_vis.iterrows()
                 }
-                os_pag_sel = st.selectbox("Selecione a OS para copiar PIX, lançar valores ou dar baixa:", [""] + list(opcoes_os_pag.keys()), format_func=lambda x: "Selecione uma OS..." if x == "" else opcoes_os_pag[x], key="sel_os_custo_fin")
+                os_pag_sel = st.selectbox(
+                    "Selecione a OS para copiar PIX, lançar valores ou dar baixa:",
+                    [""] + list(opcoes_os_pag.keys()),
+                    format_func=lambda x: "Selecione uma OS..." if x == "" else opcoes_os_pag[x],
+                    key="sel_os_custo_fin"
+                )
                 if os_pag_sel:
                     r_p_sel = df_custos_mes[df_custos_mes['id_os'] == os_pag_sel].iloc[0]
                     row_os_orig = df_os[df_os['id'].astype(str) == str(os_pag_sel)].iloc[0]
@@ -6087,12 +6152,20 @@ if st.session_state.perfil == "Admin":
         if df_logs.empty: st.info("Nenhuma atividade registrada ainda.")
         else:
             df_logs_exibicao = df_logs.copy().sort_values(by='data_hora', ascending=False)
-            busca_log = st.text_input("Buscar no registro:")
-            if busca_log: df_logs_exibicao = df_logs_exibicao[df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False) | df_logs_exibicao['acao'].str.contains(busca_log, case=False, na=False)]
+            busca_log = st.text_input("Buscar no registro:", placeholder="🔍 Buscar por usuário, ação ou detalhes...")
+            if st.session_state.get("_ult_busca_log_adm") != busca_log.strip():
+                st.session_state["_ult_busca_log_adm"] = busca_log.strip()
+                st.session_state["sel_log_adm"] = None
+            if busca_log:
+                df_logs_exibicao = df_logs_exibicao[
+                    df_logs_exibicao['usuario'].str.contains(busca_log, case=False, na=False) |
+                    df_logs_exibicao['detalhes'].str.contains(busca_log, case=False, na=False) |
+                    df_logs_exibicao['acao'].str.contains(busca_log, case=False, na=False)
+                ]
             st.write("---")
             df_logs_exibicao['idx_temp'] = df_logs_exibicao.index
             opcoes_log = {str(i): f"{r['data_hora']} - {r['usuario']} - {r['acao']}" for i, r in df_logs_exibicao.iterrows()}
-            log_selecionado = st.selectbox("Selecione um registro para visualizar ou excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log[x])
+            log_selecionado = st.selectbox("Selecione um registro para visualizar ou excluir:", options=[""] + list(opcoes_log.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log[x], key="sel_log_adm")
             if log_selecionado != "":
                 detalhe_row = df_logs_exibicao.loc[int(log_selecionado)]
                 st.markdown(f"""
@@ -6108,6 +6181,7 @@ if st.session_state.perfil == "Admin":
                         log_id = detalhe_row.get('id')
                         if log_id: deletar_registro_banco(FILE_LOGS, "id", str(log_id))
                         df_logs = df_logs.drop(int(log_selecionado))
+                        st.session_state["sel_log_adm"] = None
                         st.success("Registro removido com sucesso."); time.sleep(1); st.rerun()
             st.write("---")
             st.dataframe(df_logs_exibicao.drop(columns=['idx_temp']), use_container_width=True)
@@ -6171,6 +6245,9 @@ if st.session_state.perfil == "Admin":
         if df_fechadas.empty: st.info("Nenhum chamado foi finalizado ainda.")
         else:
             busca_os_relatorio = st.text_input("Filtrar por Placa ou Nome do cliente (ou deixe em branco para listar os mais recentes):")
+            if st.session_state.get("_ult_busca_rel_os") != busca_os_relatorio.strip():
+                st.session_state["_ult_busca_rel_os"] = busca_os_relatorio.strip()
+                st.session_state["sel_os_relatorio_pdf"] = None
             df_filtrado_fechadas = df_fechadas.copy()
             if busca_os_relatorio:
                 df_filtrado_fechadas = df_filtrado_fechadas[
@@ -6182,10 +6259,16 @@ if st.session_state.perfil == "Admin":
                 st.warning("Nenhum acionamento finalizado encontrado.")
             else:
                 lista_os_dele = [f"Chamado Nº: {r['id']} | Data: {str(r['data_hora'])[:16]} | Placa: {r.get('placa', 'N/D')} | {r['cliente_nome']} | {r['tipo_servico']}" for _, r in df_filtrado_fechadas.iterrows()]
-                os_escolhida_str = st.selectbox("Selecione o acionamento para gerar o extrato:", options=lista_os_dele)
-                os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
-                df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
-                st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
+                os_escolhida_str = st.selectbox(
+                    "Selecione o acionamento para gerar o extrato:",
+                    options=[""] + lista_os_dele,
+                    format_func=lambda x: "Selecione uma OS..." if x == "" else x,
+                    key="sel_os_relatorio_pdf"
+                )
+                if os_escolhida_str:
+                    os_alvo_id = os_escolhida_str.split("|")[0].replace("Chamado Nº:", "").strip()
+                    df_os_unica = df_os[df_os['id'].astype(str) == os_alvo_id]
+                    st.markdown(exportar_pdf_html_oficial(df_os_unica, df_clientes, f"relatorio_os_{os_alvo_id}"), unsafe_allow_html=True)
 
         st.write("---")
         st.markdown("##### Tabela Geral de Chamados (Do Mais Recente para o Mais Antigo)")
@@ -6236,7 +6319,7 @@ if st.session_state.perfil == "Parceiro":
     if aba_atual_parc not in opcoes_parc: aba_atual_parc = opcoes_parc[0]
 
     with st.sidebar:
-        st.markdown(f"""
+        st.markdown("""
             <div class="sidebar-brand-box">
                 <div class="sidebar-brand-title">AD ASSISTÊNCIA 24H</div>
                 <div class="sidebar-brand-sub">Portal do Parceiro</div>
@@ -6271,6 +6354,10 @@ if st.session_state.perfil == "Parceiro":
 
         if op_part == "Visualizar":
             busca_cli_part = st.text_input("Buscar Cliente (Nome, Placa ou CPF):", placeholder="🔍 Buscar por Nome, Placa ou CPF...")
+            if st.session_state.get("_ult_busca_cli_part") != busca_cli_part.strip():
+                st.session_state["_ult_busca_cli_part"] = busca_cli_part.strip()
+                st.session_state["sel_det_part"] = ""
+                st.session_state["sb_det_part_wid"] = None
             df_view_cli_part = df_filtrado_p.copy()
             if busca_cli_part:
                 df_view_cli_part = df_view_cli_part[
@@ -6369,7 +6456,7 @@ if st.session_state.perfil == "Parceiro":
 
                         if st.button("Fechar Ficha do Cliente", key="btn_close_part"):
                             st.session_state.sel_det_part = ""
-                            if widget_key_part in st.session_state: del st.session_state[widget_key_part]
+                            st.session_state[widget_key_part] = None
                             st.rerun()
 
         elif op_part == "Incluir Novo":
@@ -6460,7 +6547,7 @@ if st.session_state.perfil == "Parceiro":
                 st.warning("Nenhum cliente cadastrado para editar.")
             else:
                 opcoes_dict_p = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])}" for _, r in df_filtrado_p.iterrows()}
-                part_target = st.selectbox("Selecione o cliente para Editar:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x])
+                part_target = st.selectbox("Selecione o cliente para Editar:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x], key="sel_cli_editar_parc")
                 if part_target != "":
                     dados_part_ant = df_filtrado_p[df_filtrado_p['id'].astype(str) == part_target].iloc[0]
 
@@ -6556,7 +6643,7 @@ if st.session_state.perfil == "Parceiro":
                 with st.container(border=True):
                     st.markdown('<div class="form-block-title">Excluir Cliente</div>', unsafe_allow_html=True)
                     opcoes_dict_p = {str(r['id']): f"{str(r['nome']).upper()} | CPF: {str(r['cpf'])}" for _, r in df_filtrado_p.iterrows()}
-                    part_target_del = st.selectbox("Selecione o cliente para Excluir:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x])
+                    part_target_del = st.selectbox("Selecione o cliente para Excluir:", options=[""] + list(opcoes_dict_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_dict_p[x], key="sel_cli_excluir_parc")
                     if part_target_del != "":
                         if "part_del_confirm" not in st.session_state: st.session_state.part_del_confirm = None
                         if st.session_state.part_del_confirm != part_target_del:
@@ -6587,6 +6674,9 @@ if st.session_state.perfil == "Parceiro":
             st.info("Nenhum acionamento registrado para sua empresa.")
         else:
             busca_hist_p = st.text_input("Buscar no histórico:", placeholder="🔍 Buscar por OS, Placa, Condutor ou Status...", key="inp_busca_hist_parc")
+            if st.session_state.get("_ult_busca_hist_parc") != busca_hist_p.strip():
+                st.session_state["_ult_busca_hist_parc"] = busca_hist_p.strip()
+                st.session_state["sel_os_pdf_parc"] = None
             df_os_p_vis = df_os_parceiro.copy()
             if busca_hist_p.strip():
                 th_p = busca_hist_p.strip().lower()
@@ -6602,7 +6692,7 @@ if st.session_state.perfil == "Parceiro":
             if not df_os_p_vis.empty:
                 st.write("---")
                 lista_os_parc_pdf = [f"OS #{r['id']} | {str(r['data_hora'])[:16]} | Placa: {r.get('placa','N/D')} | {r['cliente_nome']} ({r['status_os']})" for _, r in df_os_p_vis.iterrows()]
-                os_p_sel_str = st.selectbox("Gerar Comprovante / PDF de uma OS:", options=[""] + lista_os_parc_pdf, format_func=lambda x: "Selecione uma OS..." if x == "" else x)
+                os_p_sel_str = st.selectbox("Gerar Comprovante / PDF de uma OS:", options=[""] + lista_os_parc_pdf, format_func=lambda x: "Selecione uma OS..." if x == "" else x, key="sel_os_pdf_parc")
                 if os_p_sel_str:
                     id_p_pdf = os_p_sel_str.split("|")[0].replace("OS #", "").strip()
                     df_os_p_unica = df_os_parceiro[df_os_parceiro['id'].astype(str) == id_p_pdf]
@@ -6753,12 +6843,15 @@ if st.session_state.perfil == "Parceiro":
         else:
             df_logs_parc = df_logs_parc.sort_values(by='data_hora', ascending=False)
             busca_log_p = st.text_input("Buscar no registro (ex: placa, nome):")
+            if st.session_state.get("_ult_busca_log_parc") != busca_log_p.strip():
+                st.session_state["_ult_busca_log_parc"] = busca_log_p.strip()
+                st.session_state["sel_log_parc"] = None
             if busca_log_p:
                 df_logs_parc = df_logs_parc[df_logs_parc['detalhes'].str.contains(busca_log_p, case=False, na=False) | df_logs_parc['acao'].str.contains(busca_log_p, case=False, na=False)]
 
             st.write("---")
             opcoes_log_p = {str(i): f"{r['data_hora']} - {r['acao']}" for i, r in df_logs_parc.iterrows()}
-            log_sel_p = st.selectbox("Selecione um registro para ver os detalhes completos:", options=[""] + list(opcoes_log_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log_p[x])
+            log_sel_p = st.selectbox("Selecione um registro para ver os detalhes completos:", options=[""] + list(opcoes_log_p.keys()), format_func=lambda x: "Selecione..." if x == "" else opcoes_log_p[x], key="sel_log_parc")
 
             if log_sel_p != "":
                 detalhe_row = df_logs_parc.loc[int(log_sel_p)]
